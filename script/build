@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#/ Usage: script/build [<configuration>]
+#/ Description: Builds the PostHog solution - PostHog.sln.
+#/ Arguments:
+#/   <configuration> - The configuration to build. Defaults to Debug.
+source script/helpers/_utils.sh
+set_source_and_root_dir
+
+configuration=
+while (( "$#" )); do
+  key="$1"
+  shift
+  case "$key" in
+    -\?|-h|--help)
+      grep '^#/' <"$0" | cut -c4-
+      exit
+    ;;
+    *)
+      if [[ ! $configuration ]]; then
+        configuration=$key
+      fi
+  esac
+done
+
+if [ -z $configuration ]; then
+    configuration=Debug
+fi
+
+echo "Building PostHog.sln for $configuration"
+dotnet restore PostHog.sln
+dotnet build PostHog.sln --no-restore -c $configuration --nologo

@@ -1,0 +1,44 @@
+<Project>
+    <PropertyGroup>
+        <LangVersion>13.0</LangVersion>
+        <Company>PostHogSourceGenerators</Company>
+        <Copyright>Copyright © 2025</Copyright>
+        <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+        <RootDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</RootDir>
+        <CIBuild Condition=" '$(NBGV_CloudBuildNumber)' != '' or '$(GITHUB_SHA)' != '' ">true</CIBuild>
+        <Nullable>enable</Nullable>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <DefaultTargetFramework>net9.0</DefaultTargetFramework>
+        <RollForward>Major</RollForward>
+        <RepoBuildPath>$(RootDir)build\</RepoBuildPath>
+        <RepoBinPath>$(RepoBuildPath)bin\</RepoBinPath>
+        <RepoObjPath>$(RepoBuildPath)obj\</RepoObjPath>
+        <BaseIntermediateOutputPath>$(RepoObjPath)$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+        <BaseOutputPath Condition=" '$(BaseOutputPath)' == '' ">$(RepoBinPath)$(MSBuildProjectName)\</BaseOutputPath>
+        <PackageOutputPath>$(RepoBuildPath)nuget\$(Configuration)\</PackageOutputPath>
+        <TargetFramework Condition=" '$(TargetFramework)' == '' ">$(DefaultTargetFramework)</TargetFramework>
+    </PropertyGroup>
+
+    <Target Name="CleanBuildArtifacts" AfterTargets="AfterClean">
+        <RemoveDir Directories="$(OutputPath);$(PackageOutputPath)" />
+    </Target>
+
+    <Target Name="ReportVersions" AfterTargets="AfterBuild">
+        <Message Importance="High" Text="$(AssemblyName) -> $(NuGetPackageVersion)" />
+    </Target>
+
+    <!-- Global Warning Suppressions -->
+    <PropertyGroup>
+        <!--
+        Since we don't have a synchronization context, we don't need
+        to worry about this. Also, we're a library, so it's incumbent
+        on the caller to worry about this, not us.
+        -->
+        <NoWarn>CA2007</NoWarn>
+
+        <!--
+        Someday we'll use resource strings.
+        -->
+        <NoWarn>CA1303; $(NoWarn)</NoWarn>
+    </PropertyGroup>
+</Project>

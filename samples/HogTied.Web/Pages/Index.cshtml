@@ -1,0 +1,40 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+    <p>
+        This is a sample web application that demonstrates using the
+        PostHog .NET SDK.
+    </p>
+    @if (!Model.ApiKeyIsSet) {
+        <p>
+            The  project API key is not set.
+            You can use the following command to set the key in the root of
+            this project:
+            <br />
+            <code>script/user-secrets set PostHog:ProjectApiKey your-api-key</code>
+        </p>
+    }
+    else
+    {
+        <p>The API Key is set! We're ready to go!</p>
+        <p><code>Identify</code> returned: <code>@Model.IdentifyResult</code></p>
+    }
+
+    @if (Model.BonanzaEnabled) {
+        <p>
+            The feature <code>hogtied-homepage-bonanza</code> is enabled!
+            You get a bonanza!
+        </p>
+    }
+    else {
+        <p>
+            The feature <code>hogtied-homepage-bonanza</code> is not
+            enabled for you! Sorry, no bonanza!
+        </p>
+    }
+</div>

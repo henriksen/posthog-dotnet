@@ -1,0 +1,35 @@
+{
+  "config": {
+    "enable_collect_everything": false
+  },
+  "toolbarParams": {},
+  "isAuthenticated": true,
+  "supportedCompression": [
+    "gzip",
+    "gzip-js"
+  ],
+  "featureFlags": {
+    "hogtied-homepage-user": false,
+    "hogtied-homepage-bonanza": false
+  },
+  "sessionRecording": true,
+  "captureDeadClicks": true,
+  "capturePerformance": {
+    "network_timing": false,
+    "web_vitals": false,
+    "web_vitals_allowed_metrics": true
+  },
+  "autocapture_opt_out": true,
+  "autocaptureExceptions": true,
+  "analytics": {
+    "endpoint": "/i/v0/e/"
+  },
+  "elementsChainAsString": false,
+  "surveys": true,
+  "heatmaps": false,
+  "defaultIdentifiedOnly": false,
+  "siteApps": [],
+  "errorsWhileComputingFlags": true,
+  "featureFlagPayloads": {
+  }
+}
