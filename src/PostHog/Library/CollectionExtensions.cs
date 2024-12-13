@@ -7,7 +7,7 @@ namespace PostHog.Library;
 /// <summary>
 /// Helpful extensions to collections.
 /// </summary>
-public static class CollectionExtensions
+internal static class CollectionExtensions
 {
     /// <summary>
     /// Wraps an <see cref="IEnumerable{T}"/> in a <see cref="IReadOnlyList{T}"/>.

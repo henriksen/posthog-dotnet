@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-public class ReadOnlyCollectionJsonConverterFactory : JsonConverterFactory
+internal class ReadOnlyCollectionJsonConverterFactory : JsonConverterFactory
 {
     public override bool CanConvert(Type typeToConvert)
     {

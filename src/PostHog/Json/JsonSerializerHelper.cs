@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace PostHog.Json;
 
-public static class JsonSerializerHelper
+internal static class JsonSerializerHelper
 {
     public static async Task<string> SerializeToCamelCaseJsonStringAsync<T>(T obj, bool writeIndented = false)
     {

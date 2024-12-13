@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 
 namespace PostHog.Json
 {
-    public class ReadonlyDictionaryJsonConverterFactory : JsonConverterFactory
+    internal class ReadonlyDictionaryJsonConverterFactory : JsonConverterFactory
     {
         public override bool CanConvert(Type typeToConvert)
         {
