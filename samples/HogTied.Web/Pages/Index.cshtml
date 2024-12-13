@@ -4,6 +4,12 @@
     ViewData["Title"] = "Home page";
 }
 
+@if (!string.IsNullOrEmpty(Model.StatusMessage)) {
+    <div class="alert alert-success mt-3" role="alert">
+        @Model.StatusMessage
+    </div>
+}
+
 <div class="text-center">
     <h1 class="display-4">Welcome</h1>
     <p>
@@ -28,8 +34,15 @@
     }
     else
     {
-        <p>The API Key is set! We're ready to go!</p>
-        <p><code>Identify</code> returned: <code>@Model.IdentifyResult</code></p>
+        <p><strong>The API Key is set! We're ready to go!</strong></p>
+
+        <div class="mt-3">
+            Click this button to simulate purchasing a plan:
+            <form method="post">
+                <button type="submit" class="btn btn-primary">Purchase Plan</button>
+            </form>
+            <p class="text-muted small">Don't worry, it doesn't do anything but send a PostHog event.</p>
+        </div>
     }
 
     @if (Model.BonanzaEnabled) {
