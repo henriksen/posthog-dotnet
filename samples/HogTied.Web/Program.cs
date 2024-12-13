@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using HogTied.Web;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using HogTied.Web.Data;
@@ -54,7 +55,8 @@ builder.Services
         options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
-builder.Services.AddRazorPages();
+builder.Services.AddRazorPages()
+    .AddMvcOptions(options => options.Filters.Add<PostHogPageViewFilter>());
 
 var app = builder.Build();
 

@@ -396,3 +396,5 @@ fabric.properties
 build/
 *.exe
 postgres-docker/*
+samples/HogTied.Web/app.db-shm
+samples/HogTied.Web/app.db-wal
