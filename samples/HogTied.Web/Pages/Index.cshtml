@@ -10,6 +10,13 @@
         This is a sample web application that demonstrates using the
         PostHog .NET SDK.
     </p>
+    @if (Model.UserId is null) {
+        <p>You are not logged in.</p>
+    }
+    else {
+        <p>You are logged in with id <code>@Model.UserId</code>.</p>
+    }
+
     @if (!Model.ApiKeyIsSet) {
         <p>
             The  project API key is not set.

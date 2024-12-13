@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using PostHog;
@@ -5,12 +6,9 @@ using PostHog.FeatureFlags;
 
 namespace HogTied.Web.Pages;
 
-public class IndexModel(
-    IOptions<PostHogOptions> options) : PageModel
+public class IndexModel(IOptions<PostHogOptions> options) : PageModel
 {
-    // This is a hardcoded distinct user ID for the purposes of this demo.
-    // We would normally use a user ID from our application's authentication system.
-    private const string DistinctUserId = "12345";
+    public string? UserId { get; private set; }
 
     public bool ApiKeyIsSet { get; private set; }
 
@@ -22,13 +20,18 @@ public class IndexModel(
     {
         ApiKeyIsSet = options.Value.ProjectApiKey is not (null or []);
 
-        if (ApiKeyIsSet)
+        // Check if the user is authenticated and get their user id.
+        UserId = User.Identity?.IsAuthenticated == true
+            ? User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            : null;
+
+        if (ApiKeyIsSet && UserId is not null)
         {
             // Identify the current user.
             using var postHogClient = new PostHogClient(options.Value.ProjectApiKey!);
-            IdentifyResult = await postHogClient.IdentifyAsync(DistinctUserId);
+            IdentifyResult = await postHogClient.IdentifyAsync(UserId);
             var features = new FeatureFlagsClient(options.Value.ProjectApiKey!);
-            var flags = await features.GetFeatureFlagsAsync(DistinctUserId);
+            var flags = await features.GetFeatureFlagsAsync(UserId);
             BonanzaEnabled = flags.IsFeatureEnabled("hogtied-homepage-bonanza");
         }
     }
