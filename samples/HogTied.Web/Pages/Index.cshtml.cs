@@ -47,7 +47,7 @@ public class IndexModel(IOptions<PostHogOptions> options) : PageModel
         {
             // Send a custom purchased plan event
             using var postHogClient = new PostHogClient(options.Value.ProjectApiKey!);
-            await postHogClient.CaptureAsync(
+            var result = await postHogClient.CaptureAsync(
                 UserId,
                 eventName: "purchased_plan",
                 properties: new()
@@ -55,7 +55,10 @@ public class IndexModel(IOptions<PostHogOptions> options) : PageModel
                     ["plan"] = "free",
                     ["price"] = "$29.99"
                 });
-            StatusMessage = "Plan purchased!";
+            StatusMessage = "Plan purchased! "
+                + (result.Status is 1
+                    ? "Event sent successfully."
+                    : "Failed to send event.");
         }
 
         return RedirectToPage();

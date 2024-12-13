@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Text.Json;
+using PostHog.Library;
+using PostHog.Models;
 
 namespace PostHog;
 
@@ -30,10 +31,10 @@ public class PostHogClient : IDisposable
     /// <summary>
     /// Capture an event with optional properties
     /// </summary>
-    public async Task CaptureAsync(
+    public async Task<ApiResult> CaptureAsync(
         string distinctId,
         string eventName,
-        Dictionary<string, object>? properties = null)
+        Dictionary<string, object>? properties)
     {
         properties ??= new Dictionary<string, object>();
         properties["$lib"] = "posthog-dotnet";
@@ -47,7 +48,7 @@ public class PostHogClient : IDisposable
             ["properties"] = properties
         };
 
-        await SendEventAsync(payload);
+        return await SendEventAsync(payload);
     }
 
     /// <summary>
@@ -59,12 +60,13 @@ public class PostHogClient : IDisposable
     /// </remarks>
     /// <param name="distinctId"></param>
     /// <returns></returns>
-    public Task<string> IdentifyAsync(string distinctId) => IdentifyAsync(distinctId, new Dictionary<string, object>());
+    public Task<ApiResult> IdentifyAsync(string distinctId) =>
+        IdentifyAsync(distinctId, new Dictionary<string, object>());
 
     /// <summary>
     /// Identify a user with additional properties
     /// </summary>
-    public async Task<string> IdentifyAsync(string distinctId, Dictionary<string, object> userProperties)
+    public async Task<ApiResult> IdentifyAsync(string distinctId, Dictionary<string, object> userProperties)
     {
         var payload = new Dictionary<string, object>
         {
@@ -110,7 +112,7 @@ public class PostHogClient : IDisposable
     /// <summary>
     /// Internal method to send events to PostHog
     /// </summary>
-    private async Task<string> SendEventAsync(
+    private async Task<ApiResult> SendEventAsync(
         Dictionary<string, object> payload,
         bool isBatch = false)
     {
@@ -118,16 +120,7 @@ public class PostHogClient : IDisposable
             ? $"{_hostUrl}/batch/"
             : $"{_hostUrl}/capture/";
 
-        var jsonPayload = JsonSerializer.Serialize(payload);
-        var content = new StringContent(
-            jsonPayload,
-            System.Text.Encoding.UTF8,
-            "application/json"
-        );
-
-        var response = await _httpClient.PostAsync(endpointUrl, content);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync();
+        return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload) ?? new ApiResult(0);
     }
 
     /// <summary>

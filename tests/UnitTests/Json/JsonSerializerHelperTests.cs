@@ -1,4 +1,5 @@
 using PostHog.Json;
+using PostHog.Models;
 
 public class JsonSerializerHelperTests
 {
@@ -97,6 +98,20 @@ public class JsonSerializerHelperTests
             Assert.Empty(result.SiteApps);
             Assert.True(result.ErrorsWhileComputingFlags);
             Assert.Empty(result.FeatureFlagPayloads);
+        }
+
+        [Fact]
+        public async Task ShouldDeserializeApiResult()
+        {
+            // Arrange
+            var json = "{\"status\": 1}";
+
+            // Act
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJson<ApiResult>(json);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(1, result.Status);
         }
     }
 }

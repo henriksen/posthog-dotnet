@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PostHog.Json;
@@ -35,7 +36,9 @@ public static class JsonSerializerHelper
         return await DeserializeFromCamelCaseJsonAsync<T>(jsonStream);
     }
 
-    public static async Task<T?> DeserializeFromCamelCaseJsonAsync<T>(Stream jsonStream)
+    public static async Task<T?> DeserializeFromCamelCaseJsonAsync<T>(
+        Stream jsonStream,
+        CancellationToken cancellationToken = default)
     {
         var options = new JsonSerializerOptions
         {
@@ -47,6 +50,6 @@ public static class JsonSerializerHelper
             }
         };
 
-        return await JsonSerializer.DeserializeAsync<T>(jsonStream, options);
+        return await JsonSerializer.DeserializeAsync<T>(jsonStream, options, cancellationToken);
     }
 }
