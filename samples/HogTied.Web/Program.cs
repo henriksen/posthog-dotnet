@@ -20,16 +20,12 @@ builder.Services
         {
             OnValidatePrincipal = async context =>
             {
-                // This is called every time a cookie is validated
                 var userPrincipal = context.Principal;
 
-                // Custom logic to validate the principal or add claims
                 Console.WriteLine($"Cookie validated for user: {userPrincipal?.Identity?.Name}");
 
-                // Example: Validate if the user still exists in the database
                 var userId = userPrincipal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-                // Get api key from the IOptions<PostHog>
                 var postHogOptions = context.HttpContext.RequestServices.GetRequiredService<IOptions<PostHogOptions>>();
                 var apiKey = postHogOptions.Value.ProjectApiKey;
                 if (apiKey is not null && userId is not null)
@@ -37,7 +33,20 @@ builder.Services
                     using var postHogClient = new PostHogClient(apiKey);
                     await postHogClient.IdentifyAsync(userId);
                 }
-                await Task.CompletedTask;
+            },
+            OnSigningOut = async context =>
+            {
+                // This is called when the user signs out
+                var userPrincipal = context.HttpContext.User;
+                var userId = userPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var postHogOptions = context.HttpContext.RequestServices.GetRequiredService<IOptions<PostHogOptions>>();
+                var apiKey = postHogOptions.Value.ProjectApiKey;
+                if (apiKey is not null && userId is not null)
+                {
+                    using var postHogClient = new PostHogClient(apiKey);
+                    await postHogClient.ResetAsync(userId);
+                }
+
             }
         };
     })

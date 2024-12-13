@@ -75,6 +75,22 @@ public class PostHogClient : IDisposable
     }
 
     /// <summary>
+    /// Unlink future events with the current user. Call this when a user logs out.
+    /// </summary>
+    /// <param name="distinctId">The current user id.</param>
+    public async Task ResetAsync(string distinctId)
+    {
+        var payload = new Dictionary<string, object>
+        {
+            ["api_key"] = _apiKey,
+            ["event"] = "$reset",
+            ["distinct_id"] = distinctId
+        };
+
+        await SendEventAsync(payload);
+    }
+
+    /// <summary>
     /// Send batch of events
     /// </summary>
     public async Task BatchCaptureAsync(IEnumerable<EventData> events)
