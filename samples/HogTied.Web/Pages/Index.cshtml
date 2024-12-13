@@ -10,51 +10,65 @@
     </div>
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>
-        This is a sample web application that demonstrates using the
-        PostHog .NET SDK.
-    </p>
-    @if (Model.UserId is null) {
-        <p>You are not logged in.</p>
-    }
-    else {
-        <p>You are logged in with id <code>@Model.UserId</code>.</p>
-    }
-
-    @if (!Model.ApiKeyIsSet) {
-        <p>
-            The  project API key is not set.
-            You can use the following command to set the key in the root of
-            this project:
-            <br />
-            <code>script/user-secrets set PostHog:ProjectApiKey your-api-key</code>
+<div class="container mt-5">
+    <div class="text-center">
+        <h1 class="display-4">Welcome</h1>
+        <p class="lead">
+            This is a sample web application that demonstrates using the
+            PostHog .NET SDK.
         </p>
-    }
-    else
-    {
-        <p><strong>The API Key is set! We're ready to go!</strong></p>
+        @if (Model.UserId is null) {
+            <p class="text-danger">You are not logged in.</p>
+        }
+        else {
+            <p class="text-success">You are logged in with id <code>@Model.UserId</code>.</p>
+        }
 
-        <div class="mt-3">
-            Click this button to simulate purchasing a plan:
-            <form method="post">
-                <button type="submit" class="btn btn-primary">Purchase Plan</button>
-            </form>
-            <p class="text-muted small">Don't worry, it doesn't do anything but send a PostHog event.</p>
-        </div>
-    }
+        @if (!Model.ApiKeyIsSet) {
+            <div class="alert alert-warning mt-3" role="alert">
+                The project API key is not set.
+                You can use the following command to set the key in the root of
+                this project:
+                <br />
+                <code>script/user-secrets set PostHog:ProjectApiKey your-api-key</code>
+            </div>
+        }
+        else {
+            <div class="alert alert-info mt-3" role="alert">
+                <strong>The API Key is set! We're ready to go!</strong>
+            </div>
 
-    @if (Model.BonanzaEnabled) {
-        <p>
-            The feature <code>hogtied-homepage-bonanza</code> is enabled!
-            You get a bonanza!
-        </p>
-    }
-    else {
-        <p>
-            The feature <code>hogtied-homepage-bonanza</code> is not
-            enabled for you! Sorry, no bonanza!
-        </p>
-    }
+            <div class="mt-3">
+                <p>Click this button to simulate purchasing a plan:</p>
+                <form method="post">
+                    <button type="submit" class="btn btn-primary">Purchase Plan</button>
+                </form>
+                <p class="text-muted small">Don't worry, it doesn't do anything but send a PostHog event.</p>
+            </div>
+        }
+
+        <h2 class="mt-5">Feature Flags</h2>
+
+        <table class="table table-striped mt-3">
+            <thead class="thead-dark">
+            <tr>
+                <th>Feature</th>
+                <th>Enabled</th>
+                <th>Notes</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>hogtied-homepage-bonanza</td>
+                <td>@Model.BonanzaEnabled</td>
+                <td>Enabled for 100%</td>
+            </tr>
+            <tr>
+                <td>hogtied-homepage-user</td>
+                <td>@Model.HomepageUser</td>
+                <td>Enabled for 80%</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
 </div>

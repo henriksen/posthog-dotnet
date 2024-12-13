@@ -18,7 +18,7 @@ public class IndexModel(IOptions<PostHogOptions> options) : PageModel
 
     public bool BonanzaEnabled { get; private set; }
 
-    public string? IdentifyResult { get; private set; }
+    public bool HomepageUser { get; private set; }
 
     public async Task OnGetAsync()
     {
@@ -36,6 +36,7 @@ public class IndexModel(IOptions<PostHogOptions> options) : PageModel
             var features = new FeatureFlagsClient(options.Value.ProjectApiKey!);
             var flags = await features.GetFeatureFlagsAsync(UserId);
             BonanzaEnabled = flags.IsFeatureEnabled("hogtied-homepage-bonanza");
+            HomepageUser = flags.IsFeatureEnabled("hogtied-homepage-user");
         }
     }
 
