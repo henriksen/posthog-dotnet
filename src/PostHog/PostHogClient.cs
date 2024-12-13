@@ -35,6 +35,9 @@ public class PostHogClient : IDisposable
         string eventName,
         Dictionary<string, object>? properties = null)
     {
+        properties ??= new Dictionary<string, object>();
+        properties["$lib"] = "posthog-dotnet";
+
         var payload = new Dictionary<string, object>
         {
             ["api_key"] = _apiKey,
