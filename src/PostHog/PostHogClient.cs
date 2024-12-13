@@ -11,9 +11,9 @@ namespace PostHog;
 /// </summary>
 public class PostHogClient : IDisposable
 {
-    private readonly string _apiKey;
-    private readonly string _hostUrl;
-    private readonly HttpClient _httpClient;
+    readonly string _apiKey;
+    readonly string _hostUrl;
+    readonly HttpClient _httpClient;
 
     /// <summary>
     /// Initialize a new PostHog client
@@ -44,7 +44,7 @@ public class PostHogClient : IDisposable
             ["event"] = eventName,
             ["distinct_id"] = distinctId,
             ["timestamp"] = DateTime.UtcNow,
-            ["properties"] = properties ?? new Dictionary<string, object>()
+            ["properties"] = properties
         };
 
         await SendEventAsync(payload);

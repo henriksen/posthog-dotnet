@@ -7,7 +7,7 @@ namespace HogTied.Web;
 
 public class PostHogPageViewFilter(IOptions<PostHogOptions> options) : IAsyncPageFilter
 {
-    private readonly PostHogOptions _options = options.Value;
+    readonly PostHogOptions _options = options.Value;
 
     public async Task OnPageHandlerExecutionAsync(PageHandlerExecutingContext context, PageHandlerExecutionDelegate next)
     {
