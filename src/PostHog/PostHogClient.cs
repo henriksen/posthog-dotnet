@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using PostHog.Library;
 using PostHog.Models;
@@ -34,7 +35,8 @@ public class PostHogClient : IDisposable
     public async Task<ApiResult> CaptureAsync(
         string distinctId,
         string eventName,
-        Dictionary<string, object>? properties)
+        Dictionary<string, object>? properties,
+        CancellationToken cancellationToken)
     {
         properties ??= new Dictionary<string, object>();
         properties["$lib"] = "posthog-dotnet";
@@ -48,7 +50,7 @@ public class PostHogClient : IDisposable
             ["properties"] = properties
         };
 
-        return await SendEventAsync(payload);
+        return await SendEventAsync(payload, isBatch: false, cancellationToken);
     }
 
     /// <summary>
@@ -59,14 +61,18 @@ public class PostHogClient : IDisposable
     /// a valid API key in the body of the request.
     /// </remarks>
     /// <param name="distinctId"></param>
+    /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public Task<ApiResult> IdentifyAsync(string distinctId) =>
-        IdentifyAsync(distinctId, new Dictionary<string, object>());
+    public Task<ApiResult> IdentifyAsync(string distinctId, CancellationToken cancellationToken) =>
+        IdentifyAsync(distinctId, new Dictionary<string, object>(), cancellationToken);
 
     /// <summary>
     /// Identify a user with additional properties
     /// </summary>
-    public async Task<ApiResult> IdentifyAsync(string distinctId, Dictionary<string, object> userProperties)
+    public async Task<ApiResult> IdentifyAsync(
+        string distinctId,
+        Dictionary<string, object> userProperties,
+        CancellationToken cancellationToken)
     {
         var payload = new Dictionary<string, object>
         {
@@ -76,14 +82,15 @@ public class PostHogClient : IDisposable
             ["$set"] = userProperties
         };
 
-        return await SendEventAsync(payload);
+        return await SendEventAsync(payload, isBatch: false,  cancellationToken);
     }
 
     /// <summary>
     /// Unlink future events with the current user. Call this when a user logs out.
     /// </summary>
     /// <param name="distinctId">The current user id.</param>
-    public async Task ResetAsync(string distinctId)
+    /// <param name="cancellationToken"></param>
+    public async Task ResetAsync(string distinctId, CancellationToken cancellationToken)
     {
         var payload = new Dictionary<string, object>
         {
@@ -92,13 +99,13 @@ public class PostHogClient : IDisposable
             ["distinct_id"] = distinctId
         };
 
-        await SendEventAsync(payload);
+        await SendEventAsync(payload, isBatch: false, cancellationToken);
     }
 
     /// <summary>
     /// Send batch of events
     /// </summary>
-    public async Task BatchCaptureAsync(IEnumerable<EventData> events)
+    public async Task BatchCaptureAsync(IEnumerable<EventData> events, CancellationToken cancellationToken)
     {
         var payload = new Dictionary<string, object>
         {
@@ -106,21 +113,22 @@ public class PostHogClient : IDisposable
             ["batch"] = events
         };
 
-        await SendEventAsync(payload, isBatch: true);
+        await SendEventAsync(payload, isBatch: true, cancellationToken);
     }
 
     /// <summary>
     /// Internal method to send events to PostHog
     /// </summary>
-    private async Task<ApiResult> SendEventAsync(
+    async Task<ApiResult> SendEventAsync(
         Dictionary<string, object> payload,
-        bool isBatch = false)
+        bool isBatch,
+        CancellationToken cancellationToken)
     {
         var endpointUrl = isBatch
             ? $"{_hostUrl}/batch/"
             : $"{_hostUrl}/capture/";
 
-        return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload) ?? new ApiResult(0);
+        return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken) ?? new ApiResult(0);
     }
 
     /// <summary>

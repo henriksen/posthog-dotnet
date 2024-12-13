@@ -25,7 +25,8 @@ public class PostHogPageViewFilter(IOptions<PostHogOptions> options) : IAsyncPag
                     properties: new()
                     {
                         ["$current_url"] = context.HttpContext.Request.Path.Value ?? "Unknown"
-                    });
+                    },
+                    cancellationToken: context.HttpContext.RequestAborted);
             }
         }
 

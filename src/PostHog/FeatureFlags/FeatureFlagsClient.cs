@@ -1,10 +1,8 @@
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
-using PostHog.Json;
+using PostHog.Library;
 
 namespace PostHog.FeatureFlags;
 
@@ -18,31 +16,26 @@ namespace PostHog.FeatureFlags;
 /// </param>
 public class FeatureFlagsClient(string projectApiKey, string hostUrl = "https://us.i.posthog.com")
 {
-    async Task<FeatureFlagsResult> RequestFeatureFlagsAsync(string distinctUserId)
+    async Task<FeatureFlagsResult> RequestFeatureFlagsAsync(string distinctUserId, CancellationToken cancellationToken)
     {
         using var httpClient = new HttpClient();
         var endpointUrl = $"{hostUrl}/decide?v=3";
-        var request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
 
         var requestBody = new Dictionary<string, string>
         {
             { "api_key", projectApiKey },
             { "distinct_id", distinctUserId }
         };
-        var json = JsonSerializer.Serialize(requestBody);
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-        request.Headers.Add("Authorization", $"Bearer {projectApiKey}");
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        var response = await httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        var responseStream = await response.Content.ReadAsStreamAsync();
-        return await JsonSerializerHelper.DeserializeFromCamelCaseJsonAsync<FeatureFlagsResult>(responseStream)
-               ?? new();
+
+        return await httpClient.PostJsonAsync<FeatureFlagsResult>(endpointUrl, requestBody, cancellationToken)
+            ?? new FeatureFlagsResult();
     }
 
-    public async Task<FeatureFlagsCollection> GetFeatureFlagsAsync(string distinctUserId)
+    public async Task<FeatureFlagsCollection> GetFeatureFlagsAsync(
+        string distinctUserId,
+        CancellationToken cancellationToken)
     {
-        var result = await RequestFeatureFlagsAsync(distinctUserId);
+        var result = await RequestFeatureFlagsAsync(distinctUserId, cancellationToken);
         return new FeatureFlagsCollection(result);
     }
 }

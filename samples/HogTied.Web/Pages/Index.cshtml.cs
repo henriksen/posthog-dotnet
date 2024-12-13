@@ -34,7 +34,7 @@ public class IndexModel(IOptions<PostHogOptions> options) : PageModel
             // Identify the current user.
             using var postHogClient = new PostHogClient(options.Value.ProjectApiKey!);
             var features = new FeatureFlagsClient(options.Value.ProjectApiKey!);
-            var flags = await features.GetFeatureFlagsAsync(UserId);
+            var flags = await features.GetFeatureFlagsAsync(UserId, HttpContext.RequestAborted);
             BonanzaEnabled = flags.IsFeatureEnabled("hogtied-homepage-bonanza");
             HomepageUser = flags.IsFeatureEnabled("hogtied-homepage-user");
         }
@@ -54,7 +54,8 @@ public class IndexModel(IOptions<PostHogOptions> options) : PageModel
                 {
                     ["plan"] = "free",
                     ["price"] = "$29.99"
-                });
+                },
+                cancellationToken: HttpContext.RequestAborted);
             StatusMessage = "Plan purchased! "
                 + (result.Status is 1
                     ? "Event sent successfully."

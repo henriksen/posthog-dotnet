@@ -13,7 +13,7 @@ internal static class HttpClientExtensions
         this HttpClient httpClient,
         string requestUri,
         object content,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(content);
         var stringContent = new StringContent(json, Encoding.UTF8, "application/json");

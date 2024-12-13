@@ -32,7 +32,7 @@ builder.Services
                 if (apiKey is not null && userId is not null)
                 {
                     using var postHogClient = new PostHogClient(apiKey);
-                    await postHogClient.IdentifyAsync(userId);
+                    await postHogClient.IdentifyAsync(userId, context.HttpContext.RequestAborted);
                 }
             },
             OnSigningOut = async context =>
@@ -45,7 +45,7 @@ builder.Services
                 if (apiKey is not null && userId is not null)
                 {
                     using var postHogClient = new PostHogClient(apiKey);
-                    await postHogClient.ResetAsync(userId);
+                    await postHogClient.ResetAsync(userId, context.HttpContext.RequestAborted);
                 }
 
             }
