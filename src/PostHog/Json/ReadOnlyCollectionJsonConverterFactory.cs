@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-internal class ReadOnlyCollectionJsonConverterFactory : JsonConverterFactory
+internal sealed class ReadOnlyCollectionJsonConverterFactory : JsonConverterFactory
 {
     public override bool CanConvert(Type typeToConvert)
     {
@@ -26,7 +26,7 @@ internal class ReadOnlyCollectionJsonConverterFactory : JsonConverterFactory
     }
 }
 
-public class ReadOnlyCollectionJsonConverterFactory<T> : JsonConverter<ReadOnlyCollection<T>>
+internal sealed class ReadOnlyCollectionJsonConverterFactory<T> : JsonConverter<ReadOnlyCollection<T>>
 {
     public override ReadOnlyCollection<T>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

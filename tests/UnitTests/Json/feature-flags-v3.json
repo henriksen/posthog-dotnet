@@ -1,36 +1,35 @@
 {
-  "config": {
-    "enable_collect_everything": true
+  "config" : {
+    "enable_collect_everything" : true
   },
-  "toolbarParams": {},
-  "isAuthenticated": false,
-  "supportedCompression": [
-    "gzip",
-    "gzip-js"
-  ],
-  "featureFlags": {
-    "hogtied-homepage-user": true,
-    "hogtied-homepage-bonanza": true
+  "toolbarParams" : { },
+  "isAuthenticated" : false,
+  "supportedCompression" : [ "gzip", "gzip-js" ],
+  "featureFlags" : {
+    "hogtied_got_character" : "danaerys",
+    "hogtied-homepage-user" : true,
+    "hogtied-homepage-bonanza" : true
   },
-  "sessionRecording": false,
-  "captureDeadClicks": false,
-  "capturePerformance": {
-    "network_timing": true,
-    "web_vitals": true,
-    "web_vitals_allowed_metrics": null
+  "sessionRecording" : false,
+  "captureDeadClicks" : false,
+  "capturePerformance" : {
+    "network_timing" : true,
+    "web_vitals" : true,
+    "web_vitals_allowed_metrics" : null
   },
-  "autocapture_opt_out": false,
-  "autocaptureExceptions": false,
-  "analytics": {
-    "endpoint": "/i/v0/e/"
+  "autocapture_opt_out" : false,
+  "autocaptureExceptions" : false,
+  "analytics" : {
+    "endpoint" : "/i/v0/e/"
   },
-  "elementsChainAsString": true,
-  "surveys": false,
-  "heatmaps": true,
-  "defaultIdentifiedOnly": true,
-  "siteApps": [],
-  "errorsWhileComputingFlags": false,
-  "featureFlagPayloads": {
-    "hogtied-homepage-user": "{\"is_cool\": true}"
+  "elementsChainAsString" : true,
+  "surveys" : false,
+  "heatmaps" : true,
+  "defaultIdentifiedOnly" : true,
+  "siteApps" : [ ],
+  "errorsWhileComputingFlags" : false,
+  "featureFlagPayloads" : {
+    "hogtied_got_character" : "{\"role\": \"khaleesi\"}",
+    "hogtied-homepage-user" : "{\"is_cool\": true}"
   }
 }

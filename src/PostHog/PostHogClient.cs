@@ -11,10 +11,10 @@ namespace PostHog;
 /// <summary>
 /// PostHog client for capturing events and managing user tracking
 /// </summary>
-public class PostHogClient : IDisposable
+public sealed class PostHogClient : IDisposable
 {
     readonly string _apiKey;
-    readonly string _hostUrl;
+    readonly Uri _hostUrl;
     readonly HttpClient _httpClient;
 
     /// <summary>
@@ -22,12 +22,16 @@ public class PostHogClient : IDisposable
     /// </summary>
     /// <param name="apiKey">Your PostHog project API key</param>
     /// <param name="hostUrl">Optional custom host URL (defaults to PostHog cloud)</param>
-    public PostHogClient(string apiKey, string hostUrl = "https://app.posthog.com/")
+    public PostHogClient(string apiKey, Uri hostUrl)
     {
         _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
-        _hostUrl = hostUrl.TrimEnd('/');
+        _hostUrl = hostUrl ?? throw new ArgumentException("HostUrl cannot be null", nameof(hostUrl));
+        var hostUrlString = hostUrl.ToString();
+        _hostUrl = new Uri(hostUrlString.TrimEnd());
         _httpClient = new HttpClient();
     }
+
+    public PostHogClient(string apiKey) : this(apiKey, new Uri("https://app.posthog.com/")) { }
 
     /// <summary>
     /// Capture an event with optional properties
@@ -82,7 +86,7 @@ public class PostHogClient : IDisposable
             ["$set"] = userProperties
         };
 
-        return await SendEventAsync(payload, isBatch: false,  cancellationToken);
+        return await SendEventAsync(payload, isBatch: false, cancellationToken);
     }
 
     /// <summary>
@@ -103,20 +107,6 @@ public class PostHogClient : IDisposable
     }
 
     /// <summary>
-    /// Send batch of events
-    /// </summary>
-    public async Task BatchCaptureAsync(IEnumerable<EventData> events, CancellationToken cancellationToken)
-    {
-        var payload = new Dictionary<string, object>
-        {
-            ["api_key"] = _apiKey,
-            ["batch"] = events
-        };
-
-        await SendEventAsync(payload, isBatch: true, cancellationToken);
-    }
-
-    /// <summary>
     /// Internal method to send events to PostHog
     /// </summary>
     async Task<ApiResult> SendEventAsync(
@@ -128,7 +118,7 @@ public class PostHogClient : IDisposable
             ? $"{_hostUrl}/batch/"
             : $"{_hostUrl}/capture/";
 
-        return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken) ?? new ApiResult(0);
+        return await _httpClient.PostJsonAsync<ApiResult>(new Uri(endpointUrl), payload, cancellationToken) ?? new ApiResult(0);
     }
 
     /// <summary>
@@ -138,15 +128,4 @@ public class PostHogClient : IDisposable
     {
         _httpClient.Dispose();
     }
-}
-
-/// <summary>
-/// Represents an event for batch capture
-/// </summary>
-public class EventData
-{
-    public string? Event { get; set; }
-    public string? DistinctId { get; set; }
-    public DateTime Timestamp { get; set; }
-    public Dictionary<string, object>? Properties { get; set; }
 }

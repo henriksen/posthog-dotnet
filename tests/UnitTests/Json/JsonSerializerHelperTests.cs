@@ -1,3 +1,4 @@
+using PostHog.FeatureFlags;
 using PostHog.Json;
 using PostHog.Models;
 
@@ -29,7 +30,7 @@ public class JsonSerializerHelperTests
 
             // Act
 
-            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJson<FeatureFlagsResult>(json);
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<FeatureFlagsResult>(json);
 
             // Assert
             Assert.NotNull(result);
@@ -37,8 +38,9 @@ public class JsonSerializerHelperTests
             Assert.Empty(result.ToolbarParams);
             Assert.False(result.IsAuthenticated);
             Assert.Equal(["gzip", "gzip-js"], result.SupportedCompression);
-            Assert.Equal(new Dictionary<string, bool>
+            Assert.Equal(new Dictionary<string, StringOrValue<bool>>()
             {
+                ["hogtied_got_character"] = "danaerys",
                 ["hogtied-homepage-user"] = true,
                 ["hogtied-homepage-bonanza"] = true
             }, result.FeatureFlags);
@@ -58,6 +60,7 @@ public class JsonSerializerHelperTests
             Assert.False(result.ErrorsWhileComputingFlags);
             Assert.Equal(new Dictionary<string, string>
             {
+                ["hogtied_got_character"] = "{\"role\": \"khaleesi\"}",
                 ["hogtied-homepage-user"] = "{\"is_cool\": true}"
             }, result.FeatureFlagPayloads);
         }
@@ -70,7 +73,7 @@ public class JsonSerializerHelperTests
 
             // Act
 
-            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJson<FeatureFlagsResult>(json);
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<FeatureFlagsResult>(json);
 
             // Assert
             Assert.NotNull(result);
@@ -78,8 +81,9 @@ public class JsonSerializerHelperTests
             Assert.Empty(result.ToolbarParams);
             Assert.True(result.IsAuthenticated);
             Assert.Equal(["gzip", "gzip-js"], result.SupportedCompression);
-            Assert.Equal(new Dictionary<string, bool>
+            Assert.Equal(new Dictionary<string, StringOrValue<bool>>()
             {
+                ["hogtied_got_character"] = false,
                 ["hogtied-homepage-user"] = false,
                 ["hogtied-homepage-bonanza"] = false
             }, result.FeatureFlags);
@@ -107,11 +111,68 @@ public class JsonSerializerHelperTests
             var json = "{\"status\": 1}";
 
             // Act
-            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJson<ApiResult>(json);
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<ApiResult>(json);
 
             // Assert
             Assert.NotNull(result);
             Assert.Equal(1, result.Status);
+        }
+
+        [Fact]
+        public async Task CanDeserializeStringOrBool()
+        {
+            var json = """
+                       {
+                         "TrueOrValue" : "danaerys",
+                         "AnotherTrueOrValue" : true
+                       }
+                       """;
+
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<ClassWithStringOr>(json);
+
+            Assert.NotNull(result);
+            Assert.Equal("danaerys", result.TrueOrValue.StringValue);
+            Assert.True(result.AnotherTrueOrValue.Value);
+        }
+
+        [Fact]
+        public async Task CanDeserializeCamelCasedStringOrBool()
+        {
+            var json = """
+                       {
+                         "trueOrValue" : "danaerys",
+                         "anotherTrueOrValue" : true
+                       }
+                       """;
+
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<ClassWithStringOr>(json);
+
+            Assert.NotNull(result);
+            Assert.Equal("danaerys", result.TrueOrValue.StringValue);
+            Assert.True(result.AnotherTrueOrValue.Value);
+        }
+
+        [Fact]
+        public async Task CanDeserializeStringOrBoolWithFalse()
+        {
+            var json = """
+                       {
+                         "TrueOrValue": "danaerys",
+                         "AnotherTrueOrValue": false
+                       }
+                       """;
+
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<ClassWithStringOr>(json);
+
+            Assert.NotNull(result);
+            Assert.Equal("danaerys", result.TrueOrValue.StringValue);
+            Assert.False(result.TrueOrValue.Value);
+        }
+
+        public class ClassWithStringOr
+        {
+            public StringOrValue<bool> TrueOrValue { get; set; } = null!;
+            public StringOrValue<bool> AnotherTrueOrValue { get; set; } = null!;
         }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
@@ -14,12 +15,17 @@ namespace PostHog.FeatureFlags;
 /// <c>us.i.posthog.com</c> for US Cloud. <c>eu.i.posthog.com</c> for EU Cloud.
 /// Your custom domain for self-hosted.
 /// </param>
-public class FeatureFlagsClient(string projectApiKey, string hostUrl = "https://us.i.posthog.com")
+public class FeatureFlagsClient(string projectApiKey, Uri hostUrl)
 {
+    public FeatureFlagsClient(string projectApiKey)
+        : this(projectApiKey, new Uri("https://us.i.posthog.com"))
+    {
+    }
+
     async Task<FeatureFlagsResult> RequestFeatureFlagsAsync(string distinctUserId, CancellationToken cancellationToken)
     {
         using var httpClient = new HttpClient();
-        var endpointUrl = $"{hostUrl}/decide?v=3";
+        var endpointUrl = new Uri($"{hostUrl}/decide?v=3");
 
         var requestBody = new Dictionary<string, string>
         {
@@ -31,12 +37,12 @@ public class FeatureFlagsClient(string projectApiKey, string hostUrl = "https://
             ?? new FeatureFlagsResult();
     }
 
-    public async Task<FeatureFlagsCollection> GetFeatureFlagsAsync(
+    public async Task<FeatureFlagsEvaluator> GetFeatureFlagsAsync(
         string distinctUserId,
         CancellationToken cancellationToken)
     {
         var result = await RequestFeatureFlagsAsync(distinctUserId, cancellationToken);
-        return new FeatureFlagsCollection(result);
+        return new FeatureFlagsEvaluator(result);
     }
 }
 

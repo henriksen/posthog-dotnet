@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -11,15 +12,16 @@ internal static class HttpClientExtensions
 {
     public static async Task<TBody?> PostJsonAsync<TBody>(
         this HttpClient httpClient,
-        string requestUri,
+        Uri requestUri,
         object content,
         CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(content);
-        var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
+        using var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
         var response = await httpClient.PostAsync(requestUri, stringContent, cancellationToken);
         response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadAsStreamAsync();
+
+        var result = await response.Content.ReadAsStreamAsync(cancellationToken);
         return await JsonSerializerHelper.DeserializeFromCamelCaseJsonAsync<TBody>(
             result,
             cancellationToken: cancellationToken);

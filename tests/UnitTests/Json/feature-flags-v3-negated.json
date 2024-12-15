@@ -9,6 +9,7 @@
     "gzip-js"
   ],
   "featureFlags": {
+    "hogtied_got_character" : false,
     "hogtied-homepage-user": false,
     "hogtied-homepage-bonanza": false
   },
