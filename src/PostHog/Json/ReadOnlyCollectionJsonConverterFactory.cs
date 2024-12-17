@@ -14,7 +14,9 @@ internal sealed class ReadOnlyCollectionJsonConverterFactory : JsonConverterFact
         }
 
         var genericTypeDefinition = typeToConvert.GetGenericTypeDefinition();
-        return genericTypeDefinition == typeof(ReadOnlyCollection<>);
+        return genericTypeDefinition == typeof(IReadOnlyCollection<>)
+            || genericTypeDefinition == typeof(ReadOnlyCollection<>)
+            || genericTypeDefinition == typeof(IReadOnlyList<>);
     }
 
     public override JsonConverter? CreateConverter(Type typeToConvert, JsonSerializerOptions options)
@@ -26,16 +28,14 @@ internal sealed class ReadOnlyCollectionJsonConverterFactory : JsonConverterFact
     }
 }
 
-internal sealed class ReadOnlyCollectionJsonConverterFactory<T> : JsonConverter<ReadOnlyCollection<T>>
+internal sealed class ReadOnlyCollectionJsonConverterFactory<T> : JsonConverter<IEnumerable<T>>
 {
-    public override ReadOnlyCollection<T>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override IEnumerable<T>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var list = JsonSerializer.Deserialize<List<T>>(ref reader, options);
         return list == null ? null : new ReadOnlyCollection<T>(list);
     }
 
-    public override void Write(Utf8JsonWriter writer, ReadOnlyCollection<T> value, JsonSerializerOptions options)
-    {
-        JsonSerializer.Serialize(writer, value, options);
-    }
+    public override void Write(Utf8JsonWriter writer, IEnumerable<T> value, JsonSerializerOptions options)
+        => JsonSerializer.Serialize(writer, value, options);
 }

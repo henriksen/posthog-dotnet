@@ -29,8 +29,9 @@ public class FeatureFlagsClient(string projectApiKey, Uri hostUrl)
 
         var requestBody = new Dictionary<string, string>
         {
-            { "api_key", projectApiKey },
-            { "distinct_id", distinctUserId }
+            ["api_key"] = projectApiKey,
+            ["distinct_id"] = distinctUserId,
+            ["$lib"] = "posthog-dotnet"
         };
 
         return await httpClient.PostJsonAsync<FeatureFlagsResult>(endpointUrl, requestBody, cancellationToken)

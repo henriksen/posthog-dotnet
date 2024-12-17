@@ -45,6 +45,13 @@
                 </form>
                 <p class="text-muted small">Don't worry, it doesn't do anything but send a PostHog event.</p>
             </div>
+
+            <div class="mt-3">
+                <p>Click this button to send batch events:</p>
+                <form method="post" asp-page-handler="Batch">
+                    <button type="submit" class="btn btn-primary">Send Batch</button>
+                </form>
+            </div>
         }
 
         <h2 class="mt-5">Feature Flags</h2>

@@ -37,6 +37,7 @@ internal static class JsonSerializerHelper
     public static async Task<T?> DeserializeFromCamelCaseJsonStringAsync<T>(string json)
     {
         using var jsonStream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        jsonStream.Position = 0;
         return await DeserializeFromCamelCaseJsonAsync<T>(jsonStream);
     }
 

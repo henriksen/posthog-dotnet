@@ -16,7 +16,8 @@ namespace PostHog.Json
             }
 
             var genericTypeDefinition = typeToConvert.GetGenericTypeDefinition();
-            return genericTypeDefinition == typeof(ReadOnlyDictionary<,>);
+            return genericTypeDefinition == typeof(IReadOnlyDictionary<,>)
+                || genericTypeDefinition == typeof(ReadOnlyDictionary<,>);
         }
 
         public override JsonConverter? CreateConverter(Type typeToConvert, JsonSerializerOptions options)
@@ -29,15 +30,15 @@ namespace PostHog.Json
         }
     }
 
-    public class ReadonlyDictionaryJsonConverter<TKey, TValue> : JsonConverter<ReadOnlyDictionary<TKey, TValue>> where TKey : notnull
+    public class ReadonlyDictionaryJsonConverter<TKey, TValue> : JsonConverter<IReadOnlyDictionary<TKey, TValue>> where TKey : notnull
     {
-        public override ReadOnlyDictionary<TKey, TValue>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override IReadOnlyDictionary<TKey, TValue>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var dictionary = JsonSerializer.Deserialize<Dictionary<TKey, TValue>>(ref reader, options);
             return dictionary == null ? null : new ReadOnlyDictionary<TKey, TValue>(dictionary);
         }
 
-        public override void Write(Utf8JsonWriter writer, ReadOnlyDictionary<TKey, TValue> value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, IReadOnlyDictionary<TKey, TValue> value, JsonSerializerOptions options)
         {
             JsonSerializer.Serialize(writer, value, options);
         }

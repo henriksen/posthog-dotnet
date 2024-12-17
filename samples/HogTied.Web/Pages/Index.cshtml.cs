@@ -57,9 +57,31 @@ public class IndexModel(IOptions<PostHogOptions> options) : PageModel
                 },
                 cancellationToken: HttpContext.RequestAborted);
             StatusMessage = "Plan purchased! "
-                + (result.Status is 1
+                + (result.Status is { IsValue: true, Value: 1 }
                     ? "Event sent successfully."
                     : "Failed to send event.");
+        }
+
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostBatchAsync()
+    {
+        await OnGetAsync();
+        if (ApiKeyIsSet && UserId is not null)
+        {
+            // Send a custom purchased plan event
+            using var postHogClient = new PostHogClient(options.Value.ProjectApiKey!);
+
+            var result = await postHogClient.CaptureBatchAsync(
+                [new CapturedEvent("batched_event_1", UserId).WithProperties(new() { ["plan"] = "pro" }),
+                 new CapturedEvent("batched_event_2", UserId),
+                 new CapturedEvent("batched_event_3", UserId)],
+                cancellationToken: HttpContext.RequestAborted);
+            StatusMessage = "Batched Events Sent"
+                            + (result.Status is { IsString: true, StringValue: "Ok" }
+                                ? "Event sent successfully."
+                                : "Failed to send event.");
         }
 
         return RedirectToPage();
