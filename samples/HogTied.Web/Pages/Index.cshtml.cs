@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -7,18 +8,26 @@ using PostHog.FeatureFlags;
 
 namespace HogTied.Web.Pages;
 
-public class IndexModel(IOptions<PostHogOptions> options) : PageModel
+public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHogClient) : PageModel
 {
     [TempData]
     public string? StatusMessage { get; set; }
 
     public string? UserId { get; private set; }
 
+    [BindProperty]
+    public string? FakeUserId { get; set; } = "12345";
+
     public bool ApiKeyIsSet { get; private set; }
 
     public bool BonanzaEnabled { get; private set; }
 
     public bool HomepageUser { get; private set; }
+
+    [Required]
+    public string? EventName { get; set; } = "plan_purchased";
+
+    public PostHogOptions PostHogOptions => options.Value;
 
     public async Task OnGetAsync()
     {
@@ -27,12 +36,11 @@ public class IndexModel(IOptions<PostHogOptions> options) : PageModel
         // Check if the user is authenticated and get their user id.
         UserId = User.Identity?.IsAuthenticated == true
             ? User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-            : null;
+            : FakeUserId;
 
         if (ApiKeyIsSet && UserId is not null)
         {
             // Identify the current user.
-            using var postHogClient = new PostHogClient(options.Value.ProjectApiKey!);
             var features = new FeatureFlagsClient(options.Value.ProjectApiKey!);
             var flags = await features.GetFeatureFlagsAsync(UserId, HttpContext.RequestAborted);
             BonanzaEnabled = flags.IsFeatureEnabled("hogtied-homepage-bonanza");
@@ -43,46 +51,22 @@ public class IndexModel(IOptions<PostHogOptions> options) : PageModel
     public async Task<IActionResult> OnPostAsync()
     {
         await OnGetAsync();
-        if (ApiKeyIsSet && UserId is not null)
+        if (!ApiKeyIsSet || UserId is null)
         {
-            // Send a custom purchased plan event
-            using var postHogClient = new PostHogClient(options.Value.ProjectApiKey!);
-            var result = await postHogClient.CaptureAsync(
-                UserId,
-                eventName: "purchased_plan",
-                properties: new()
-                {
-                    ["plan"] = "free",
-                    ["price"] = "$29.99"
-                },
-                cancellationToken: HttpContext.RequestAborted);
-            StatusMessage = "Plan purchased! "
-                + (result.Status is { IsValue: true, Value: 1 }
-                    ? "Event sent successfully."
-                    : "Failed to send event.");
+            return RedirectToPage();
         }
 
-        return RedirectToPage();
-    }
+        // Send a custom purchased plan event
+        postHogClient.Capture(
+            UserId,
+            eventName: EventName ?? "plan_purchased",
+            properties: new()
+            {
+                ["plan"] = "free",
+                ["price"] = "$29.99"
+            });
 
-    public async Task<IActionResult> OnPostBatchAsync()
-    {
-        await OnGetAsync();
-        if (ApiKeyIsSet && UserId is not null)
-        {
-            // Send a custom purchased plan event
-            using var postHogClient = new PostHogClient(options.Value.ProjectApiKey!);
-
-            var result = await postHogClient.CaptureBatchAsync(
-                [new CapturedEvent("batched_event_1", UserId).WithProperties(new() { ["plan"] = "pro" }),
-                 new CapturedEvent("batched_event_2", UserId),
-                 new CapturedEvent("batched_event_3", UserId)],
-                cancellationToken: HttpContext.RequestAborted);
-            StatusMessage = "Batched Events Sent"
-                            + (result.Status is { IsString: true, StringValue: "Ok" }
-                                ? "Event sent successfully."
-                                : "Failed to send event.");
-        }
+        StatusMessage = "Event captured! Events are sent asynchronously, so it may take a few seconds to appear in PostHog.";
 
         return RedirectToPage();
     }

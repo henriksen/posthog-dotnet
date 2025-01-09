@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -30,5 +31,45 @@ internal static class CollectionExtensions
         where T : class
     {
         return source.Where(item => item is not null)!;
+    }
+
+    /// <summary>
+    /// Dequeues a batch of items from a <see cref="ConcurrentQueue{T}"/>.
+    /// </summary>
+    /// <param name="queue">The queue.</param>
+    /// <param name="batchSize">The batch size.</param>
+    /// <typeparam name="T">The type of the queue items.</typeparam>
+    /// <returns>A list of dequeued items.</returns>
+    public static IReadOnlyCollection<T> DequeueBatch<T>(this ConcurrentQueue<T> queue, int batchSize) {
+        var items = new List<T>(batchSize);
+        for (var i = 0; i < batchSize; i++)
+        {
+            if (queue.TryDequeue(out var item))
+            {
+                items.Add(item);
+            }
+            else
+            {
+                break; // Exit if the queue is empty before reaching the batch size
+            }
+        }
+        return items;
+    }
+
+    /// <summary>
+    /// Dequeues a batch of items from a <see cref="ConcurrentQueue{T}"/>.
+    /// </summary>
+    /// <param name="queue">The queue.</param>
+    /// <param name="batchSize">The batch size.</param>
+    /// <param name="items">The items to return.</param>
+    /// <typeparam name="T">The type of the queue items.</typeparam>
+    /// <returns><c>True</c> if any items are in the batch, otherwise <c>false</c></returns>
+    public static bool TryDequeueBatch<T>(
+        this ConcurrentQueue<T> queue,
+        int batchSize,
+        out IReadOnlyCollection<T> items)
+    {
+        items = queue.DequeueBatch(batchSize);
+        return items.Count > 0;
     }
 }

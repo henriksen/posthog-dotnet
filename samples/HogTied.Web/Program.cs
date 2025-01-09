@@ -1,18 +1,17 @@
 using System.Security.Claims;
 using HogTied.Web;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using HogTied.Web.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using PostHog;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services
-    .Configure<PostHogOptions>(builder.Configuration.GetSection("PostHog"))
+builder.AddPostHog()
+    .Services
     .AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connectionString))
     .AddDatabaseDeveloperPageExceptionFilter()
     .ConfigureApplicationCookie(options =>
@@ -27,11 +26,9 @@ builder.Services
 
                 var userId = userPrincipal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-                var postHogOptions = context.HttpContext.RequestServices.GetRequiredService<IOptions<PostHogOptions>>();
-                var apiKey = postHogOptions.Value.ProjectApiKey;
-                if (apiKey is not null && userId is not null)
+                var postHogClient = context.HttpContext.RequestServices.GetRequiredService<IPostHogClient>();
+                if (userId is not null)
                 {
-                    using var postHogClient = new PostHogClient(apiKey);
                     await postHogClient.IdentifyAsync(userId, context.HttpContext.RequestAborted);
                 }
             },
@@ -40,11 +37,9 @@ builder.Services
                 // This is called when the user signs out
                 var userPrincipal = context.HttpContext.User;
                 var userId = userPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var postHogOptions = context.HttpContext.RequestServices.GetRequiredService<IOptions<PostHogOptions>>();
-                var apiKey = postHogOptions.Value.ProjectApiKey;
-                if (apiKey is not null && userId is not null)
+                var postHogClient = context.HttpContext.RequestServices.GetRequiredService<PostHogClient>();
+                if (userId is not null)
                 {
-                    using var postHogClient = new PostHogClient(apiKey);
                     await postHogClient.ResetAsync(userId, context.HttpContext.RequestAborted);
                 }
 

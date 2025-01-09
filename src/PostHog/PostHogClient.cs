@@ -1,179 +1,162 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using PostHog.Api;
 using PostHog.Library;
 using PostHog.Models;
 
 namespace PostHog;
 
-/// <summary>
-/// PostHog client for capturing events and managing user tracking
-/// </summary>
-public sealed class PostHogClient : IDisposable
+public sealed class PostHogClient : IPostHogClient
 {
-    const string LibraryName = "posthog-dotnet";
+    readonly ConcurrentQueue<CapturedEvent> _concurrentQueue = new();
+    readonly PostHogApiClient _apiClient;
+    readonly PeriodicTimer _timer;
+    readonly CancellationTokenSource _cancellationTokenSource = new();
+    readonly Task _pollingTask;
+    readonly PostHogOptions _options;
+    readonly ILogger<PostHogClient> _logger;
+    readonly SemaphoreSlim _flushSemaphore = new(1, 1);
 
-    readonly string _apiKey;
-    readonly Uri _hostUrl;
-    readonly HttpClient _httpClient;
-
-    /// <summary>
-    /// Initialize a new PostHog client
-    /// </summary>
-    /// <param name="apiKey">Your PostHog project API key</param>
-    /// <param name="hostUrl">Optional custom host URL (defaults to PostHog cloud)</param>
-    public PostHogClient(string apiKey, Uri hostUrl)
+    public PostHogClient(PostHogOptions options, ILogger<PostHogClient> logger)
     {
-        _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
-        _hostUrl = hostUrl ?? throw new ArgumentException("HostUrl cannot be null", nameof(hostUrl));
-        var hostUrlString = hostUrl.ToString();
-        _hostUrl = new Uri(hostUrlString.TrimEnd());
-        _httpClient = new HttpClient();
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+        var projectApiKey = options.ProjectApiKey
+                            ?? throw new InvalidOperationException("Project API key is required.");
+        _apiClient = new PostHogApiClient(projectApiKey, options.HostUrl);
+        _timer = new PeriodicTimer(options.FlushInterval);
+        _pollingTask = PollAsync(_cancellationTokenSource.Token);
+
+        _logger = logger;
+
+        _logger.LogInfoClientCreated(options.MaxBatchSize);
     }
 
-    public PostHogClient(string apiKey) : this(apiKey, new Uri("https://app.posthog.com/")) { }
-
-    /// <summary>
-    /// Capture an event with optional properties
-    /// </summary>
-    public async Task<ApiResult> CaptureAsync(
-        string distinctId,
-        string eventName,
-        Dictionary<string, object>? properties,
-        CancellationToken cancellationToken)
+    public PostHogClient(PostHogOptions options) : this(options, NullLogger<PostHogClient>.Instance)
     {
-        properties ??= new Dictionary<string, object>();
-        properties["$lib"] = LibraryName;
-
-        var payload = new Dictionary<string, object>
-        {
-            ["api_key"] = _apiKey,
-            ["event"] = eventName,
-            ["distinct_id"] = distinctId,
-            ["timestamp"] = DateTime.UtcNow,
-            ["properties"] = properties
-        };
-
-        return await SendEventAsync(payload, cancellationToken);
     }
 
-    /// <summary>
-    /// Capture an event with optional properties
-    /// </summary>
-    public async Task<ApiResult> CaptureBatchAsync(
-        IEnumerable<CapturedEvent> events,
-        CancellationToken cancellationToken)
+    public PostHogClient(string projectApiKey) : this(new PostHogOptions { ProjectApiKey = projectApiKey })
     {
-        var endpointUrl = $"{_hostUrl}/batch/";
-
-        var payload = new Dictionary<string, object>
-        {
-            ["api_key"] = _apiKey,
-            ["historical_migrations"] = false,
-            ["batch"] = events.ToReadOnlyList(),
-            ["$lib"] = LibraryName
-        };
-
-        return await _httpClient.PostJsonAsync<ApiResult>(new Uri(endpointUrl), payload, cancellationToken)
-               ?? new ApiResult(0);
     }
 
-    /// <summary>
-    /// Identify a user with a distinct ID.
-    /// </summary>
-    /// <remarks>
-    /// This is a public endpoint and does not require authentication, but it does require
-    /// a valid API key in the body of the request.
-    /// </remarks>
-    /// <param name="distinctId"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public Task<ApiResult> IdentifyAsync(string distinctId, CancellationToken cancellationToken) =>
-        IdentifyAsync(distinctId, new Dictionary<string, object>(), cancellationToken);
-
-    /// <summary>
-    /// Identify a user with additional properties
-    /// </summary>
     public async Task<ApiResult> IdentifyAsync(
         string distinctId,
         Dictionary<string, object> userProperties,
         CancellationToken cancellationToken)
+        => await _apiClient.IdentifyAsync(distinctId, userProperties, cancellationToken);
+
+    public void Capture(
+        string distinctId,
+        string eventName,
+        Dictionary<string, object>? properties)
     {
-        var payload = new Dictionary<string, object>
+        properties ??= [];
+        properties["$lib"] = PostHogApiClient.LibraryName;
+
+        var capturedEvent = new CapturedEvent(eventName, distinctId)
+            .WithProperties(properties);
+
+        _concurrentQueue.Enqueue(capturedEvent);
+
+        if (_concurrentQueue.Count >= _options.FlushAt)
         {
-            ["api_key"] = _apiKey,
-            ["event"] = "$identify",
-            ["distinct_id"] = distinctId,
-            ["$set"] = userProperties
-        };
-
-        return await SendEventAsync(payload, cancellationToken);
+            Flush();
+        }
     }
 
-    /// <summary>
-    /// Unlink future events with the current user. Call this when a user logs out.
-    /// </summary>
-    /// <param name="distinctId">The current user id.</param>
-    /// <param name="cancellationToken"></param>
-    public async Task ResetAsync(string distinctId, CancellationToken cancellationToken)
+    public async Task PollAsync(CancellationToken cancellationToken)
     {
-        var payload = new Dictionary<string, object>
+        try
         {
-            ["api_key"] = _apiKey,
-            ["event"] = "$reset",
-            ["distinct_id"] = distinctId
-        };
+            while (await _timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await FlushAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
 
-        await SendEventAsync(payload, cancellationToken);
+        }
     }
 
-    /// <summary>
-    /// Internal method to send events to PostHog
-    /// </summary>
-    async Task<ApiResult> SendEventAsync(Dictionary<string, object> payload,
-        CancellationToken cancellationToken)
+    public Task ResetAsync(string distinctId, CancellationToken cancellationToken)
+        => _apiClient.ResetAsync(distinctId, cancellationToken);
+
+    void Flush()
     {
-        var endpointUrl = $"{_hostUrl}/capture/";
-
-        return await _httpClient.PostJsonAsync<ApiResult>(new Uri(endpointUrl), payload, cancellationToken) ?? new ApiResult(0);
+        Task.Run(async () => await FlushAsync()).Start();
     }
 
-    /// <summary>
-    /// Dispose of HttpClient
-    /// </summary>
+    public async Task FlushAsync()
+    {
+        // We want to make sure only one flush is happening at a time.
+        await _flushSemaphore.WaitAsync();
+        try
+        {
+            _logger.LogInfoFlushCalled(_concurrentQueue.Count);
+            while (_concurrentQueue.TryDequeueBatch(_options.MaxBatchSize, out var batch))
+            {
+                _logger.LogDebugBatchSent(batch.Count);
+                await _apiClient.CaptureBatchAsync(batch, CancellationToken.None);
+            }
+        }
+        finally
+        {
+            _flushSemaphore.Release();
+        }
+    }
+
     public void Dispose()
     {
-        _httpClient.Dispose();
+        DisposeAsync().AsTask().Wait();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _logger.LogInfoDisposeAsyncCalled();
+
+        // Stop the polling and wait for it.
+        await _cancellationTokenSource.CancelAsync();
+        await _pollingTask;
+        _cancellationTokenSource.Dispose();
+        _timer.Dispose();
+
+        // Flush whatever we got.
+        await FlushAsync();
+
+        _apiClient.Dispose();
+        _flushSemaphore.Dispose();
     }
 }
 
-/// <summary>
-/// A captured event that will be sent as part of a batch.
-/// </summary>
-/// <param name="eventName">The name of the event</param>
-public class CapturedEvent(string eventName, string distinctId)
+internal static partial class SkillRunnerLoggerExtensions
 {
-    [JsonPropertyName("event")]
-    public string EventName => eventName;
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Information,
+        Message = "DisposeAsync called")]
+    public static partial void LogInfoDisposeAsyncCalled(this ILogger<PostHogClient> logger);
 
-    [JsonPropertyName("distinct_id")]
-    public string DistinctId => distinctId;
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Debug,
+        Message = "BatchSent: {Count} items")]
+    public static partial void LogDebugBatchSent(this ILogger<PostHogClient> logger, int count);
 
-    public Dictionary<string, object> Properties { get; } = new();
+    [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Information,
+        Message = "Flush called: {Count} items")]
+    public static partial void LogInfoFlushCalled(this ILogger<PostHogClient> logger, int count);
 
-    public DateTime Timestamp { get; } = DateTime.UtcNow;
-
-    public CapturedEvent WithProperties(Dictionary<string, object> properties)
-    {
-        properties ??= new Dictionary<string, object>();
-        foreach (var (key, value) in properties)
-        {
-            Properties[key] = value;
-        }
-
-        return this;
-    }
+    [LoggerMessage(
+        EventId = 4,
+        Level = LogLevel.Information,
+        Message = "PostHog Client created with Max Batch Size: {MaxBatchSize}")]
+    public static partial void LogInfoClientCreated(this ILogger<PostHogClient> logger, int maxBatchSize);
 }

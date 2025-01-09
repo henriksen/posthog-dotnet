@@ -5,7 +5,7 @@ using System.Security.Claims;
 
 namespace HogTied.Web;
 
-public class PostHogPageViewFilter(IOptions<PostHogOptions> options) : IAsyncPageFilter
+public class PostHogPageViewFilter(IOptions<PostHogOptions> options, IPostHogClient postHogClient) : IAsyncPageFilter
 {
     readonly PostHogOptions _options = options.Value;
 
@@ -18,15 +18,13 @@ public class PostHogPageViewFilter(IOptions<PostHogOptions> options) : IAsyncPag
 
             if (distinctId is not null)
             {
-                using var postHogClient = new PostHogClient(_options.ProjectApiKey);
-                await postHogClient.CaptureAsync(
+                postHogClient.Capture(
                     distinctId,
                     eventName: "page_view",
                     properties: new()
                     {
                         ["$current_url"] = context.HttpContext.Request.Path.Value ?? "Unknown"
-                    },
-                    cancellationToken: context.HttpContext.RequestAborted);
+                    });
             }
         }
 
