@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using HogTied.Web;
 using HogTied.Web.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -18,6 +17,7 @@ builder.AddPostHog()
     {
         options.Events = new CookieAuthenticationEvents
         {
+            /*
             OnValidatePrincipal = async context =>
             {
                 var userPrincipal = context.Principal;
@@ -42,8 +42,7 @@ builder.AddPostHog()
                 {
                     await postHogClient.ResetAsync(userId, context.HttpContext.RequestAborted);
                 }
-
-            }
+            }*/
         };
     })
     .AddDefaultIdentity<IdentityUser>(

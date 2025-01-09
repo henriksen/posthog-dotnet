@@ -34,8 +34,6 @@ internal sealed class PostHogApiClient : IDisposable
         _httpClient = new HttpClient();
     }
 
-    public PostHogApiClient(string apiKey) : this(apiKey, new Uri("https://app.posthog.com/")) { }
-
     /// <summary>
     /// Capture an event with optional properties
     /// </summary>

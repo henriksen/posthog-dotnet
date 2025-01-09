@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -33,7 +34,7 @@ public static class Registration
         builder = builder ?? throw new ArgumentNullException(nameof(builder));
 
         builder.Services.Configure<PostHogOptions>(configurationSection);
-        builder.Services.AddSingleton<IPostHogClient, PostHogHostedClient>();
+        builder.Services.AddSingleton<IPostHogClient, PostHogClient>();
         return builder;
     }
 }
