@@ -5,7 +5,6 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using PostHog.Library;
-using PostHog.Models;
 
 namespace PostHog.Api;
 
@@ -137,6 +136,23 @@ internal sealed class PostHogApiClient : IDisposable
         var endpointUrl = $"{_hostUrl}/capture/";
 
         return await _httpClient.PostJsonAsync<ApiResult>(new Uri(endpointUrl), payload, cancellationToken) ?? new ApiResult(0);
+    }
+
+    public async Task<FeatureFlagsApiResult> RequestFeatureFlagsAsync(
+        string distinctUserId,
+        CancellationToken cancellationToken)
+    {
+        var endpointUrl = new Uri($"{_hostUrl}/decide?v=3");
+
+        var requestBody = new Dictionary<string, string>
+        {
+            ["api_key"] = _projectApiKey,
+            ["distinct_id"] = distinctUserId,
+            ["$lib"] = "posthog-dotnet"
+        };
+
+        return await _httpClient.PostJsonAsync<FeatureFlagsApiResult>(endpointUrl, requestBody, cancellationToken)
+               ?? new FeatureFlagsApiResult();
     }
 
     /// <summary>

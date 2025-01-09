@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using PostHog;
-using PostHog.FeatureFlags;
 
 namespace HogTied.Web.Pages;
 
@@ -20,9 +19,13 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
     public bool ApiKeyIsSet { get; private set; }
 
-    public bool BonanzaEnabled { get; private set; }
+    public bool? BonanzaEnabled { get; private set; }
 
-    public bool HomepageUser { get; private set; }
+    public bool? HomepageUser { get; private set; }
+
+    public bool? NonExistentFlag { get; private set; }
+
+    public Dictionary<string, (FeatureFlag, bool?)> FeatureFlags { get; private set; } = new();
 
     [Required]
     public string? EventName { get; set; } = "plan_purchased";
@@ -40,11 +43,20 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
         if (ApiKeyIsSet && UserId is not null)
         {
-            // Identify the current user.
-            var features = new FeatureFlagsClient(options.Value.ProjectApiKey!);
-            var flags = await features.GetFeatureFlagsAsync(UserId, HttpContext.RequestAborted);
-            BonanzaEnabled = flags.IsFeatureEnabled("hogtied-homepage-bonanza");
-            HomepageUser = flags.IsFeatureEnabled("hogtied-homepage-user");
+            // Identify the current user if they're authenticated.
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                await postHogClient.IdentifyAsync(UserId);
+            }
+
+            var flags = await postHogClient.GetFeatureFlagsAsync(UserId, HttpContext.RequestAborted);
+
+            foreach (var (key, flag) in flags)
+            {
+                FeatureFlags[key] = (flag, await postHogClient.IsFeatureEnabledAsync(UserId, key));
+            }
+
+            NonExistentFlag = await postHogClient.IsFeatureEnabledAsync(UserId, "non-existent-flag");
         }
     }
 

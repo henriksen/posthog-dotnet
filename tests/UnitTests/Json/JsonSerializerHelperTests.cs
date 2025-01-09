@@ -1,6 +1,5 @@
-using PostHog.FeatureFlags;
+using PostHog.Api;
 using PostHog.Json;
-using PostHog.Models;
 
 public class JsonSerializerHelperTests
 {
@@ -30,7 +29,7 @@ public class JsonSerializerHelperTests
 
             // Act
 
-            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<FeatureFlagsResult>(json);
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<FeatureFlagsApiResult>(json);
 
             // Assert
             Assert.NotNull(result);
@@ -73,7 +72,7 @@ public class JsonSerializerHelperTests
 
             // Act
 
-            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<FeatureFlagsResult>(json);
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<FeatureFlagsApiResult>(json);
 
             // Assert
             Assert.NotNull(result);

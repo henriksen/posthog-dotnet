@@ -62,11 +62,15 @@
                             <td>@Model.PostHogOptions.MaxBatchSize</td>
                         </tr>
                         <tr>
-                            <td data-tippy-content="The number of events to capture before sending to PostHog"><code>FlushAt</code></td>
+                            <td data-tippy-content="The number of events to capture before sending to PostHog">
+                                <code>FlushAt ℹ</code>
+                            </td>
                             <td>@Model.PostHogOptions.FlushAt events</td>
                         </tr>
                         <tr>
-                            <td data-tippy-content="The interval between periodic flushes"><code>FlushInterval</code></td>
+                            <td data-tippy-content="The interval between periodic flushes">
+                                <code>FlushInterval ℹ</code>
+                            </td>
                             <td>@Model.PostHogOptions.FlushInterval.TotalSeconds seconds</td>
                         </tr>
                         </tbody>
@@ -75,26 +79,30 @@
                 <div class="ml-3">
                     <h2 class="mt-5">Feature Flags</h2>
                     <table class="table table-auto table-striped mt-3">
-                    <thead class="thead-dark">
+                        <thead class="thead-dark">
                     <tr>
                         <th>Feature</th>
+                        <th>Result</th>
                         <th>Enabled</th>
-                        <th>Notes</th>
                     </tr>
                     </thead>
-                    <tbody>
-                    <tr>
-                        <td>hogtied-homepage-bonanza</td>
-                        <td>@Model.BonanzaEnabled</td>
-                        <td>Enabled for 100%</td>
-                    </tr>
-                    <tr>
-                        <td>hogtied-homepage-user</td>
-                        <td>@Model.HomepageUser</td>
-                        <td>Enabled for 80%</td>
-                    </tr>
-                    </tbody>
-                </table>
+                        <tbody>
+                        @foreach (var flag in Model.FeatureFlags)
+                        {
+                            var (flagValue, isEnabled) = flag.Value;
+                            <tr>
+                                <td>@flag.Key</td>
+                                <td><code>@isEnabled</code></td>
+                                <td><code>@flagValue</code></td>
+                            </tr>
+                        }
+                            <tr>
+                                <td>non-existent-flag</td>
+                                <td><code><em>@(Model.NonExistentFlag?.ToString() ?? "undefined")</em></code></td>
+                                <td><code><em>@(Model.NonExistentFlag?.ToString() ?? "null")</em></code></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

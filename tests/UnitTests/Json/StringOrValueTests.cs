@@ -41,5 +41,30 @@ public class StringOrValueTests
             Assert.Equal(42, stringOrInt);
             Assert.NotEqual(43, stringOrInt);
         }
+
+        [Fact]
+        public void CanCompareDefaults()
+        {
+            StringOrValue<bool> undefined = default;
+            StringOrValue<bool> anotherUndefined = default;
+            StringOrValue<bool> defined = new(true);
+
+            Assert.Equal(default, undefined);
+            Assert.Equal(anotherUndefined, undefined);
+            Assert.NotEqual(defined, undefined);
+            Assert.NotEqual(defined, default);
+        }
+
+        [Fact]
+        public void CanCompareNullables()
+        {
+            StringOrValue<bool>? value = new(true);
+            StringOrValue<bool>? anotherValue = new(true);
+            StringOrValue<bool>? undefined = null;
+
+            Assert.Equal(anotherValue, value);
+            Assert.Null(undefined);
+            Assert.NotEqual(anotherValue, undefined);
+        }
     }
 }

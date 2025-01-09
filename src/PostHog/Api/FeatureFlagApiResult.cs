@@ -4,9 +4,9 @@ using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 using PostHog.Json;
 
-namespace PostHog.FeatureFlags;
+namespace PostHog.Api;
 
-public class FeatureFlagsResult
+public class FeatureFlagsApiResult
 {
     public FeatureFlagsConfig Config { get; set; } = new(false);
     public ReadOnlyDictionary<string, object> ToolbarParams { get; set; } = new(new Dictionary<string, object>());

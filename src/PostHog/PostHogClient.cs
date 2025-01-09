@@ -7,8 +7,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PostHog.Api;
+using PostHog.Json;
 using PostHog.Library;
-using PostHog.Models;
 
 namespace PostHog;
 
@@ -90,6 +90,27 @@ public sealed class PostHogClient : IPostHogClient
                 await FlushImplementationAsync();
             });
         }
+    }
+
+    public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(string distinctId, CancellationToken cancellationToken)
+    {
+        var results = await _apiClient.RequestFeatureFlagsAsync(distinctId, cancellationToken);
+        return results.FeatureFlags.ToReadOnlyDictionary(
+            kvp => kvp.Key,
+            kvp => new FeatureFlag(
+                kvp.Key,
+                kvp.Value.Value,
+                kvp.Value.StringValue,
+                results.FeatureFlagPayloads.GetValueOrDefault(kvp.Key)));
+    }
+
+    public async Task<StringOrValue<bool>?> GetFeatureFlagAsync(
+        string distinctId,
+        string featureKey,
+        Dictionary<string, object> userProperties)
+    {
+        var results = await _apiClient.RequestFeatureFlagsAsync(distinctId, CancellationToken.None);
+        return results.FeatureFlags.GetValueOrDefault(featureKey);
     }
 
     async Task PollAsync(CancellationToken cancellationToken)

@@ -1,6 +1,6 @@
 using PostHog.Json;
 
-namespace PostHog.Models;
+namespace PostHog.Api;
 
 /// <summary>
 /// Result of a PostHog API call.

@@ -16,6 +16,8 @@ namespace PostHog.Json;
 [JsonConverter(typeof(StringOrValueConverter))]
 public readonly struct StringOrValue<T> : IStringOrObject, IEquatable<T>, IEquatable<StringOrValue<T>>
 {
+    bool IsDefault => !IsValue && !IsString;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="StringOrValue{T}"/> struct with a value of type <typeparamref name="T"/>.
     /// </summary>
@@ -88,10 +90,11 @@ public readonly struct StringOrValue<T> : IStringOrObject, IEquatable<T>, IEquat
     public bool Equals(T? obj) => IsValue && EqualityComparer<T>.Default.Equals(Value, obj);
 
     public bool Equals(StringOrValue<T> other)
-        => other.IsValue
+        => (IsDefault && other.IsDefault)
+           || other.IsValue
            && IsValue
            && EqualityComparer<T>.Default.Equals(Value, other.Value)
-            || other.IsString && IsString && StringComparer.Ordinal.Equals(StringValue, other.StringValue);
+           || other.IsString && IsString && StringComparer.Ordinal.Equals(StringValue, other.StringValue);
 
     public override bool Equals([NotNullWhen(true)] object? obj)
         => obj is StringOrValue<T> value && Equals(value.Value);
@@ -101,12 +104,24 @@ public readonly struct StringOrValue<T> : IStringOrObject, IEquatable<T>, IEquat
         : StringValue?.GetHashCode(StringComparison.Ordinal) ?? 0;
 
     // Override the == operator
+    public static bool operator ==(StringOrValue<T> left, StringOrValue<T> right)
+        => left.Equals(right);
+
+    public static bool operator !=(StringOrValue<T> left, StringOrValue<T> right)
+        => !left.Equals(right);
+
     public static bool operator ==(StringOrValue<T>? left, T right)
         => left is not null && left.Equals(right);
+
+    public static bool operator ==(StringOrValue<T> left, T right)
+        => left.Equals(right);
 
     // Override the != operator
     public static bool operator !=(StringOrValue<T>? left, T right)
         => left is null || !left.Equals(right);
+
+    public static bool operator !=(StringOrValue<T> left, T right)
+        => !left.Equals(right);
 }
 
 /// <summary>

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -19,6 +20,25 @@ internal static class CollectionExtensions
     public static IReadOnlyList<T> ToReadOnlyList<T>(this IEnumerable<T> enumerable)
     {
         return new ReadOnlyCollection<T>(enumerable.ToList());
+    }
+
+    /// <summary>
+    /// Creates an <see cref="IReadOnlyDictionary{TKey,TValue}"/> from an <see cref="IEnumerable{T}"/> according to
+    /// specified key selector and value selector functions.
+    /// </summary>
+    /// <param name="enumerable">The <see cref="IEnumerable{T}"/> to create a dictionary from.</param>
+    /// <param name="keySelector">A function to extract a key from each element.</param>
+    /// <param name="valueSelector">A function to extract a value from each element.</param>
+    /// <typeparam name="TItem">The type of objects to enumerate.</typeparam>
+    /// <typeparam name="TKey">The type of the key.</typeparam>
+    /// <typeparam name="TValue">The type of the value.</typeparam>
+    /// <returns>The <see cref="IReadOnlyList{T}"/> that wraps the enumerable.</returns>
+    public static IReadOnlyDictionary<TKey, TValue> ToReadOnlyDictionary<TKey, TValue, TItem>(
+        this IEnumerable<TItem> enumerable,
+        Func<TItem, TKey> keySelector,
+        Func<TItem, TValue> valueSelector) where TKey : notnull
+    {
+        return new ReadOnlyDictionary<TKey, TValue>(enumerable.ToDictionary(keySelector, valueSelector));
     }
 
     /// <summary>
