@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using PostHog.Library;
 
 namespace PostHog.Api;
@@ -24,7 +24,8 @@ internal sealed class PostHogApiClient : IDisposable
     /// </summary>
     /// <param name="apiKey">Your PostHog project API key</param>
     /// <param name="hostUrl">Optional custom host URL (defaults to PostHog cloud)</param>
-    public PostHogApiClient(string apiKey, Uri hostUrl)
+    /// <param name="logger">The logger.</param>
+    public PostHogApiClient(string apiKey, Uri hostUrl, ILogger logger)
     {
         _projectApiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
         _hostUrl = hostUrl ?? throw new ArgumentException("HostUrl cannot be null", nameof(hostUrl));
@@ -64,7 +65,7 @@ internal sealed class PostHogApiClient : IDisposable
         IEnumerable<CapturedEvent> events,
         CancellationToken cancellationToken)
     {
-        var endpointUrl = $"{_hostUrl}/batch/";
+        var endpointUrl = new Uri(_hostUrl, "batch");
 
         var payload = new Dictionary<string, object>
         {
@@ -74,7 +75,7 @@ internal sealed class PostHogApiClient : IDisposable
             ["$lib"] = LibraryName
         };
 
-        return await _httpClient.PostJsonAsync<ApiResult>(new Uri(endpointUrl), payload, cancellationToken)
+        return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken)
                ?? new ApiResult(0);
     }
 
@@ -133,16 +134,16 @@ internal sealed class PostHogApiClient : IDisposable
     async Task<ApiResult> SendEventAsync(Dictionary<string, object> payload,
         CancellationToken cancellationToken)
     {
-        var endpointUrl = $"{_hostUrl}/capture/";
+        var endpointUrl = new Uri(_hostUrl, "capture");
 
-        return await _httpClient.PostJsonAsync<ApiResult>(new Uri(endpointUrl), payload, cancellationToken) ?? new ApiResult(0);
+        return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken) ?? new ApiResult(0);
     }
 
     public async Task<FeatureFlagsApiResult> RequestFeatureFlagsAsync(
         string distinctUserId,
         CancellationToken cancellationToken)
     {
-        var endpointUrl = new Uri($"{_hostUrl}/decide?v=3");
+        var endpointUrl = new Uri(_hostUrl, "decide?v=3");
 
         var requestBody = new Dictionary<string, string>
         {
@@ -161,33 +162,5 @@ internal sealed class PostHogApiClient : IDisposable
     public void Dispose()
     {
         _httpClient.Dispose();
-    }
-}
-
-/// <summary>
-/// A captured event that will be sent as part of a batch.
-/// </summary>
-/// <param name="eventName">The name of the event</param>
-public class CapturedEvent(string eventName, string distinctId)
-{
-    [JsonPropertyName("event")]
-    public string EventName => eventName;
-
-    [JsonPropertyName("distinct_id")]
-    public string DistinctId => distinctId;
-
-    public Dictionary<string, object> Properties { get; } = new();
-
-    public DateTime Timestamp { get; } = DateTime.UtcNow;
-
-    public CapturedEvent WithProperties(Dictionary<string, object> properties)
-    {
-        properties ??= new Dictionary<string, object>();
-        foreach (var (key, value) in properties)
-        {
-            Properties[key] = value;
-        }
-
-        return this;
     }
 }
