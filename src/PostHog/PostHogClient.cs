@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,14 +16,9 @@ namespace PostHog;
 /// <inheritdoc cref="IPostHogClient" />
 public sealed class PostHogClient : IPostHogClient
 {
-    readonly ConcurrentQueue<CapturedEvent> _concurrentQueue = new();
+    readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
     readonly PostHogApiClient _apiClient;
-    readonly PeriodicTimer _timer;
-    readonly CancellationTokenSource _cancellationTokenSource = new();
-    readonly Task _pollingTask;
-    readonly PostHogOptions _options;
     readonly ILogger<PostHogClient> _logger;
-    readonly SemaphoreSlim _flushSemaphore = new(1, 1);
 
     /// <summary>
     /// Constructs a <see cref="PostHogClient"/> with the specified <paramref name="options"/> and
@@ -35,13 +29,17 @@ public sealed class PostHogClient : IPostHogClient
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
     public PostHogClient(PostHogOptions options, ILogger<PostHogClient> logger)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
+        options = options ?? throw new ArgumentNullException(nameof(options));
         var projectApiKey = options.ProjectApiKey
                             ?? throw new InvalidOperationException("Project API key is required.");
 
         _apiClient = new PostHogApiClient(projectApiKey, options.HostUrl, logger);
-        _timer = new PeriodicTimer(options.FlushInterval);
-        _pollingTask = PollAsync(_cancellationTokenSource.Token);
+
+        _asyncBatchHandler = new(
+            batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
+            options,
+            TimeProvider.System,
+            logger);
 
         _logger = logger;
 
@@ -88,18 +86,9 @@ public sealed class PostHogClient : IPostHogClient
         var capturedEvent = new CapturedEvent(eventName, distinctId)
             .WithProperties(properties);
 
-        _concurrentQueue.Enqueue(capturedEvent);
+        _asyncBatchHandler.Enqueue(capturedEvent);
 
-        _logger.LogTraceCaptureCalled(eventName, properties.Count, _concurrentQueue.Count);
-
-        if (_concurrentQueue.Count >= _options.FlushAt)
-        {
-            Task.Run(async () =>
-            {
-                _logger.LogTraceFlushCalledOnCaptureFlushAt(_options.FlushAt, _concurrentQueue.Count);
-                await FlushImplementationAsync();
-            });
-        }
+        _logger.LogTraceCaptureCalled(eventName, properties.Count, _asyncBatchHandler.Count);
     }
 
     public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(string distinctId, CancellationToken cancellationToken)
@@ -123,46 +112,8 @@ public sealed class PostHogClient : IPostHogClient
         return results.FeatureFlags.GetValueOrDefault(featureKey);
     }
 
-    async Task PollAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            while (await _timer.WaitForNextTickAsync(cancellationToken))
-            {
-                _logger.LogTraceFlushCalledOnFlushInterval(_options.FlushInterval, _concurrentQueue.Count);
-                await FlushImplementationAsync();
-            }
-        }
-        catch (OperationCanceledException)
-        {
-
-        }
-    }
-
     /// <inheritdoc/>
-    public async Task FlushAsync()
-    {
-        _logger.LogInfoFlushCalledDirectly(_concurrentQueue.Count);
-        await FlushImplementationAsync();
-    }
-
-    async Task FlushImplementationAsync()
-    {
-        // We want to make sure only one flush is happening at a time.
-        await _flushSemaphore.WaitAsync();
-        try
-        {
-            while (_concurrentQueue.TryDequeueBatch(_options.MaxBatchSize, out var batch))
-            {
-                _logger.LogDebugSendingBatch(batch.Count);
-                await _apiClient.CaptureBatchAsync(batch, CancellationToken.None);
-            }
-        }
-        finally
-        {
-            _flushSemaphore.Release();
-        }
-    }
+    public async Task FlushAsync() => await _asyncBatchHandler.FlushAsync();
 
     /// <inheritdoc/>
     public void Dispose()
@@ -176,57 +127,16 @@ public sealed class PostHogClient : IPostHogClient
         _logger.LogInfoDisposeAsyncCalled();
 
         // Stop the polling and wait for it.
-        await _cancellationTokenSource.CancelAsync();
-        await _pollingTask;
-        _cancellationTokenSource.Dispose();
-        _timer.Dispose();
-
-        // Flush whatever we got.
-        await FlushAsync();
+        await _asyncBatchHandler.DisposeAsync();
 
         _apiClient.Dispose();
-        _flushSemaphore.Dispose();
     }
 }
 
-internal static partial class SkillRunnerLoggerExtensions
+internal static partial class PostHogClientLoggerExtensions
 {
     [LoggerMessage(
         EventId = 1,
-        Level = LogLevel.Information,
-        Message = "DisposeAsync called")]
-    public static partial void LogInfoDisposeAsyncCalled(this ILogger<PostHogClient> logger);
-
-    [LoggerMessage(
-        EventId = 2,
-        Level = LogLevel.Debug,
-        Message = "Sending Batch: {Count} items")]
-    public static partial void LogDebugSendingBatch(this ILogger<PostHogClient> logger, int count);
-
-    [LoggerMessage(
-        EventId = 3,
-        Level = LogLevel.Trace,
-        Message = "Flush called on capture because FlushAt ({FlushAt}) count met, {Count} items in the queue")]
-    public static partial void LogTraceFlushCalledOnCaptureFlushAt(
-        this ILogger<PostHogClient> logger, int flushAt, int count);
-
-    [LoggerMessage(
-        EventId = 4,
-        Level = LogLevel.Trace,
-        Message = "Flush called on the Flush Interval: {Interval}, {Count} items in the queue")]
-    public static partial void LogTraceFlushCalledOnFlushInterval(
-        this ILogger<PostHogClient> logger,
-        TimeSpan interval,
-        int count);
-
-    [LoggerMessage(
-        EventId = 5,
-        Level = LogLevel.Information,
-        Message = "Flush called directly via code: {Count} items in the queue")]
-    public static partial void LogInfoFlushCalledDirectly(this ILogger<PostHogClient> logger, int count);
-
-    [LoggerMessage(
-        EventId = 6,
         Level = LogLevel.Information,
         Message = "PostHog Client created with Max Batch Size: {MaxBatchSize}, Flush Interval: {FlushInterval}, and FlushAt: {FlushAt}")]
     public static partial void LogInfoClientCreated(
@@ -236,7 +146,7 @@ internal static partial class SkillRunnerLoggerExtensions
         int flushAt);
 
     [LoggerMessage(
-        EventId = 1,
+        EventId = 2,
         Level = LogLevel.Trace,
         Message = "Capture called for event {EventName} with {PropertiesCount} properties. {Count} items in the queue")]
     public static partial void LogTraceCaptureCalled(
@@ -244,4 +154,10 @@ internal static partial class SkillRunnerLoggerExtensions
         string eventName,
         int propertiesCount,
         int count);
+
+    [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Information,
+        Message = "DisposeAsync called")]
+    public static partial void LogInfoDisposeAsyncCalled(this ILogger<PostHogClient> logger);
 }
