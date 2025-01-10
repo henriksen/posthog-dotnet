@@ -27,8 +27,12 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
     public Dictionary<string, (FeatureFlag, bool?)> FeatureFlags { get; private set; } = new();
 
+    [BindProperty]
     [Required]
     public string? EventName { get; set; } = "plan_purchased";
+
+    [BindProperty]
+    public GroupModel Group { get; set; } = new();
 
     public PostHogOptions PostHogOptions => options.Value;
 
@@ -46,7 +50,17 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
             // Identify the current user if they're authenticated.
             if (User.Identity?.IsAuthenticated == true)
             {
-                await postHogClient.IdentifyAsync(UserId);
+                var properties = new Dictionary<string, object>();
+                if (User.FindFirst(ClaimTypes.Email) is { } email)
+                {
+                    properties["email"] = email.Value;
+                }
+                if (User.FindFirst(ClaimTypes.Name) is { } name)
+                {
+                    properties["name"] = name.Value;
+                }
+
+                await postHogClient.IdentifyPersonAsync(UserId, properties, HttpContext.RequestAborted);
             }
 
             var flags = await postHogClient.GetFeatureFlagsAsync(UserId, HttpContext.RequestAborted);
@@ -68,7 +82,7 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
             return RedirectToPage();
         }
 
-        // Send a custom purchased plan event
+        // Send a custom event
         postHogClient.Capture(
             UserId,
             eventName: EventName ?? "plan_purchased",
@@ -82,4 +96,41 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
         return RedirectToPage();
     }
+
+    public async Task<IActionResult> OnPostIdentifyGroupAsync()
+    {
+        await OnGetAsync();
+        if (!ApiKeyIsSet || UserId is null)
+        {
+            return RedirectToPage();
+        }
+
+        // Identify a group
+        await postHogClient.IdentifyGroupAsync(
+            Group.Type,
+            Group.Key,
+            Group.Name,
+            properties: new()
+            {
+                ["size"] = "large",
+                ["location"] = "San Francisco"
+            },
+            HttpContext.RequestAborted);
+
+        StatusMessage = "Group Identified!";
+
+        return RedirectToPage();
+    }
+}
+
+public class GroupModel
+{
+    [Required]
+    public string Name { get; set; } = "My Group";
+
+    [Required]
+    public string Key { get; set; } = "12345";
+
+    [Required]
+    public string Type { get; set; } = "project";
 }

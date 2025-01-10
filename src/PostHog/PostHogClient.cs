@@ -60,11 +60,19 @@ public sealed class PostHogClient : IPostHogClient
     }
 
     /// <inheritdoc/>
-    public async Task<ApiResult> IdentifyAsync(
+    public async Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
         Dictionary<string, object> userProperties,
         CancellationToken cancellationToken)
-        => await _apiClient.IdentifyAsync(distinctId, userProperties, cancellationToken);
+        => await _apiClient.IdentifyPersonAsync(distinctId, userProperties, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<ApiResult> IdentifyGroupAsync(
+        string type,
+        StringOrValue<int> key,
+        Dictionary<string, object> properties,
+        CancellationToken cancellationToken)
+    => _apiClient.IdentifyGroupAsync(type, key, properties, cancellationToken);
 
     /// <inheritdoc/>
     public void Capture(

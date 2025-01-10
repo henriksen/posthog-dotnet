@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PostHog.Json;
 using PostHog.Library;
 
 namespace PostHog.Api;
@@ -82,24 +83,11 @@ internal sealed class PostHogApiClient : IDisposable
     }
 
     /// <summary>
-    /// Identify a user with a distinct ID.
-    /// </summary>
-    /// <remarks>
-    /// This is a public endpoint and does not require authentication, but it does require
-    /// a valid API key in the body of the request.
-    /// </remarks>
-    /// <param name="distinctId"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public Task<ApiResult> IdentifyAsync(string distinctId, CancellationToken cancellationToken) =>
-        IdentifyAsync(distinctId, new Dictionary<string, object>(), cancellationToken);
-
-    /// <summary>
     /// Identify a user with additional properties
     /// </summary>
-    public async Task<ApiResult> IdentifyAsync(
+    public async Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
-        Dictionary<string, object> userProperties,
+        Dictionary<string, object> properties,
         CancellationToken cancellationToken)
     {
         var payload = new Dictionary<string, object>
@@ -107,7 +95,32 @@ internal sealed class PostHogApiClient : IDisposable
             ["api_key"] = _projectApiKey,
             ["event"] = "$identify",
             ["distinct_id"] = distinctId,
-            ["$set"] = userProperties
+            ["$set"] = properties
+        };
+
+        return await SendEventAsync(payload, cancellationToken);
+    }
+
+    /// <summary>
+    /// Identify a group with additional properties
+    /// </summary>
+    public async Task<ApiResult> IdentifyGroupAsync(
+        string type,
+        StringOrValue<int> key,
+        Dictionary<string, object>? properties,
+        CancellationToken cancellationToken)
+    {
+        var payload = new Dictionary<string, object>
+        {
+            ["api_key"] = _projectApiKey,
+            ["event"] = "$groupidentify",
+            ["distinct_id"] = $"{type}_{key}",
+            ["properties"] = new Dictionary<string, object>
+            {
+                ["$group_type"] = type,
+                ["$group_key"] = key,
+                ["$group_set"] = properties ?? new()
+            }
         };
 
         return await SendEventAsync(payload, cancellationToken);

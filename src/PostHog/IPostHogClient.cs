@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using PostHog.Api;
+using PostHog.Json;
 
 namespace PostHog;
 
@@ -26,9 +27,25 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="userProperties">Information about the user you want to be able to filter or group by.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    Task<ApiResult> IdentifyAsync(
+    /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
+    Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
         Dictionary<string, object> userProperties,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sets a groups properties, which allows asking questions like "Who are the most active companies"
+    /// using my product in PostHog.
+    /// </summary>
+    /// <param name="type">Type of group (ex: 'company'). Limited to 5 per project</param>
+    /// <param name="key">Unique identifier for that type of group (ex: 'id:5')</param>
+    /// <param name="properties">Additional information about the group.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
+    Task<ApiResult> IdentifyGroupAsync(
+        string type,
+        StringOrValue<int> key,
+        Dictionary<string, object> properties,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -54,5 +71,9 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
         string distinctId,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Flushes the event queue and sends all queued events to PostHog.
+    /// </summary>
+    /// <returns>A <see cref="Task"/>.</returns>
     Task FlushAsync();
 }
