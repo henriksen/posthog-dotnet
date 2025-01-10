@@ -4,8 +4,8 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using PostHog.Json;
 using PostHog.Library;
+using PostHog.Versioning;
 
 namespace PostHog.Api;
 
@@ -40,30 +40,6 @@ internal sealed class PostHogApiClient : IDisposable
     /// <summary>
     /// Capture an event with optional properties
     /// </summary>
-    public async Task<ApiResult> CaptureAsync(
-        string distinctId,
-        string eventName,
-        Dictionary<string, object>? properties,
-        CancellationToken cancellationToken)
-    {
-        properties ??= new Dictionary<string, object>();
-        properties["$lib"] = LibraryName;
-
-        var payload = new Dictionary<string, object>
-        {
-            ["api_key"] = _projectApiKey,
-            ["event"] = eventName,
-            ["distinct_id"] = distinctId,
-            ["timestamp"] = DateTime.UtcNow,
-            ["properties"] = properties
-        };
-
-        return await SendEventAsync(payload, cancellationToken);
-    }
-
-    /// <summary>
-    /// Capture an event with optional properties
-    /// </summary>
     public async Task<ApiResult> CaptureBatchAsync(
         IEnumerable<CapturedEvent> events,
         CancellationToken cancellationToken)
@@ -72,83 +48,26 @@ internal sealed class PostHogApiClient : IDisposable
 
         var payload = new Dictionary<string, object>
         {
-            ["api_key"] = _projectApiKey,
             ["historical_migrations"] = false,
-            ["batch"] = events.ToReadOnlyList(),
-            ["$lib"] = LibraryName
+            ["batch"] = events.ToReadOnlyList()
         };
+
+        PrepareAndMutatePayload(payload);
 
         return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken)
                ?? new ApiResult(0);
     }
 
     /// <summary>
-    /// Identify a user with additional properties
+    /// Method to send an event to the PostHog API's /capture endpoint. This is used for
+    /// capturing events, identify, alias, etc.
     /// </summary>
-    public async Task<ApiResult> IdentifyPersonAsync(
-        string distinctId,
-        Dictionary<string, object> properties,
+    public async Task<ApiResult> SendEventAsync(
+        Dictionary<string, object> payload,
         CancellationToken cancellationToken)
     {
-        var payload = new Dictionary<string, object>
-        {
-            ["api_key"] = _projectApiKey,
-            ["event"] = "$identify",
-            ["distinct_id"] = distinctId,
-            ["$set"] = properties
-        };
+        PrepareAndMutatePayload(payload);
 
-        return await SendEventAsync(payload, cancellationToken);
-    }
-
-    /// <summary>
-    /// Identify a group with additional properties
-    /// </summary>
-    public async Task<ApiResult> IdentifyGroupAsync(
-        string type,
-        StringOrValue<int> key,
-        Dictionary<string, object>? properties,
-        CancellationToken cancellationToken)
-    {
-        var payload = new Dictionary<string, object>
-        {
-            ["api_key"] = _projectApiKey,
-            ["event"] = "$groupidentify",
-            ["distinct_id"] = $"{type}_{key}",
-            ["properties"] = new Dictionary<string, object>
-            {
-                ["$group_type"] = type,
-                ["$group_key"] = key,
-                ["$group_set"] = properties ?? new()
-            }
-        };
-
-        return await SendEventAsync(payload, cancellationToken);
-    }
-
-    /// <summary>
-    /// Unlink future events with the current user. Call this when a user logs out.
-    /// </summary>
-    /// <param name="distinctId">The current user id.</param>
-    /// <param name="cancellationToken"></param>
-    public async Task ResetAsync(string distinctId, CancellationToken cancellationToken)
-    {
-        var payload = new Dictionary<string, object>
-        {
-            ["api_key"] = _projectApiKey,
-            ["event"] = "$reset",
-            ["distinct_id"] = distinctId
-        };
-
-        await SendEventAsync(payload, cancellationToken);
-    }
-
-    /// <summary>
-    /// Internal method to send events to PostHog
-    /// </summary>
-    async Task<ApiResult> SendEventAsync(Dictionary<string, object> payload,
-        CancellationToken cancellationToken)
-    {
         var endpointUrl = new Uri(_hostUrl, "capture");
 
         return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken)
@@ -161,15 +80,27 @@ internal sealed class PostHogApiClient : IDisposable
     {
         var endpointUrl = new Uri(_hostUrl, "decide?v=3");
 
-        var requestBody = new Dictionary<string, string>
+        var payload = new Dictionary<string, object>
         {
-            ["api_key"] = _projectApiKey,
             ["distinct_id"] = distinctUserId,
-            ["$lib"] = "posthog-dotnet"
         };
 
-        return await _httpClient.PostJsonAsync<FeatureFlagsApiResult>(endpointUrl, requestBody, cancellationToken)
+        PrepareAndMutatePayload(payload);
+
+        return await _httpClient.PostJsonAsync<FeatureFlagsApiResult>(endpointUrl, payload, cancellationToken)
                ?? new FeatureFlagsApiResult();
+    }
+
+    void PrepareAndMutatePayload(Dictionary<string, object> payload)
+    {
+        if (payload.GetValueOrDefault("properties") is Dictionary<string, object> properties)
+        {
+            properties["$lib"] = LibraryName;
+            properties["$lib_version"] = VersionConstants.Version;
+        }
+
+        payload["api_key"] = _projectApiKey;
+        payload["timestamp"] = DateTime.UtcNow;
     }
 
     /// <summary>
