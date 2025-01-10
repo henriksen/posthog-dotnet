@@ -17,6 +17,7 @@
         <BaseOutputPath Condition=" '$(BaseOutputPath)' == '' ">$(RepoBinPath)$(MSBuildProjectName)\</BaseOutputPath>
         <PackageOutputPath>$(RepoBuildPath)nuget\$(Configuration)\</PackageOutputPath>
         <TargetFramework Condition=" '$(TargetFramework)' == '' ">$(DefaultTargetFramework)</TargetFramework>
+        <Version>0.0.1</Version>
     </PropertyGroup>
 
     <Target Name="CleanBuildArtifacts" AfterTargets="AfterClean">
