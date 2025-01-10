@@ -32,6 +32,8 @@ internal sealed class PostHogApiClient : IDisposable
         var hostUrlString = hostUrl.ToString();
         _hostUrl = new Uri(hostUrlString.TrimEnd());
         _httpClient = new HttpClient();
+
+        logger.LogTraceApiClientCreated(_hostUrl);
     }
 
     /// <summary>
@@ -136,7 +138,8 @@ internal sealed class PostHogApiClient : IDisposable
     {
         var endpointUrl = new Uri(_hostUrl, "capture");
 
-        return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken) ?? new ApiResult(0);
+        return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken)
+               ?? new ApiResult(0);
     }
 
     public async Task<FeatureFlagsApiResult> RequestFeatureFlagsAsync(
@@ -163,4 +166,13 @@ internal sealed class PostHogApiClient : IDisposable
     {
         _httpClient.Dispose();
     }
+}
+
+internal static partial class PostHogApiClientLoggerExtensions
+{
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Trace,
+        Message = "Api Client Created: {HostUrl}")]
+    public static partial void LogTraceApiClientCreated(this ILogger logger, Uri hostUrl);
 }

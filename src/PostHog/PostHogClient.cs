@@ -37,13 +37,13 @@ public sealed class PostHogClient : IPostHogClient
         var projectApiKey = options.ProjectApiKey
                             ?? throw new InvalidOperationException("Project API key is required.");
 
-        _apiClient = new PostHogApiClient(projectApiKey, options.HostUrl);
+        _apiClient = new PostHogApiClient(projectApiKey, options.HostUrl, logger);
         _timer = new PeriodicTimer(options.FlushInterval);
         _pollingTask = PollAsync(_cancellationTokenSource.Token);
 
         _logger = logger;
 
-        _logger.LogInfoClientCreated(options.MaxBatchSize);
+        _logger.LogInfoClientCreated(options.MaxBatchSize, options.FlushInterval, options.FlushAt);
     }
 
     public PostHogClient(IOptions<PostHogOptions> options, ILogger<PostHogClient> logger)
@@ -218,8 +218,12 @@ internal static partial class SkillRunnerLoggerExtensions
     [LoggerMessage(
         EventId = 6,
         Level = LogLevel.Information,
-        Message = "PostHog Client created with Max Batch Size: {MaxBatchSize}")]
-    public static partial void LogInfoClientCreated(this ILogger<PostHogClient> logger, int maxBatchSize);
+        Message = "PostHog Client created with Max Batch Size: {MaxBatchSize}, Flush Interval: {FlushInterval}, and FlushAt: {FlushAt}")]
+    public static partial void LogInfoClientCreated(
+        this ILogger<PostHogClient> logger,
+        int maxBatchSize,
+        TimeSpan flushInterval,
+        int flushAt);
 
     [LoggerMessage(
         EventId = 1,
