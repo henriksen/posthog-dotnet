@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using PostHog;
+using PostHog.Config;
+using PostHog.Models;
 
 namespace HogTied.Web.Pages;
 

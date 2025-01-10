@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using NSubstitute;
 using PostHog;
+using PostHog.Models;
 
 public class PostHogClientExtensionsTests
 {

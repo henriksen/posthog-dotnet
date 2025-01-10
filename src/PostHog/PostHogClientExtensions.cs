@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using PostHog.Api;
 using PostHog.Json;
+using PostHog.Models;
 
 namespace PostHog;
 

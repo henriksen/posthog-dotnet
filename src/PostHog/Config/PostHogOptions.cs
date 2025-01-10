@@ -1,6 +1,6 @@
 using System;
 
-namespace PostHog;
+namespace PostHog.Config;
 
 /// <summary>
 /// Options for configuring the PostHog client.

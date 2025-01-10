@@ -3,7 +3,7 @@ using HogTied.Web.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using PostHog;
+using PostHog.Config;
 
 var builder = WebApplication.CreateBuilder(args);
 
