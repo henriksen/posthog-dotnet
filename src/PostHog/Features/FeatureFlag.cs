@@ -1,4 +1,4 @@
-namespace PostHog.Models;
+namespace PostHog.Features;
 
 /// <summary>
 /// Represents a feature flag.

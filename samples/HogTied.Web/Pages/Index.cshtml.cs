@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using PostHog;
 using PostHog.Config;
-using PostHog.Models;
+using PostHog.Features;
 
 namespace HogTied.Web.Pages;
 
@@ -52,17 +52,11 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
             // Identify the current user if they're authenticated.
             if (User.Identity?.IsAuthenticated == true)
             {
-                var properties = new Dictionary<string, object>();
-                if (User.FindFirst(ClaimTypes.Email) is { } email)
-                {
-                    properties["email"] = email.Value;
-                }
-                if (User.FindFirst(ClaimTypes.Name) is { } name)
-                {
-                    properties["name"] = name.Value;
-                }
-
-                await postHogClient.IdentifyPersonAsync(UserId, properties, HttpContext.RequestAborted);
+                await postHogClient.IdentifyPersonAsync(
+                    UserId,
+                    email: User.FindFirst(ClaimTypes.Email)?.Value,
+                    name: User.FindFirst(ClaimTypes.Name)?.Value,
+                    HttpContext.RequestAborted);
             }
 
             var flags = await postHogClient.GetFeatureFlagsAsync(UserId, HttpContext.RequestAborted);

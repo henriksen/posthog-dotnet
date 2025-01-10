@@ -10,7 +10,7 @@ public class AsyncBatchHandlerTests
         var options = new AsyncBatchHandlerOptions
         {
             FlushAt = 3,
-            FlushInterval = TimeSpan.MaxValue
+            FlushInterval = TimeSpan.FromHours(3)
         };
         var items = new List<int>();
         Func<IEnumerable<int>, Task> handlerFunc = batch =>
@@ -34,7 +34,7 @@ public class AsyncBatchHandlerTests
         var options = new AsyncBatchHandlerOptions
         {
             FlushAt = 3,
-            FlushInterval = TimeSpan.MaxValue
+            FlushInterval = TimeSpan.FromHours(3)
         };
         var items = new List<int>();
         Func<IEnumerable<int>, Task> handlerFunc = batch =>

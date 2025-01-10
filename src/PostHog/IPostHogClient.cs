@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using PostHog.Api;
+using PostHog.Features;
 using PostHog.Json;
-using PostHog.Models;
 
 namespace PostHog;
 
@@ -26,12 +26,19 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// PostHog is up to date.
     /// </remarks>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="userProperties">Information about the user you want to be able to filter or group by.</param>
+    /// <param name="userPropertiesToSet">
+    /// Key value pairs to store as a property of the user. Any key value pairs in this dictionary that match
+    /// existing property keys will overwrite those properties.
+    /// </param>
+    /// <param name="userPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
+    /// value in this dictionary is ignored.
+    /// </param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
-        Dictionary<string, object> userProperties,
+        Dictionary<string, object> userPropertiesToSet,
+        Dictionary<string, object> userPropertiesToSetOnce,
         CancellationToken cancellationToken);
 
     /// <summary>

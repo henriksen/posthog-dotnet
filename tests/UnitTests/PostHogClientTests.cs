@@ -1,9 +1,9 @@
 ﻿using System.Collections.ObjectModel;
 using NSubstitute;
 using PostHog;
-using PostHog.Models;
+using PostHog.Features;
 
-public class PostHogClientExtensionsTests
+public class FeatureFlagExtensionsTests
 {
     public class TheGetFeatureFlagAsyncMethod
     {

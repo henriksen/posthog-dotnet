@@ -9,7 +9,7 @@ using PostHog.Api;
 using PostHog.Config;
 using PostHog.Json;
 using PostHog.Library;
-using PostHog.Models;
+using PostHog.Features;
 
 namespace PostHog;
 
@@ -62,9 +62,14 @@ public sealed class PostHogClient : IPostHogClient
     /// <inheritdoc/>
     public async Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
-        Dictionary<string, object> userProperties,
+        Dictionary<string, object> userPropertiesToSet,
+        Dictionary<string, object> userPropertiesToSetOnce,
         CancellationToken cancellationToken)
-        => await _apiClient.IdentifyPersonAsync(distinctId, userProperties, cancellationToken);
+        => await _apiClient.IdentifyPersonAsync(
+            distinctId,
+            userPropertiesToSet,
+            userPropertiesToSetOnce,
+            cancellationToken);
 
     /// <inheritdoc/>
     public Task<ApiResult> IdentifyGroupAsync(

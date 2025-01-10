@@ -13,18 +13,26 @@ internal static class PostHogApiClientExtensions
     /// </summary>
     /// <param name="client">The <see cref="PostHogApiClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="userProperties">The user properties to set</param>
+    /// <param name="userPropertiesToSet">
+    /// Key value pairs to store as a property of the user. Any key value pairs in this dictionary that match
+    /// existing property keys will overwrite those properties.
+    /// </param>
+    /// <param name="userPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
+    /// value in this dictionary is ignored.
+    /// </param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     public static async Task<ApiResult> IdentifyPersonAsync(
         this PostHogApiClient client,
         string distinctId,
-        Dictionary<string, object> userProperties,
+        Dictionary<string, object> userPropertiesToSet,
+        Dictionary<string, object> userPropertiesToSetOnce,
         CancellationToken cancellationToken)
     {
         var properties = new Dictionary<string, object>
         {
-            ["$set"] = userProperties
+            ["$set"] = userPropertiesToSet,
+            ["$set_once"] = userPropertiesToSetOnce
         };
 
         return await client.SendEventAsync(distinctId,
