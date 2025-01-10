@@ -53,7 +53,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// Captures an event.
     /// </summary>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="eventName">The name of the event.</param>
+    /// <param name="eventName">Human friendly name of the event. Recommended format [object] [verb] such as "Project created" or "User signed up".</param>
     /// <param name="properties">The properties to send along with the event.</param>
     void Capture(
         string distinctId,
