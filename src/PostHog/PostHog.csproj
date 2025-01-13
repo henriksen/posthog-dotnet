@@ -2,23 +2,15 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;netstandard2.1</TargetFrameworks>
-        <Nullable>enable</Nullable>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId>PostHog</PackageId>
-        <Version>0.0.1</Version>
-        <Authors>Phil Haack</Authors>
-        <Company>PostHog, Inc.</Company>
         <Description>A library for interacting with the PostHog Analytics Platform.</Description>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="System.Text.Json" Version="9.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
     </ItemGroup>
 
     <Target Name="GenerateVersionConstants" BeforeTargets="BeforeBuild">

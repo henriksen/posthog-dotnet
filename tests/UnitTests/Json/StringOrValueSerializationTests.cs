@@ -1,8 +1,6 @@
 using System.Text.Json;
 using PostHog.Json;
 
-namespace UnitTests.Json;
-
 public class StringOrValueSerializationTests
 {
     public class TestSubject

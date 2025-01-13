@@ -2,21 +2,35 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using PostHog.Config;
 
-namespace PostHog.Config;
+namespace PostHog;
 
 public static class Registration
 {
+    const string DefaultConfigurationSectionName = "PostHog";
+
+    /// <summary>
+    /// Registers <see cref="PostHogClient"/> as a singleton. Looks for client configuration in the "PostHog"
+    /// section of the configuration. See <see cref="PostHogOptions"/> for the configuration options.
+    /// </summary>
+    /// <param name="builder">The <see cref="IHostApplicationBuilder"/>.</param>
+    /// <returns>The passed in <see cref="IHostApplicationBuilder"/>.</returns>
+    public static IHostApplicationBuilder AddPostHog(this IHostApplicationBuilder builder)
+        => builder.AddPostHog(DefaultConfigurationSectionName);
+
     /// <summary>
     /// Registers <see cref="PostHogClient"/> as a singleton. Looks for client configuration in the "PostHog"
     /// section of the configuration.
     /// </summary>
     /// <param name="builder">The <see cref="IHostApplicationBuilder"/>.</param>
+    /// <param name="configurationSectionName">The configuration section name to grab PostHog options from.</param>
     /// <returns>The passed in <see cref="IHostApplicationBuilder"/>.</returns>
-    /// <exception cref="ArgumentNullException">If <see cref="builder"/> is null.</exception>
-    public static IHostApplicationBuilder AddPostHog(this IHostApplicationBuilder builder)
+    public static IHostApplicationBuilder AddPostHog(this IHostApplicationBuilder builder, string configurationSectionName)
         => builder.AddPostHog(
-            (builder ?? throw new ArgumentNullException(nameof(builder)) ).Configuration.GetSection("PostHog"));
+            (builder ?? throw new ArgumentNullException(nameof(builder)) ).Configuration.GetSection(configurationSectionName));
 
     /// <summary>
     /// Registers <see cref="PostHogClient"/> as a singleton. Looks for client configuration in the supplied

@@ -1,6 +1,7 @@
 <Project>
     <PropertyGroup>
         <LangVersion>13.0</LangVersion>
+        <Nullable>enable</Nullable>
         <Company>PostHogSourceGenerators</Company>
         <Copyright>Copyright © 2025</Copyright>
         <AnalysisMode>AllEnabledByDefault</AnalysisMode>
@@ -17,7 +18,10 @@
         <BaseOutputPath Condition=" '$(BaseOutputPath)' == '' ">$(RepoBinPath)$(MSBuildProjectName)\</BaseOutputPath>
         <PackageOutputPath>$(RepoBuildPath)nuget\$(Configuration)\</PackageOutputPath>
         <TargetFramework Condition=" '$(TargetFramework)' == '' ">$(DefaultTargetFramework)</TargetFramework>
+        <Authors>Phil Haack</Authors>
+        <Company>PostHog, Inc.</Company>
         <Version>0.0.1</Version>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
 
     <Target Name="CleanBuildArtifacts" AfterTargets="AfterClean">

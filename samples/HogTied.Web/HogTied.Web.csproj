@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\PostHog\PostHog.csproj" />
+    <ProjectReference Include="..\..\src\PostHog.AspNetCore\PostHog.AspNetCore.csproj" />
   </ItemGroup>
 
 </Project>

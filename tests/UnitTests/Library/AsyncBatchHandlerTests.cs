@@ -7,18 +7,18 @@ public class AsyncBatchHandlerTests
     [Fact]
     public async Task CallsBatchHandlerWhenThresholdMet()
     {
-        var options = new AsyncBatchHandlerOptions
+        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
         {
             FlushAt = 3,
             FlushInterval = TimeSpan.FromHours(3)
-        };
+        });
         var items = new List<int>();
         Func<IEnumerable<int>, Task> handlerFunc = batch =>
         {
             items.AddRange(batch);
             return Task.CompletedTask;
         };
-        await using var batchHandler = new AsyncBatchHandler<int>(handlerFunc, options);
+        await using var batchHandler = new AsyncBatchHandler<int>(handlerFunc, new FakeTimeProvider(), options);
 
         batchHandler.Enqueue(1);
         Assert.Empty(items);
@@ -31,11 +31,11 @@ public class AsyncBatchHandlerTests
     [Fact]
     public async Task FlushesBatchWhenDisposed()
     {
-        var options = new AsyncBatchHandlerOptions
+        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
         {
             FlushAt = 3,
             FlushInterval = TimeSpan.FromHours(3)
-        };
+        });
         var items = new List<int>();
         Func<IEnumerable<int>, Task> handlerFunc = batch =>
         {
@@ -43,7 +43,7 @@ public class AsyncBatchHandlerTests
             return Task.CompletedTask;
         };
 
-        await using (var batchHandler = new AsyncBatchHandler<int>(handlerFunc, options))
+        await using (var batchHandler = new AsyncBatchHandler<int>(handlerFunc, new FakeTimeProvider(), options))
         {
             batchHandler.Enqueue(1);
             Assert.Empty(items);
@@ -58,11 +58,11 @@ public class AsyncBatchHandlerTests
     public async Task FlushesBatchOnTimer()
     {
         var timeProvider = new FakeTimeProvider();
-        var options = new AsyncBatchHandlerOptions
+        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
         {
             FlushAt = 10,
             FlushInterval = TimeSpan.FromSeconds(2)
-        };
+        });
         var items = new List<int>();
         Func<IEnumerable<int>, Task> handlerFunc = batch =>
         {

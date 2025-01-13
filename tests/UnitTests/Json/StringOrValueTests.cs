@@ -1,7 +1,5 @@
 using PostHog.Json;
 
-namespace UnitTests.Json;
-
 public class StringOrValueTests
 {
     public class AssignmentTests

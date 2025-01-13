@@ -1,9 +1,10 @@
+using System.Security.Claims;
 using HogTied.Web;
 using HogTied.Web.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using PostHog.Config;
+using PostHog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +18,6 @@ builder.AddPostHog()
     {
         options.Events = new CookieAuthenticationEvents
         {
-            /*
             OnValidatePrincipal = async context =>
             {
                 var userPrincipal = context.Principal;
@@ -27,22 +27,30 @@ builder.AddPostHog()
                 var userId = userPrincipal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
                 var postHogClient = context.HttpContext.RequestServices.GetRequiredService<IPostHogClient>();
+                var db = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
                 if (userId is not null)
                 {
-                    await postHogClient.IdentifyAsync(userId, context.HttpContext.RequestAborted);
+                    var user = await db.Users.FindAsync(userId);
+                    if (user is not null)
+                    {
+                        // This stores information about the user in PostHog.
+                        await postHogClient.IdentifyPersonAsync(
+                            userId,
+                            user.Email,
+                            user.UserName,
+                            additionalUserPropertiesToSet: new()
+                            {
+                                ["phone"] = user.PhoneNumber ?? "unknown",
+                                ["email_confirmed"] = user.EmailConfirmed,
+                            },
+                            userPropertiesToSetOnce: new()
+                            {
+                                ["joined"] = DateTime.UtcNow // If this property is already set, it won't be overwritten.
+                            },
+                            context.HttpContext.RequestAborted);
+                    }
                 }
-            },
-            OnSigningOut = async context =>
-            {
-                // This is called when the user signs out
-                var userPrincipal = context.HttpContext.User;
-                var userId = userPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var postHogClient = context.HttpContext.RequestServices.GetRequiredService<PostHogClient>();
-                if (userId is not null)
-                {
-                    await postHogClient.ResetAsync(userId, context.HttpContext.RequestAborted);
-                }
-            }*/
+            }
         };
     })
     .AddDefaultIdentity<IdentityUser>(

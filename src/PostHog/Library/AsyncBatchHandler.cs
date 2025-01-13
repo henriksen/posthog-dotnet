@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using PostHog.Config;
 
 namespace PostHog.Library;
@@ -16,7 +17,7 @@ namespace PostHog.Library;
 public sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 {
     readonly ConcurrentQueue<TItem> _concurrentQueue = new();
-    readonly AsyncBatchHandlerOptions _options;
+    readonly IOptions<AsyncBatchHandlerOptions> _options;
     readonly Func<IEnumerable<TItem>, Task> _batchHandlerFunc;
     readonly ILogger _logger;
     readonly PeriodicTimer _timer;
@@ -26,29 +27,28 @@ public sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
-        AsyncBatchHandlerOptions options,
+        IOptions<AsyncBatchHandlerOptions> options,
         TimeProvider timeProvider,
         ILogger logger)
     {
-        options = options ?? throw new ArgumentNullException(nameof(options));
-        _options = options;
+        _options = options ?? throw new ArgumentNullException(nameof(options));
         _batchHandlerFunc = batchHandlerFunc;
         _logger = logger;
-        _timer = new PeriodicTimer(options.FlushInterval, timeProvider);
+        _timer = new PeriodicTimer(options.Value.FlushInterval, timeProvider);
         _pollingTask = PollAsync(_cancellationTokenSource.Token);
     }
 
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
         TimeProvider timeProvider,
-        AsyncBatchHandlerOptions options)
+        IOptions<AsyncBatchHandlerOptions> options)
         : this(batchHandlerFunc, options, timeProvider, NullLogger.Instance)
     {
     }
 
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
-        AsyncBatchHandlerOptions options)
+        IOptions<AsyncBatchHandlerOptions> options)
         : this(batchHandlerFunc, options, TimeProvider.System, NullLogger.Instance)
     {
     }
@@ -57,11 +57,11 @@ public sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
     {
         _concurrentQueue.Enqueue(item);
 
-        if (_concurrentQueue.Count >= _options.FlushAt)
+        if (_concurrentQueue.Count >= _options.Value.FlushAt)
         {
             Task.Run(async () =>
             {
-                _logger.LogTraceFlushCalledOnCaptureFlushAt(_options.FlushAt, _concurrentQueue.Count);
+                _logger.LogTraceFlushCalledOnCaptureFlushAt(_options.Value.FlushAt, _concurrentQueue.Count);
                 await FlushImplementationAsync();
             });
         }
@@ -75,7 +75,7 @@ public sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         {
             while (await _timer.WaitForNextTickAsync(cancellationToken))
             {
-                _logger.LogTraceFlushCalledOnFlushInterval(_options.FlushInterval, _concurrentQueue.Count);
+                _logger.LogTraceFlushCalledOnFlushInterval(_options.Value.FlushInterval, _concurrentQueue.Count);
                 await FlushImplementationAsync();
             }
         }
@@ -90,7 +90,7 @@ public sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         await _flushSemaphore.WaitAsync();
         try
         {
-            while (_concurrentQueue.TryDequeueBatch(_options.MaxBatchSize, out var batch))
+            while (_concurrentQueue.TryDequeueBatch(_options.Value.MaxBatchSize, out var batch))
             {
                 _logger.LogDebugSendingBatch(batch.Count);
                 await _batchHandlerFunc(batch);

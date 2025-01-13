@@ -27,13 +27,13 @@ public sealed class PostHogClient : IPostHogClient
     /// <param name="options">The options used to configure the client.</param>
     /// <param name="logger">The logger.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
-    public PostHogClient(PostHogOptions options, ILogger<PostHogClient> logger)
+    public PostHogClient(IOptions<PostHogOptions> options, ILogger<PostHogClient> logger)
     {
         options = options ?? throw new ArgumentNullException(nameof(options));
-        var projectApiKey = options.ProjectApiKey
+        var projectApiKey = options.Value.ProjectApiKey
                             ?? throw new InvalidOperationException("Project API key is required.");
 
-        _apiClient = new PostHogApiClient(projectApiKey, options.HostUrl, logger);
+        _apiClient = new PostHogApiClient(projectApiKey, options.Value.HostUrl, logger);
 
         _asyncBatchHandler = new(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
@@ -43,20 +43,7 @@ public sealed class PostHogClient : IPostHogClient
 
         _logger = logger;
 
-        _logger.LogInfoClientCreated(options.MaxBatchSize, options.FlushInterval, options.FlushAt);
-    }
-
-    public PostHogClient(IOptions<PostHogOptions> options, ILogger<PostHogClient> logger)
-        : this((options ?? throw new ArgumentNullException(nameof(options))).Value, logger)
-    {
-    }
-
-    public PostHogClient(PostHogOptions options) : this(options, NullLogger<PostHogClient>.Instance)
-    {
-    }
-
-    public PostHogClient(string projectApiKey) : this(new PostHogOptions { ProjectApiKey = projectApiKey })
-    {
+        _logger.LogInfoClientCreated(options.Value.MaxBatchSize, options.Value.FlushInterval, options.Value.FlushAt);
     }
 
     /// <inheritdoc/>
