@@ -14,7 +14,7 @@ namespace PostHog.Api;
 /// </summary>
 internal sealed class PostHogApiClient : IDisposable
 {
-    public const string LibraryName = "posthog-dotnet";
+    const string LibraryName = "posthog-dotnet";
 
     readonly string _projectApiKey;
     readonly Uri _hostUrl;

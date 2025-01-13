@@ -79,7 +79,7 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
         }
 
         // Send a custom event
-        postHogClient.Capture(
+        postHogClient.CaptureEvent(
             UserId,
             eventName: EventName ?? "plan_purchased",
             properties: new()

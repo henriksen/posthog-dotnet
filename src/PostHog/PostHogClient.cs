@@ -7,9 +7,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PostHog.Api;
 using PostHog.Config;
+using PostHog.Features;
 using PostHog.Json;
 using PostHog.Library;
-using PostHog.Features;
 
 namespace PostHog;
 
@@ -80,16 +80,24 @@ public sealed class PostHogClient : IPostHogClient
     => _apiClient.IdentifyGroupAsync(type, key, properties, cancellationToken);
 
     /// <inheritdoc/>
-    public void Capture(
+    public void CaptureEvent(
         string distinctId,
         string eventName,
-        Dictionary<string, object>? properties)
+        Dictionary<string, object> properties,
+        Dictionary<string, object> groups)
     {
-        properties ??= [];
-        properties["$lib"] = PostHogApiClient.LibraryName;
+        properties = properties ?? throw new ArgumentNullException(nameof(properties));
+        groups = groups ?? throw new ArgumentNullException(nameof(groups));
 
-        var capturedEvent = new CapturedEvent(eventName, distinctId)
-            .WithProperties(properties);
+        if (groups.Count > 0)
+        {
+            properties["$groups"] = groups;
+        }
+
+        var capturedEvent = new CapturedEvent(
+            eventName,
+            distinctId,
+            properties);
 
         _asyncBatchHandler.Enqueue(capturedEvent);
 

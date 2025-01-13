@@ -8,7 +8,7 @@ namespace PostHog.Api;
 /// A captured event that will be sent as part of a batch.
 /// </summary>
 /// <param name="eventName">The name of the event</param>
-public class CapturedEvent(string eventName, string distinctId)
+public class CapturedEvent(string eventName, string distinctId, Dictionary<string, object> properties)
 {
     [JsonPropertyName("event")]
     public string EventName => eventName;
@@ -16,18 +16,13 @@ public class CapturedEvent(string eventName, string distinctId)
     [JsonPropertyName("distinct_id")]
     public string DistinctId => distinctId;
 
-    public Dictionary<string, object> Properties { get; } = new();
+    /// <summary>
+    /// The properties to send with the event.
+    /// </summary>
+    public Dictionary<string, object> Properties => properties;
 
+    /// <summary>
+    /// The timestamp of the event.
+    /// </summary>
     public DateTime Timestamp { get; } = DateTime.UtcNow;
-
-    public CapturedEvent WithProperties(Dictionary<string, object> properties)
-    {
-        properties ??= new Dictionary<string, object>();
-        foreach (var (key, value) in properties)
-        {
-            Properties[key] = value;
-        }
-
-        return this;
-    }
 }
