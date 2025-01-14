@@ -13,9 +13,11 @@ public class AsyncBatchHandlerTests
             FlushInterval = TimeSpan.FromHours(3)
         });
         var items = new List<int>();
+        var handlerCompleteTask = new TaskCompletionSource();
         Func<IEnumerable<int>, Task> handlerFunc = batch =>
         {
             items.AddRange(batch);
+            handlerCompleteTask.SetResult();
             return Task.CompletedTask;
         };
         await using var batchHandler = new AsyncBatchHandler<int>(handlerFunc, new FakeTimeProvider(), options);
@@ -25,6 +27,7 @@ public class AsyncBatchHandlerTests
         batchHandler.Enqueue(2);
         Assert.Empty(items);
         batchHandler.Enqueue(3);
+        await handlerCompleteTask.Task;
         Assert.Equal([1, 2, 3], items);
     }
 
