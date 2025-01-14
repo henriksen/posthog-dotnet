@@ -1,0 +1,78 @@
+name: Build PostHog .NET SDK
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3.0.3
+        with:
+          dotnet-version: 9.0.101
+
+      - name: Restore NuGet Packages
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore --nologo
+
+      - name: Run Tests
+        run: dotnet test --logger "trx;LogFileName=test-results.trx" --configuration Release --no-build --nologo
+
+      - name: Collect Test Results
+        if: ${{ github.actor != 'dependabot[bot]' }}
+        uses: dorny/test-reporter@v1
+        with:
+          name: "xUnit Tests"
+          path: "tests/*/TestResults/test-results.trx"
+          reporter: 'dotnet-trx'
+
+      - name: Upload Test Snapshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-test-results
+          path: |
+            **/*.received.*
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3.0.3
+      with:
+        dotnet-version: 9.0.101
+
+    - name: Restore NuGet Packages
+      run: dotnet restore
+
+    - name: Set up dotnet-format problem matcher
+      run: echo "::add-matcher::$GITHUB_WORKSPACE/.github/problemMatchers/dotnet-format.json"
+
+    - name: Setup Node.js 16
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16.x'
+
+    - name: Set up eslint-compact problem matcher
+      run: echo "::add-matcher::$GITHUB_WORKSPACE/.github/problemMatchers/eslint-compact.json"
+
+    - name: Format!
+      run: script/fmt --check

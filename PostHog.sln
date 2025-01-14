@@ -41,6 +41,19 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "helpers", "helpers", "{2244
 		script\helpers\_utils.sh = script\helpers\_utils.sh
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{C2E8B694-977A-41A0-9DED-27C286460F0A}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\build.yaml = .github\workflows\build.yaml
+		.github\workflows\artifact_cleanup.yml = .github\workflows\artifact_cleanup.yml
+		.github\workflows\stale-labeller.yaml = .github\workflows\stale-labeller.yaml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "problemMatchers", "problemMatchers", "{DE86ACE8-2A13-4B5C-A715-1BA6412DA314}"
+	ProjectSection(SolutionItems) = preProject
+		.github\problemMatchers\dotnet-format.json = .github\problemMatchers\dotnet-format.json
+		.github\problemMatchers\eslint-compact.json = .github\problemMatchers\eslint-compact.json
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,5 +86,7 @@ Global
 		{3A423DA1-DEDD-4D0D-BADB-B5763D0A8A72} = {5F21F6BA-8ED0-4A96-BDF2-65ABAE0A7A90}
 		{26047E86-8DB0-4CE4-A282-DE8183B7AD69} = {AC5FC694-028B-4AB0-AF76-09726F966A78}
 		{224403B1-98F1-4DC0-B1C0-00AF60B9EA05} = {5D5BA318-B12E-4EB3-9F9C-90D1337C57E0}
+		{C2E8B694-977A-41A0-9DED-27C286460F0A} = {D5D2C580-B926-4FFA-B34B-3D78C37C3F8B}
+		{DE86ACE8-2A13-4B5C-A715-1BA6412DA314} = {D5D2C580-B926-4FFA-B34B-3D78C37C3F8B}
 	EndGlobalSection
 EndGlobal
