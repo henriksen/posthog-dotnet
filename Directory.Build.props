@@ -22,7 +22,10 @@
         <PackageOutputPath>$(RepoBuildPath)packages\$(Configuration)\</PackageOutputPath>
         <Company>PostHog, Inc.</Company>
         <Copyright>Copyright © 2025</Copyright>
-        <Authors>Phil Haack</Authors>
+        <Authors>PostHog</Authors>
+        <PackageTags>analytics;posthog;feature-flags</PackageTags>
+        <RepositoryUrl>https://github.com/PostHog/posthog-dotnet</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>package-icon.png</PackageIcon>
