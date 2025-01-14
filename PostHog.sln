@@ -14,6 +14,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "meta", "meta", "{3CC1F9AB-C77E-41B6-B9D3-FCAA4BF0D9E3}"
 	ProjectSection(SolutionItems) = preProject
 		README.md = README.md
+		.github\CODEOWNERS = .github\CODEOWNERS
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{D5D2C580-B926-4FFA-B34B-3D78C37C3F8B}"
