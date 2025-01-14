@@ -1,0 +1,115 @@
+name: Build PostHog .NET SDK
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: true
+  PackageDirectory: ${{ github.workspace }}/build/packages/Release
+  DOTNET_VERSION: 9.0.101
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3.0.3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore NuGet Packages
+        run: dotnet restore
+        shell: bash
+
+      # This not only builds the solution, but also creates the NuGet packages
+      - name: Build
+        run: dotnet build --configuration Release --no-restore --nologo
+        shell: bash
+
+      # Upload the packages so the publish job can download them
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          if-no-files-found: error
+          retention-days: 7
+          path: ${{ env.PackageDirectory }}/*.nupkg
+
+      - name: Run Tests
+        run: dotnet test --logger "trx;LogFileName=test-results.trx" --configuration Release --no-build --nologo
+        shell: bash
+
+      - name: Collect Test Results
+        if: ${{ github.actor != 'dependabot[bot]' }}
+        uses: dorny/test-reporter@v1
+        with:
+          name: "xUnit Tests"
+          path: "tests/*/TestResults/test-results.trx"
+          reporter: 'dotnet-trx'
+
+      - name: Upload Test Snapshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-test-results
+          retention-days: 7
+          path: |
+            **/*.received.*
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore NuGet Packages
+        run: dotnet restore
+        shell: bash
+
+      - name: Set up dotnet-format problem matcher
+        run: echo "::add-matcher::$GITHUB_WORKSPACE/.github/problemMatchers/dotnet-format.json"
+        shell: bash
+
+      - name: Format!
+        run: script/fmt --check
+        shell: bash
+
+  publish:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: [ build ]
+    steps:
+      # Download the NuGet packages created in the build job
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget
+          path: ${{ env.PackageDirectory }}
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # Publish all NuGet packages to NuGet.org
+      # Use --skip-duplicate to prevent errors if a package with the same version already exists.
+      # If you retry a failed workflow, already published packages will be skipped without error.
+      - name: Publish NuGet package
+        run: script/publish ${{ env.PackageDirectory }} ${{ secrets.NUGET_API_KEY }}
+        shell: bash

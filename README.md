@@ -38,3 +38,28 @@ To run the tests, run the following command in the root of the repository:
 ```bash
 $ dotnet test
 ```
+
+## PUBLISHING RELEASES
+
+When it's time to cut a release, increment the version element at the top of [`Directory.Build.props`](Directory.Build.props) according to the [Semantic Versioning](http://semver.org/) guidelines.
+
+```xml
+<Project>
+    <PropertyGroup>
+        <Version>0.0.1</Version>
+        ...
+    </PropertyGroup>
+</Project>
+```
+
+Submit a pull request with the version change. Once the PR is merged, create a new tag for the release with the updated version number.
+
+```bash
+git tag v0.5.5
+git push --tags
+```
+
+Now you can go to GitHub to [Draft a new Release](https://github.com/Posthog/posthog-dotnet/releases/new) and click the button to "Auto-generate release notes". Edit the notes accordingly create the Release.
+
+
+When you create the Release, the [`release.yml`](../.github/.workflow.release.yml) workflow builds and publishes the package to NPM.

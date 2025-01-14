@@ -34,6 +34,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "script", "script", "{5D5BA3
 		script\fmt = script\fmt
 		script\user-secrets = script\user-secrets
 		script\server = script\server
+		script\publish = script\publish
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "helpers", "helpers", "{224403B1-98F1-4DC0-B1C0-00AF60B9EA05}"
@@ -43,15 +44,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "helpers", "helpers", "{2244
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{C2E8B694-977A-41A0-9DED-27C286460F0A}"
 	ProjectSection(SolutionItems) = preProject
-		.github\workflows\build.yaml = .github\workflows\build.yaml
-		.github\workflows\artifact_cleanup.yml = .github\workflows\artifact_cleanup.yml
 		.github\workflows\stale-labeller.yaml = .github\workflows\stale-labeller.yaml
+		.github\workflows\main.yaml = .github\workflows\main.yaml
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "problemMatchers", "problemMatchers", "{DE86ACE8-2A13-4B5C-A715-1BA6412DA314}"
 	ProjectSection(SolutionItems) = preProject
 		.github\problemMatchers\dotnet-format.json = .github\problemMatchers\dotnet-format.json
-		.github\problemMatchers\eslint-compact.json = .github\problemMatchers\eslint-compact.json
 	EndProjectSection
 EndProject
 Global

@@ -1,12 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net9.0;netstandard2.1</TargetFrameworks>
-        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId>PostHog</PackageId>
         <Description>A library for interacting with the PostHog Analytics Platform.</Description>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <ItemGroup>
@@ -16,6 +13,7 @@
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="\"/>
+        <None Include="../package-icon.png" Link="package-icon.png" Pack="true" PackagePath="\package-icon.png" />
     </ItemGroup>
 
     <Target Name="GenerateVersionConstants" BeforeTargets="BeforeBuild">
