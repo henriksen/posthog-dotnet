@@ -16,7 +16,7 @@ These packages are currently in a pre-release stage. While we always strive to m
 
 ## Platform
 
-These packages currently target `net9.0`. Our goal is to port the PortHog package to `netstandard2.1` at some point once we have sample that requires it (for example, a Unity sample).
+These packages currently target `net9.0`. Our goal is to port the [PortHog](./src/PostHog/README.md) package to `netstandard2.1` at some point once we have a sample that requires it (for example, a Unity sample).
 
 ## Building
 

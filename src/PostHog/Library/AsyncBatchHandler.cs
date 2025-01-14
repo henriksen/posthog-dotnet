@@ -1,29 +1,22 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PostHog.Config;
 
 namespace PostHog.Library;
-
-/// <summary>
-/// Processes enqueued items in batches on a timer or when the queue count reaches a certain threshold.
-/// </summary>
-/// <typeparam name="TItem">The type of item being batched up.</typeparam>
 internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 {
-    readonly ConcurrentQueue<TItem> _concurrentQueue = new();
+    readonly Channel<TItem> _channel;
     readonly IOptions<AsyncBatchHandlerOptions> _options;
     readonly Func<IEnumerable<TItem>, Task> _batchHandlerFunc;
     readonly ILogger _logger;
     readonly PeriodicTimer _timer;
     readonly CancellationTokenSource _cancellationTokenSource = new();
-    readonly Task _pollingTask;
-    readonly SemaphoreSlim _flushSemaphore = new(initialCount: 1, maxCount: 1);
+    readonly SemaphoreSlim _flushSignal = new(0); // Used to signal when a flush is needed
+    volatile int _disposing;
+    volatile int _flushing;
 
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
@@ -34,8 +27,12 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _batchHandlerFunc = batchHandlerFunc;
         _logger = logger;
+        _channel = Channel.CreateBounded<TItem>(new BoundedChannelOptions(_options.Value.MaxQueueSize)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest
+        });
         _timer = new PeriodicTimer(options.Value.FlushInterval, timeProvider);
-        _pollingTask = PollAsync(_cancellationTokenSource.Token);
+        _ = ProcessQueueAsync(_cancellationTokenSource.Token);
     }
 
     public AsyncBatchHandler(
@@ -48,28 +45,32 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 
     public void Enqueue(TItem item)
     {
-        _concurrentQueue.Enqueue(item);
-
-        if (_concurrentQueue.Count >= _options.Value.FlushAt)
+        if (!_channel.Writer.TryWrite(item))
         {
-            Task.Run(async () =>
-            {
-                _logger.LogTraceFlushCalledOnCaptureFlushAt(_options.Value.FlushAt, _concurrentQueue.Count);
-                await FlushImplementationAsync();
-            });
+            _logger.LogWarningDroppingItem(_options.Value.MaxQueueSize);
+        }
+
+        if (_channel.Reader.Count >= _options.Value.FlushAt)
+        {
+            // Signal that a flush is needed.
+            _flushSignal.Release();
         }
     }
 
-    public int Count => _concurrentQueue.Count;
-
-    async Task PollAsync(CancellationToken cancellationToken)
+    private async Task ProcessQueueAsync(CancellationToken cancellationToken)
     {
         try
         {
-            while (await _timer.WaitForNextTickAsync(cancellationToken))
+            while (!cancellationToken.IsCancellationRequested)
             {
-                _logger.LogTraceFlushCalledOnFlushInterval(_options.Value.FlushInterval, _concurrentQueue.Count);
-                await FlushImplementationAsync();
+                var flushTask = _flushSignal.WaitAsync(cancellationToken);
+                var timerTask = _timer.WaitForNextTickAsync(cancellationToken).AsTask();
+
+                var completedTask = await Task.WhenAny(flushTask, timerTask);
+                if (completedTask == flushTask || completedTask == timerTask)
+                {
+                    await FlushBatchAsync();
+                }
             }
         }
         catch (OperationCanceledException)
@@ -77,29 +78,32 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         }
     }
 
-    async Task FlushImplementationAsync()
+    async Task FlushBatchAsync()
     {
-        // We want to make sure only one flush is happening at a time.
-        await _flushSemaphore.WaitAsync();
-        try
+        // If we're flushing, don't start another flush.
+        if (Interlocked.CompareExchange(ref _flushing, 1, 0) == 1)
         {
-            while (_concurrentQueue.TryDequeueBatch(_options.Value.MaxBatchSize, out var batch))
+            return;
+        }
+
+        var batch = new List<TItem>();
+
+        while (_channel.Reader.TryRead(out var item))
+        {
+            batch.Add(item);
+            if (batch.Count >= _options.Value.MaxBatchSize)
             {
-                _logger.LogDebugSendingBatch(batch.Count);
-                await _batchHandlerFunc(batch);
-                //await _apiClient.CaptureBatchAsync(batch, CancellationToken.None);
+                break;
             }
         }
-        finally
-        {
-            _flushSemaphore.Release();
-        }
-    }
 
-    public async Task FlushAsync()
-    {
-        _logger.LogInfoFlushCalledDirectly(_concurrentQueue.Count);
-        await FlushImplementationAsync();
+        if (batch.Count > 0)
+        {
+            _logger.LogDebugSendingBatch(batch.Count);
+            await _batchHandlerFunc(batch);
+        }
+
+        Interlocked.Exchange(ref _flushing, 0);
     }
 
     public void Dispose()
@@ -109,19 +113,26 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposing, 1) == 1)
+        {
+            _logger.LogWarningDisposeCalledTwice();
+            return;
+        }
+
         _logger.LogInfoDisposeAsyncCalled();
-
-        // Stop the polling and wait for it.
         await _cancellationTokenSource.CancelAsync();
-        await _pollingTask;
-        _cancellationTokenSource.Dispose();
         _timer.Dispose();
+        await FlushBatchAsync();
+        _cancellationTokenSource.Dispose();
+        _flushSignal.Dispose();
+        _channel.Writer.Complete();
+    }
 
-        // Flush whatever we got.
-        _logger.LogTraceFlushCalledInDispose(_concurrentQueue.Count);
-        await FlushAsync();
+    public int Count => _channel.Reader.Count;
 
-        _flushSemaphore.Dispose();
+    public async Task FlushAsync()
+    {
+        await FlushBatchAsync();
     }
 }
 
@@ -168,4 +179,16 @@ internal static partial class AsyncFlushingQueueLoggerExtensions
         Level = LogLevel.Information,
         Message = "DisposeAsync called")]
     public static partial void LogInfoDisposeAsyncCalled(this ILogger logger);
+
+    [LoggerMessage(
+        EventId = 7,
+        Level = LogLevel.Warning,
+        Message = "Dropping oldest item because queue size exceeded: {MaxQueueSize}")]
+    public static partial void LogWarningDroppingItem(this ILogger logger, int maxQueueSize);
+
+    [LoggerMessage(
+        EventId = 8,
+        Level = LogLevel.Warning,
+        Message = "Dispose called a second time. Ignoring")]
+    public static partial void LogWarningDisposeCalledTwice(this ILogger logger);
 }
