@@ -30,7 +30,7 @@ public static class Registration
     /// <returns>The passed in <see cref="IHostApplicationBuilder"/>.</returns>
     public static IHostApplicationBuilder AddPostHog(this IHostApplicationBuilder builder, string configurationSectionName)
         => builder.AddPostHog(
-            (builder ?? throw new ArgumentNullException(nameof(builder)) ).Configuration.GetSection(configurationSectionName));
+            (builder ?? throw new ArgumentNullException(nameof(builder))).Configuration.GetSection(configurationSectionName));
 
     /// <summary>
     /// Registers <see cref="PostHogClient"/> as a singleton. Looks for client configuration in the supplied
