@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#/ Usage: script/server [<configuration>]
+#/ Description: Launches the HogTied.Web web application
+source script/helpers/_utils.sh
+set_source_and_root_dir
+
+project_dir="$root_dir/samples/HogTied.Web/HogTied.Web.csproj"
+
+if [ -z $configuration ]; then
+  configuration=Debug
+fi
+
+if [ "$USE_DOTNET_WATCH" = "1" ]; then
+    dotnet watch --project "$project_dir" run --configuration $configuration
+else
+    dotnet run --project "$project_dir" --configuration $configuration
+fi

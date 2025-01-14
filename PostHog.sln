@@ -27,6 +27,20 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HogTied.Web", "samples\HogT
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostHog.AspNetCore", "src\PostHog.AspNetCore\PostHog.AspNetCore.csproj", "{26047E86-8DB0-4CE4-A282-DE8183B7AD69}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "script", "script", "{5D5BA318-B12E-4EB3-9F9C-90D1337C57E0}"
+	ProjectSection(SolutionItems) = preProject
+		script\build = script\build
+		script\ef = script\ef
+		script\fmt = script\fmt
+		script\user-secrets = script\user-secrets
+		script\server = script\server
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "helpers", "helpers", "{224403B1-98F1-4DC0-B1C0-00AF60B9EA05}"
+	ProjectSection(SolutionItems) = preProject
+		script\helpers\_utils.sh = script\helpers\_utils.sh
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -58,5 +72,6 @@ Global
 		{8C2AF890-4917-493A-BE14-71405397602A} = {AC5FC694-028B-4AB0-AF76-09726F966A78}
 		{3A423DA1-DEDD-4D0D-BADB-B5763D0A8A72} = {5F21F6BA-8ED0-4A96-BDF2-65ABAE0A7A90}
 		{26047E86-8DB0-4CE4-A282-DE8183B7AD69} = {AC5FC694-028B-4AB0-AF76-09726F966A78}
+		{224403B1-98F1-4DC0-B1C0-00AF60B9EA05} = {5D5BA318-B12E-4EB3-9F9C-90D1337C57E0}
 	EndGlobalSection
 EndGlobal
