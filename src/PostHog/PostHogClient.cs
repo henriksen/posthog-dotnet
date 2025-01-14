@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PostHog.Api;
 using PostHog.Config;
@@ -18,33 +17,37 @@ public sealed class PostHogClient : IPostHogClient
 {
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
     readonly PostHogApiClient _apiClient;
+    private readonly TimeProvider _timeProvider;
     readonly ILogger<PostHogClient> _logger;
 
     /// <summary>
-    /// Constructs a <see cref="PostHogClient"/> with the specified <paramref name="options"/> and
-    /// <paramref name="logger"/>.
+    /// Constructs a <see cref="PostHogClient"/> with the specified <paramref name="options"/>,
+    /// <see cref="TimeProvider"/>, and <paramref name="logger"/>.
     /// </summary>
     /// <param name="options">The options used to configure the client.</param>
+    /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
-    public PostHogClient(IOptions<PostHogOptions> options, ILogger<PostHogClient> logger)
+    public PostHogClient(IOptions<PostHogOptions> options, TimeProvider timeProvider, ILogger<PostHogClient> logger)
     {
         options = options ?? throw new ArgumentNullException(nameof(options));
         var projectApiKey = options.Value.ProjectApiKey
                             ?? throw new InvalidOperationException("Project API key is required.");
 
-        _apiClient = new PostHogApiClient(projectApiKey, options.Value.HostUrl, logger);
+        _apiClient = new PostHogApiClient(projectApiKey, options.Value.HostUrl, timeProvider, logger);
 
         _asyncBatchHandler = new(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
-            TimeProvider.System,
+            timeProvider,
             logger);
 
+        _timeProvider = timeProvider;
         _logger = logger;
 
         _logger.LogInfoClientCreated(options.Value.MaxBatchSize, options.Value.FlushInterval, options.Value.FlushAt);
     }
+
 
     /// <inheritdoc/>
     public async Task<ApiResult> IdentifyPersonAsync(
@@ -84,7 +87,8 @@ public sealed class PostHogClient : IPostHogClient
         var capturedEvent = new CapturedEvent(
             eventName,
             distinctId,
-            properties);
+            properties,
+            _timeProvider.GetUtcNow().DateTime);
 
         _asyncBatchHandler.Enqueue(capturedEvent);
 

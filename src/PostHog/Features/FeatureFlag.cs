@@ -4,7 +4,7 @@ namespace PostHog.Features;
 /// Represents a feature flag.
 /// </summary>
 /// <param name="Key">The feature flag key.</param>
-/// <param name="IsEnabled">Whether or not it is enabled for the current user.</param>
+/// <param name="IsEnabled"><c>true</c> if the feature is enabled for the current user, otherwise <c>false</c>.</param>
 /// <param name="VariantKey">For multivariate feature flags, this is the key enabled for the user.</param>
 /// <param name="Payload">The payload for the flag or the variant.</param>
 public record FeatureFlag(

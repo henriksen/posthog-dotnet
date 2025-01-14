@@ -8,7 +8,11 @@ namespace PostHog.Api;
 /// A captured event that will be sent as part of a batch.
 /// </summary>
 /// <param name="eventName">The name of the event</param>
-public class CapturedEvent(string eventName, string distinctId, Dictionary<string, object> properties)
+public class CapturedEvent(
+    string eventName,
+    string distinctId,
+    Dictionary<string, object> properties,
+    DateTimeOffset timestamp)
 {
     [JsonPropertyName("event")]
     public string EventName => eventName;
@@ -24,5 +28,5 @@ public class CapturedEvent(string eventName, string distinctId, Dictionary<strin
     /// <summary>
     /// The timestamp of the event.
     /// </summary>
-    public DateTime Timestamp { get; } = DateTime.UtcNow;
+    public DateTimeOffset Timestamp => timestamp;
 }

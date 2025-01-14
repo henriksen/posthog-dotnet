@@ -13,8 +13,8 @@ namespace PostHog.Library;
 /// <summary>
 /// Processes enqueued items in batches on a timer or when the queue count reaches a certain threshold.
 /// </summary>
-/// <typeparam name="TItem"></typeparam>
-public sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
+/// <typeparam name="TItem">The type of item being batched up.</typeparam>
+internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 {
     readonly ConcurrentQueue<TItem> _concurrentQueue = new();
     readonly IOptions<AsyncBatchHandlerOptions> _options;
@@ -43,13 +43,6 @@ public sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         TimeProvider timeProvider,
         IOptions<AsyncBatchHandlerOptions> options)
         : this(batchHandlerFunc, options, timeProvider, NullLogger.Instance)
-    {
-    }
-
-    public AsyncBatchHandler(
-        Func<IEnumerable<TItem>, Task> batchHandlerFunc,
-        IOptions<AsyncBatchHandlerOptions> options)
-        : this(batchHandlerFunc, options, TimeProvider.System, NullLogger.Instance)
     {
     }
 

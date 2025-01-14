@@ -18,6 +18,7 @@ internal sealed class PostHogApiClient : IDisposable
 
     readonly string _projectApiKey;
     readonly Uri _hostUrl;
+    private readonly TimeProvider _timeProvider;
     readonly HttpClient _httpClient;
 
     /// <summary>
@@ -25,11 +26,13 @@ internal sealed class PostHogApiClient : IDisposable
     /// </summary>
     /// <param name="apiKey">Your PostHog project API key</param>
     /// <param name="hostUrl">Optional custom host URL (defaults to PostHog cloud)</param>
+    /// <param name="timeProvider"></param>
     /// <param name="logger">The logger.</param>
-    public PostHogApiClient(string apiKey, Uri hostUrl, ILogger logger)
+    public PostHogApiClient(string apiKey, Uri hostUrl, TimeProvider timeProvider, ILogger logger)
     {
         _projectApiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
         _hostUrl = hostUrl ?? throw new ArgumentException("HostUrl cannot be null", nameof(hostUrl));
+        _timeProvider = timeProvider;
         var hostUrlString = hostUrl.ToString();
         _hostUrl = new Uri(hostUrlString.TrimEnd());
         _httpClient = new HttpClient();
@@ -100,7 +103,7 @@ internal sealed class PostHogApiClient : IDisposable
         }
 
         payload["api_key"] = _projectApiKey;
-        payload["timestamp"] = DateTime.UtcNow;
+        payload["timestamp"] = _timeProvider.GetUtcNow().ToUnixTimeSeconds();
     }
 
     /// <summary>

@@ -20,7 +20,7 @@ public class FeatureFlagExtensionsTests
                 new Dictionary<string, object>(),
                 CancellationToken.None);
 
-            Assert.Equal(default, result);
+            Assert.Null(result);
         }
 
         [Theory]

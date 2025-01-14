@@ -64,9 +64,11 @@ public class AsyncBatchHandlerTests
             FlushInterval = TimeSpan.FromSeconds(2)
         });
         var items = new List<int>();
+        var handlerCompleteTask = new TaskCompletionSource();
         Func<IEnumerable<int>, Task> handlerFunc = batch =>
         {
             items.AddRange(batch);
+            handlerCompleteTask.SetResult();
             return Task.CompletedTask;
         };
 
@@ -80,8 +82,12 @@ public class AsyncBatchHandlerTests
 
         // Simulate the passage of time.
         timeProvider.Advance(TimeSpan.FromSeconds(1));
+        // Ensure empty because we only advanced 1 second, but the interval is 2 seconds.
         Assert.Empty(items);
         timeProvider.Advance(TimeSpan.FromSeconds(1));
+        // Ok, we should be flushing. Let's wait for that to complete.
+        await handlerCompleteTask.Task;
+        // The batch should be done flushing due to the timer interval.
         Assert.Equal([1, 2, 3], items);
     }
 }
