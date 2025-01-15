@@ -60,7 +60,8 @@ internal static class CollectionExtensions
     /// <param name="batchSize">The batch size.</param>
     /// <typeparam name="T">The type of the queue items.</typeparam>
     /// <returns>A list of dequeued items.</returns>
-    public static IReadOnlyCollection<T> DequeueBatch<T>(this ConcurrentQueue<T> queue, int batchSize) {
+    public static IReadOnlyCollection<T> DequeueBatch<T>(this ConcurrentQueue<T> queue, int batchSize)
+    {
         var items = new List<T>(batchSize);
         for (var i = 0; i < batchSize; i++)
         {

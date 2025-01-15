@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PostHog.Api;
@@ -28,14 +24,13 @@ public sealed class PostHogClient : IPostHogClient
     /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
-    public PostHogClient(IOptions<PostHogOptions> options, TimeProvider timeProvider, ILogger<PostHogClient> logger)
+    public PostHogClient(
+        IOptions<PostHogOptions> options,
+        TimeProvider timeProvider,
+        ILogger<PostHogClient> logger)
     {
         options = options ?? throw new ArgumentNullException(nameof(options));
-        var projectApiKey = options.Value.ProjectApiKey
-                            ?? throw new InvalidOperationException("Project API key is required.");
-
-        _apiClient = new PostHogApiClient(projectApiKey, options.Value.HostUrl, timeProvider, logger);
-
+        _apiClient = new PostHogApiClient(options, timeProvider, logger);
         _asyncBatchHandler = new(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
@@ -128,11 +123,8 @@ public sealed class PostHogClient : IPostHogClient
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        _logger.LogInfoDisposeAsyncCalled();
-
         // Stop the polling and wait for it.
         await _asyncBatchHandler.DisposeAsync();
-
         _apiClient.Dispose();
     }
 }
@@ -158,10 +150,4 @@ internal static partial class PostHogClientLoggerExtensions
         string eventName,
         int propertiesCount,
         int count);
-
-    [LoggerMessage(
-        EventId = 3,
-        Level = LogLevel.Information,
-        Message = "DisposeAsync called")]
-    public static partial void LogInfoDisposeAsyncCalled(this ILogger<PostHogClient> logger);
 }

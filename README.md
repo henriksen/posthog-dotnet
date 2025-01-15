@@ -10,6 +10,14 @@ For documentation on the specific packages, see the README files in the respecti
 - [PostHog.AspNetCore](src/PostHog.AspNetCore/README.md)
 - [PostHog](src/PostHog/README.md)
 
+## Note
+
+These packages are currently in a pre-release stage. While we always strive to maintain a high level of quality, note that there will be many breaking changes until we solidify a release version. Use these packages at your own risk.
+
+## Platform
+
+These packages currently target `net9.0`. Our goal is to port the [PortHog](./src/PostHog/README.md) package to `netstandard2.1` at some point once we have a sample that requires it (for example, a Unity sample).
+
 ## Building
 
 To build the solution, run the following commands in the root of the repository:

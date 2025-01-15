@@ -5,14 +5,20 @@ namespace PostHog.Config;
 public class AsyncBatchHandlerOptions
 {
     /// <summary>
-    /// PostHog API host, usually 'https://us.i.posthog.com' (default) or 'https://eu.i.posthog.com'
+    /// The maximum number of messages to send in a batch. (Default: 100)
     /// </summary>
-    public Uri HostUrl { get; set; } = new("https://us.i.posthog.com");
+    /// <remarks>
+    /// This property ensures we don't try to send too much data in a single batch request.
+    /// </remarks>
+    public int MaxBatchSize { get; set; } = 100;
 
     /// <summary>
-    /// The maximum number of cached messages either in memory or on the local storage. (Default: 1000)
+    /// The max number of messages to store in the queue before we start dropping messages. (Default: 1000)
     /// </summary>
-    public int MaxBatchSize { get; set; } = 1000;
+    /// <remarks>
+    /// This property prevents runaway growth of the queue in the case of network outage or a burst of messages.
+    /// </remarks>
+    public int MaxQueueSize { get; set; } = 1000;
 
     /// <summary>
     /// The number of events to queue before sending to PostHog (Default: 20)

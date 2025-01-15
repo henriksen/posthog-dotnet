@@ -1,18 +1,7 @@
 # PostHog .NET SDK
 
-This is a client SDK for the PostHog API written in C#. This is a multi-targeted project that supports 
-.NET Standard 2.1 and .NET 9.0.
+This is a client SDK for the PostHog API written in C#. This is the core implementation of PostHog.
 
-## Installation
+## Goals
 
-For ASP.NET Core projects, install the `PostHog.AspNetCore` package:
-
-```bash
-$ dotnet add package PostHog.AspNetCore
-```
-
-For any others, install the `PostHog` package:
-
-```bash
-$ dotnet add package PostHog
-```
+The goal of this package is to be usable in multiple .NET environments. At this moment, we are far short of that goal. We only support ASP.NET Core via [PostHog.AspNetCore](../PostHog.AspNetCore/README.md).

@@ -1,0 +1,8 @@
+##############################################################
+#
+# List of approvers/reviewers for posthog-dotnet
+#
+##############################################################
+
+# These owners will be the default owners for everything in the repo.
+* @haacked

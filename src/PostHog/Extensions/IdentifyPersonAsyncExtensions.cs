@@ -92,7 +92,8 @@ public static class IdentifyPersonAsyncExtensions
         Dictionary<string, object> additionalUserPropertiesToSet,
         Dictionary<string, object> userPropertiesToSetOnce,
         CancellationToken cancellationToken)
-    {;
+    {
+        ;
         client = client ?? throw new ArgumentNullException(nameof(client));
         additionalUserPropertiesToSet = additionalUserPropertiesToSet ?? throw new ArgumentNullException(nameof(additionalUserPropertiesToSet));
         userPropertiesToSetOnce = userPropertiesToSetOnce ?? throw new ArgumentNullException(nameof(userPropertiesToSetOnce));
