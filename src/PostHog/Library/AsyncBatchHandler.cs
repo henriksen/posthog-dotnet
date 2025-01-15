@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,7 +14,7 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
     readonly PeriodicTimer _timer;
     readonly CancellationTokenSource _cancellationTokenSource = new();
     readonly SemaphoreSlim _flushSignal = new(0); // Used to signal when a flush is needed
-    volatile int _disposing;
+    volatile int _disposed;
     volatile int _flushing;
 
     public AsyncBatchHandler(
@@ -32,7 +31,8 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
             FullMode = BoundedChannelFullMode.DropOldest
         });
         _timer = new PeriodicTimer(options.Value.FlushInterval, timeProvider);
-        _ = ProcessQueueAsync(_cancellationTokenSource.Token);
+        _ = Task.Run(() => HandleTimer(_cancellationTokenSource.Token));
+        _ = Task.Run(() => HandleFlushSignal(_cancellationTokenSource.Token));
     }
 
     public AsyncBatchHandler(
@@ -43,39 +43,84 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
     {
     }
 
+    public int Count => _channel.Reader.Count;
+
     public void Enqueue(TItem item)
     {
-        if (!_channel.Writer.TryWrite(item))
+        if (Count >= _options.Value.MaxQueueSize)
         {
-            _logger.LogWarningDroppingItem(_options.Value.MaxQueueSize);
+            _logger.LogWarningMaxQueueSizeReached(_options.Value.MaxQueueSize, Count);
         }
 
-        if (_channel.Reader.Count >= _options.Value.FlushAt)
+        if (!_channel.Writer.TryWrite(item))
         {
+            _logger.LogWarningCannotEnqueueEvent(_disposed is 1);
+            return;
+        }
+
+        if (Count >= _options.Value.FlushAt)
+        {
+            _logger.LogTraceFlushCalledOnCaptureFlushAt(_options.Value.FlushAt, Count);
             // Signal that a flush is needed.
+            SignalFlush();
+        }
+    }
+
+    void SignalFlush()
+    {
+        if (_flushSignal.CurrentCount is 0)
+        {
             _flushSignal.Release();
         }
     }
 
-    private async Task ProcessQueueAsync(CancellationToken cancellationToken)
+    async Task HandleFlushSignal(CancellationToken cancellationToken)
     {
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var flushTask = _flushSignal.WaitAsync(cancellationToken);
-                var timerTask = _timer.WaitForNextTickAsync(cancellationToken).AsTask();
+                await _flushSignal.WaitAsync(cancellationToken);
+                await FlushBatchAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogTraceOperationCancelled(nameof(HandleFlushSignal));
+        }
+#pragma warning disable CA1031
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            _logger.LogErrorUnexpectedException(ex, nameof(HandleFlushSignal));
+        }
 
-                var completedTask = await Task.WhenAny(flushTask, timerTask);
-                if (completedTask == flushTask || completedTask == timerTask)
+    }
+
+    async Task HandleTimer(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _timer.WaitForNextTickAsync(cancellationToken))
+            {
+                if (Count > 0)
                 {
-                    await FlushBatchAsync();
+                    _logger.LogTraceFlushCalledOnFlushInterval(_options.Value.FlushInterval, Count);
+                    // Signal that a flush is needed.
+                    SignalFlush();
                 }
             }
         }
         catch (OperationCanceledException)
         {
+            _logger.LogTraceOperationCancelled(nameof(HandleTimer));
         }
+    }
+
+    public async Task FlushAsync()
+    {
+        _logger.LogInfoFlushCalledDirectly(Count);
+        await FlushBatchAsync();
     }
 
     async Task FlushBatchAsync()
@@ -101,6 +146,7 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         {
             _logger.LogDebugSendingBatch(batch.Count);
             await _batchHandlerFunc(batch);
+            _logger.LogTraceBatchSent(Count);
         }
 
         Interlocked.Exchange(ref _flushing, 0);
@@ -113,46 +159,59 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposing, 1) == 1)
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
         {
             _logger.LogWarningDisposeCalledTwice();
             return;
         }
 
         _logger.LogInfoDisposeAsyncCalled();
+
+        // Ensures that both the HandleFlushSignal and HandleTimer throw
+        // OperationCancelledException which is handled gracefully.
         await _cancellationTokenSource.CancelAsync();
-        _timer.Dispose();
-        await FlushBatchAsync();
         _cancellationTokenSource.Dispose();
+        _timer.Dispose();
         _flushSignal.Dispose();
         _channel.Writer.Complete();
-    }
-
-    public int Count => _channel.Reader.Count;
-
-    public async Task FlushAsync()
-    {
-        await FlushBatchAsync();
+        try
+        {
+            _logger.LogTraceFlushCalledInDispose(Count);
+            // Flush the last remaining items.
+            await FlushBatchAsync();
+        }
+#pragma warning disable CA1031
+        catch (Exception e)
+#pragma warning restore CA1031
+        {
+            _logger.LogErrorUnexpectedException(e, nameof(DisposeAsync));
+        }
     }
 }
 
 internal static partial class AsyncFlushingQueueLoggerExtensions
 {
     [LoggerMessage(
-        EventId = 1,
+        EventId = 100,
         Level = LogLevel.Debug,
         Message = "Sending Batch: {Count} items")]
     public static partial void LogDebugSendingBatch(this ILogger logger, int count);
 
     [LoggerMessage(
-        EventId = 2,
+        EventId = 101,
+        Level = LogLevel.Trace,
+        Message = "Batch sent: Queue is now at {Count} items")]
+    public static partial void LogTraceBatchSent(this ILogger logger, int count);
+
+    [LoggerMessage(
+        EventId = 102,
         Level = LogLevel.Trace,
         Message = "Flush called on capture because FlushAt ({FlushAt}) count met, {Count} items in the queue")]
     public static partial void LogTraceFlushCalledOnCaptureFlushAt(
         this ILogger logger, int flushAt, int count);
 
     [LoggerMessage(
-        EventId = 3,
+        EventId = 103,
         Level = LogLevel.Trace,
         Message = "Flush called on the Flush Interval: {Interval}, {Count} items in the queue")]
     public static partial void LogTraceFlushCalledOnFlushInterval(
@@ -161,34 +220,59 @@ internal static partial class AsyncFlushingQueueLoggerExtensions
         int count);
 
     [LoggerMessage(
-        EventId = 4,
+        EventId = 104,
         Level = LogLevel.Trace,
-        Message = "Flush called because we're disposing:{Count} items in the queue")]
+        Message = "Flush called because we're disposing: {Count} items in the queue")]
     public static partial void LogTraceFlushCalledInDispose(
         this ILogger logger,
         int count);
 
     [LoggerMessage(
-        EventId = 5,
+        EventId = 105,
         Level = LogLevel.Information,
         Message = "Flush called directly via code: {Count} items in the queue")]
     public static partial void LogInfoFlushCalledDirectly(this ILogger logger, int count);
 
     [LoggerMessage(
-        EventId = 6,
+        EventId = 106,
         Level = LogLevel.Information,
-        Message = "DisposeAsync called")]
+        Message = "DisposeAsync called in AsyncBatchHandler")]
     public static partial void LogInfoDisposeAsyncCalled(this ILogger logger);
 
     [LoggerMessage(
-        EventId = 7,
+        EventId = 107,
         Level = LogLevel.Warning,
-        Message = "Dropping oldest item because queue size exceeded: {MaxQueueSize}")]
-    public static partial void LogWarningDroppingItem(this ILogger logger, int maxQueueSize);
+        Message = "Cannot enqueue event. Disposed: {Disposed}")]
+    public static partial void LogWarningCannotEnqueueEvent(
+        this ILogger logger,
+        bool disposed);
 
     [LoggerMessage(
-        EventId = 8,
+        EventId = 108,
         Level = LogLevel.Warning,
         Message = "Dispose called a second time. Ignoring")]
     public static partial void LogWarningDisposeCalledTwice(this ILogger logger);
+
+    [LoggerMessage(
+        EventId = 109,
+        Level = LogLevel.Error,
+        Message = "Unexpected exception occurred in {MethodName}")]
+    public static partial void LogErrorUnexpectedException(this ILogger logger, Exception e, string methodName);
+
+    [LoggerMessage(
+        EventId = 110,
+        Level = LogLevel.Trace,
+        Message = "{MethodName} exiting due to OperationCancelled exception")]
+    public static partial void LogTraceOperationCancelled(
+        this ILogger logger,
+        string methodName);
+
+    [LoggerMessage(
+        EventId = 111,
+        Level = LogLevel.Warning,
+        Message = "MaxQueueSize ({MaxQueueSize}) reached. Count: {count}. Dropping oldest item.")]
+    public static partial void LogWarningMaxQueueSizeReached(
+        this ILogger logger,
+        int maxQueueSize,
+        int count);
 }

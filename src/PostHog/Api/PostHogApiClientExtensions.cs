@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using PostHog.Json;
 
 namespace PostHog.Api;
@@ -128,7 +124,8 @@ internal static class PostHogApiClientExtensions
             cancellationToken);
     }
 
-    static async Task<ApiResult> SendEventAsync(this PostHogApiClient client,
+    static async Task<ApiResult> SendEventAsync(
+        this PostHogApiClient client,
         string distinctId,
         string eventName,
         Dictionary<string, object> properties,

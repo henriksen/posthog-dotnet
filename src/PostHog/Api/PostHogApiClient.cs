@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using PostHog.Config;
 using PostHog.Library;
 using PostHog.Versioning;
 
@@ -16,29 +13,30 @@ internal sealed class PostHogApiClient : IDisposable
 {
     const string LibraryName = "posthog-dotnet";
 
-    readonly string _projectApiKey;
-    readonly Uri _hostUrl;
-    private readonly TimeProvider _timeProvider;
+    readonly TimeProvider _timeProvider;
     readonly HttpClient _httpClient;
+    readonly IOptions<PostHogOptions> _options;
 
     /// <summary>
     /// Initialize a new PostHog client
     /// </summary>
-    /// <param name="apiKey">Your PostHog project API key</param>
-    /// <param name="hostUrl">Optional custom host URL (defaults to PostHog cloud)</param>
+    /// <param name="options">The options used to configure this client.</param>
     /// <param name="timeProvider"></param>
     /// <param name="logger">The logger.</param>
-    public PostHogApiClient(string apiKey, Uri hostUrl, TimeProvider timeProvider, ILogger logger)
+    public PostHogApiClient(IOptions<PostHogOptions> options, TimeProvider timeProvider, ILogger logger)
     {
-        _projectApiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
-        _hostUrl = hostUrl ?? throw new ArgumentException("HostUrl cannot be null", nameof(hostUrl));
+        _options = options;
+
         _timeProvider = timeProvider;
-        var hostUrlString = hostUrl.ToString();
-        _hostUrl = new Uri(hostUrlString.TrimEnd());
         _httpClient = new HttpClient();
 
-        logger.LogTraceApiClientCreated(_hostUrl);
+        logger.LogTraceApiClientCreated(HostUrl);
     }
+
+    Uri HostUrl => _options.Value.HostUrl;
+
+    string ProjectApiKey => _options.Value.ProjectApiKey
+                            ?? throw new InvalidOperationException("The Project API Key is not configured.");
 
     /// <summary>
     /// Capture an event with optional properties
@@ -47,7 +45,7 @@ internal sealed class PostHogApiClient : IDisposable
         IEnumerable<CapturedEvent> events,
         CancellationToken cancellationToken)
     {
-        var endpointUrl = new Uri(_hostUrl, "batch");
+        var endpointUrl = new Uri(HostUrl, "batch");
 
         var payload = new Dictionary<string, object>
         {
@@ -71,7 +69,7 @@ internal sealed class PostHogApiClient : IDisposable
     {
         PrepareAndMutatePayload(payload);
 
-        var endpointUrl = new Uri(_hostUrl, "capture");
+        var endpointUrl = new Uri(HostUrl, "capture");
 
         return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken)
                ?? new ApiResult(0);
@@ -81,7 +79,7 @@ internal sealed class PostHogApiClient : IDisposable
         string distinctUserId,
         CancellationToken cancellationToken)
     {
-        var endpointUrl = new Uri(_hostUrl, "decide?v=3");
+        var endpointUrl = new Uri(HostUrl, "decide?v=3");
 
         var payload = new Dictionary<string, object>
         {
@@ -102,7 +100,7 @@ internal sealed class PostHogApiClient : IDisposable
             properties["$lib_version"] = VersionConstants.Version;
         }
 
-        payload["api_key"] = _projectApiKey;
+        payload["api_key"] = ProjectApiKey;
         payload["timestamp"] = _timeProvider.GetUtcNow().ToUnixTimeSeconds();
     }
 
