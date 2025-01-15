@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#/ Usage: script/server [<configuration>]
-#/ Description: Launches the HogTied.Web web application
-source script/helpers/_utils.sh
+#/ Usage: .bin/start [<configuration>]
+#/ Description: Launches the HogTied.Web sample web application
+source .bin/helpers/_utils.sh
 set_source_and_root_dir
 
 project_dir="$root_dir/samples/HogTied.Web/HogTied.Web.csproj"

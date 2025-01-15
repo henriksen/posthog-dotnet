@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-#/ Usage: script/publish <package_directory> <nuget_api_key>
+#/ Usage: .bin/publish <package_directory> <nuget_api_key>
 #/ Description: Publishes NuGet packages to NuGet.org.
 #/ Options:
 #/   <package_directory> - The directory containing the NuGet packages.
 #/   <nuget_api_key> - The API key for NuGet.org.
 
-source script/helpers/_utils.sh
+source .bin/helpers/_utils.sh
 set_source_and_root_dir
 
 package_directory="$1"

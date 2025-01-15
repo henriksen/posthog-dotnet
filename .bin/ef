@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-#/ Usage: script/ef [<options>]
+#/ Usage: .bin/ef [<options>]
 #/ Description: Manages Entity Framework Core migrations for the sample web project, HogTied.Web.
 #/ Arguments:
 #/   <options> - Options to pass to the dotnet ef command.
 #/ Example: To run migrations:
-#/   script/ef database update
+#/   .bin/ef database update
 #/
 #/   To add a new migration:
-#/   script/ef migrations add <migration-name>
+#/   .bin/ef migrations add <migration-name>
 
-source script/helpers/_utils.sh
+source .bin/helpers/_utils.sh
 set_source_and_root_dir
 
 dotnet ef "$@" --project "./samples/HogTied.Web" --msbuildprojectextensionspath "./build/obj/HogTied.Web"
