@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-#/ Usage: script/build [<configuration>]
+#/ Usage: .bin/build [<configuration>]
 #/ Description: Builds the PostHog solution - PostHog.sln.
 #/ Arguments:
 #/   <configuration> - The configuration to build. Defaults to Debug.
-source script/helpers/_utils.sh
+source .bin/helpers/_utils.sh
 set_source_and_root_dir
 
 configuration=

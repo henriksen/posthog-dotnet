@@ -34,7 +34,7 @@ Sample projects are located in the `samples` directory.
 The main ASP.NET Core sample app can be run with the following command:
 
 ```bash
-$ script/server
+$ .bin/start
 ```
 
 You can also run it from your favorite IDE or editor.
