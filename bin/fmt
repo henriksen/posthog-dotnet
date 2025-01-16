@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-#/ Usage: .bin/fmt [-c|--check]
+#/ Usage: bin/fmt [-c|--check]
 #/ Description: Runs all formatters on the codebase.
 #/ Options:
 #/   -c, --check - Run in check mode. Will return a non-zero exit code if anything needs reformatting.
-source .bin/helpers/_utils.sh
+source bin/helpers/_utils.sh
 set_source_and_root_dir
 
 SOLUTION_FILE="PostHog.sln"
@@ -55,6 +55,6 @@ fi
 if $success; then
     echo "You're all good!"
 else
-    echo "Formatting is no good! Run '.bin/fmt' to fix" 1>&2
+    echo "Formatting is no good! Run 'bin/fmt' to fix" 1>&2
     exit 1
 fi
