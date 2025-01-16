@@ -10,9 +10,10 @@ For documentation on the specific packages, see the README files in the respecti
 - [PostHog.AspNetCore](src/PostHog.AspNetCore/README.md)
 - [PostHog](src/PostHog/README.md)
 
-## Note
-
-These packages are currently in a pre-release stage. While we always strive to maintain a high level of quality, note that there will be many breaking changes until we solidify a release version. Use these packages at your own risk.
+> [!WARNING]  
+> These packages are currently in a pre-release stage. We're making them available publicly to solicit 
+> feedback. While we always strive to maintain a high level of quality, use these packages at your own 
+> risk. There *will* be many breaking changes until we reach a stable release.
 
 ## Platform
 
