@@ -81,7 +81,7 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
             while (!cancellationToken.IsCancellationRequested)
             {
                 await _flushSignal.WaitAsync(cancellationToken);
-                await FlushBatchAsync();
+                await FlushBatchesAsync();
             }
         }
         catch (OperationCanceledException)
@@ -120,10 +120,10 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
     public async Task FlushAsync()
     {
         _logger.LogInfoFlushCalledDirectly(Count);
-        await FlushBatchAsync();
+        await FlushBatchesAsync();
     }
 
-    async Task FlushBatchAsync()
+    async Task FlushBatchesAsync()
     {
         // If we're flushing, don't start another flush.
         if (Interlocked.CompareExchange(ref _flushing, 1, 0) == 1)
@@ -132,24 +132,44 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         }
 
         var batch = new List<TItem>();
-
-        while (_channel.Reader.TryRead(out var item))
+        try
         {
-            batch.Add(item);
-            if (batch.Count >= _options.Value.MaxBatchSize)
+            while (_channel.Reader.TryRead(out var item))
             {
-                break;
+                batch.Add(item);
+                if (batch.Count >= _options.Value.MaxBatchSize)
+                {
+                    // Batch is full, send it.
+                    await SendBatch();
+                    // Clear the batch.
+                    batch.Clear();
+                }
+            }
+
+            // Send any remaining items in the batch.
+            if (batch.Count > 0)
+            {
+                await SendBatch();
             }
         }
-
-        if (batch.Count > 0)
+        finally
         {
+            Interlocked.Exchange(ref _flushing, 0);
+        }
+
+        return;
+
+        async Task SendBatch()
+        {
+            if (batch.Count is 0)
+            {
+                return;
+            }
+
             _logger.LogDebugSendingBatch(batch.Count);
             await _batchHandlerFunc(batch);
             _logger.LogTraceBatchSent(Count);
         }
-
-        Interlocked.Exchange(ref _flushing, 0);
     }
 
     public void Dispose()
@@ -178,7 +198,7 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         {
             _logger.LogTraceFlushCalledInDispose(Count);
             // Flush the last remaining items.
-            await FlushBatchAsync();
+            await FlushBatchesAsync();
         }
 #pragma warning disable CA1031
         catch (Exception e)

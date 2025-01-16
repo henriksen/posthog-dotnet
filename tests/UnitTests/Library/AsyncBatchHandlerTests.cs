@@ -34,6 +34,76 @@ public class AsyncBatchHandlerTests
         }
 
         [Fact]
+        public async Task CallsBatchHandlerUntilQueueDrained()
+        {
+            var timeProvider = new FakeTimeProvider();
+            var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+            {
+                FlushAt = 1000,
+                FlushInterval = TimeSpan.FromSeconds(10),
+                MaxBatchSize = 3
+            });
+            var items = new List<int>();
+            int callCount = 0;
+            Func<IEnumerable<int>, Task> handlerFunc = batch =>
+            {
+                items.AddRange(batch);
+                callCount++;
+                return Task.CompletedTask;
+            };
+            await using var batchHandler = new AsyncBatchHandler<int>(handlerFunc, timeProvider, options);
+
+            batchHandler.Enqueue(1);
+            batchHandler.Enqueue(2);
+            batchHandler.Enqueue(3);
+            batchHandler.Enqueue(4);
+            batchHandler.Enqueue(5);
+            batchHandler.Enqueue(6);
+            batchHandler.Enqueue(7);
+            Assert.Empty(items);
+
+            await batchHandler.FlushAsync();
+            Assert.Equal([1, 2, 3, 4, 5, 6, 7], items);
+            Assert.Equal(3, callCount);
+        }
+
+        [Fact]
+        public async Task FlushBatchAsyncContinuesAfterException()
+        {
+            var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+            {
+                MaxBatchSize = 2,
+                FlushInterval = TimeSpan.FromHours(3)
+            });
+            var items = new List<int>();
+            int callCount = 0;
+            Func<IEnumerable<int>, Task> handlerFunc = batch =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    throw new InvalidOperationException("Test exception");
+                }
+                items.AddRange(batch);
+                return Task.CompletedTask;
+            };
+            await using var batchHandler = new AsyncBatchHandler<int>(handlerFunc, new FakeTimeProvider(), options);
+
+            batchHandler.Enqueue(1);
+            batchHandler.Enqueue(2);
+            batchHandler.Enqueue(3);
+
+            // First flush attempt should throw an exception
+            await Assert.ThrowsAsync<InvalidOperationException>(() => batchHandler.FlushAsync());
+
+            // Second flush attempt should succeed
+            await batchHandler.FlushAsync();
+
+            // Verify that the items were flushed successfully on the second attempt
+            Assert.Equal([3], items);
+        }
+
+        [Fact]
         public async Task DropsOlderEventsWhenMaxQueueMet()
         {
             var timeProvider = new FakeTimeProvider();
