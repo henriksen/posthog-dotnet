@@ -21,10 +21,6 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
     public bool ApiKeyIsSet { get; private set; }
 
-    public bool? BonanzaEnabled { get; private set; }
-
-    public bool? HomepageUser { get; private set; }
-
     public bool? NonExistentFlag { get; private set; }
 
     public Dictionary<string, (FeatureFlag, bool?)> FeatureFlags { get; private set; } = new();
@@ -102,7 +98,7 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
         }
 
         // Identify a group
-        await postHogClient.IdentifyGroupAsync(
+        var result = await postHogClient.IdentifyGroupAsync(
             Group.Type,
             Group.Key,
             Group.Name,
@@ -113,7 +109,9 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
             },
             HttpContext.RequestAborted);
 
-        StatusMessage = "Group Identified!";
+        StatusMessage = result.Status == 1
+            ? "Group Identified!"
+            : $"Something went wrong! Status: {result.Status}";
 
         return RedirectToPage();
     }
