@@ -20,6 +20,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{D5D2C580-B926-4FFA-B34B-3D78C37C3F8B}"
 	ProjectSection(SolutionItems) = preProject
 		Directory.Build.props = Directory.Build.props
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5F21F6BA-8ED0-4A96-BDF2-65ABAE0A7A90}"
@@ -30,17 +32,17 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostHog.AspNetCore", "src\P
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "bin", "bin", "{5D5BA318-B12E-4EB3-9F9C-90D1337C57E0}"
 	ProjectSection(SolutionItems) = preProject
-		.bin\ef = .bin\ef
-		.bin\build = .bin\build
-		.bin\fmt = .bin\fmt
-		.bin\publish = .bin\publish
-		.bin\user-secrets = .bin\user-secrets
-		.bin\start = .bin\start
+		bin\ef = bin\ef
+		bin\build = bin\build
+		bin\fmt = bin\fmt
+		bin\publish = bin\publish
+		bin\user-secrets = bin\user-secrets
+		bin\start = bin\start
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "helpers", "helpers", "{224403B1-98F1-4DC0-B1C0-00AF60B9EA05}"
 	ProjectSection(SolutionItems) = preProject
-		.bin\helpers\_utils.sh = .bin\helpers\_utils.sh
+		bin\helpers\_utils.sh = bin\helpers\_utils.sh
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{C2E8B694-977A-41A0-9DED-27C286460F0A}"
