@@ -1,4 +1,4 @@
-# PostHog DotNet Client SDK
+# PostHog DotNet Client SDK ![Build status](https://github.com/PostHog/posthog-dotnet/actions/workflows/main.yaml/badge.svg?branch=main)
 
 This repository contains a set of packages for interacting with the PostHog API in .NET applications. 
 This README is for those who wish to contribute to these packages.
@@ -7,8 +7,10 @@ For documentation on the specific packages, see the README files in the respecti
 
 ## Packages
 
-- [PostHog.AspNetCore](src/PostHog.AspNetCore/README.md)
-- [PostHog](src/PostHog/README.md)
+| Package | Version | Description
+|---------|---------| -----------
+| [PostHog.AspNetCore](src/PostHog.AspNetCore/README.md) | [![NuGet version (PostHog.AspNetCore)](https://img.shields.io/nuget/v/PostHog.AspNetCore.svg?style=flat-square)](https://www.nuget.org/packages/PostHog.AspNetCore/) | For use in ASP.NET Core projects.
+| [PostHog](src/PostHog/README.md) | [![NuGet version (PostHog)](https://img.shields.io/nuget/v/PostHog.svg?style=flat-square)](https://www.nuget.org/packages/PostHog/)                                  | The core library. Over time, this will support client environments such as Unit, Xamarin, etc.
 
 > [!WARNING]  
 > These packages are currently in a pre-release stage. We're making them available publicly to solicit 
