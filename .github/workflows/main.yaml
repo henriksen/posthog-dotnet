@@ -8,7 +8,8 @@ on:
     branches:
       - main
   release:
-    types: [ published ]
+    types:
+      - published    # Run the workflow when a new GitHub release is published
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
