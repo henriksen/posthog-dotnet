@@ -13,6 +13,7 @@ public sealed class PostHogClient : IPostHogClient
 {
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
     readonly PostHogApiClient _apiClient;
+    readonly IFeatureFlagCache _featureFlagCache;
     private readonly TimeProvider _timeProvider;
     readonly ILogger<PostHogClient> _logger;
 
@@ -20,11 +21,13 @@ public sealed class PostHogClient : IPostHogClient
     /// Constructs a <see cref="PostHogClient"/> with the specified <paramref name="options"/>,
     /// <see cref="TimeProvider"/>, and <paramref name="logger"/>.
     /// </summary>
+    /// <param name="featureFlagCache">Caches feature flags for a duration appropriate to the environment.</param>
     /// <param name="options">The options used to configure the client.</param>
     /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
     public PostHogClient(
+        IFeatureFlagCache featureFlagCache,
         IOptions<PostHogOptions> options,
         TimeProvider timeProvider,
         ILogger<PostHogClient> logger)
@@ -37,6 +40,7 @@ public sealed class PostHogClient : IPostHogClient
             timeProvider,
             logger);
 
+        _featureFlagCache = featureFlagCache;
         _timeProvider = timeProvider;
         _logger = logger;
 
@@ -102,23 +106,11 @@ public sealed class PostHogClient : IPostHogClient
                 results.FeatureFlagPayloads.GetValueOrDefault(kvp.Key)));
     }
 
-    public async Task<StringOrValue<bool>?> GetFeatureFlagAsync(
-        string distinctId,
-        string featureKey,
-        Dictionary<string, object> userProperties)
-    {
-        var results = await _apiClient.RequestFeatureFlagsAsync(distinctId, CancellationToken.None);
-        return results.FeatureFlags.GetValueOrDefault(featureKey);
-    }
-
     /// <inheritdoc/>
     public async Task FlushAsync() => await _asyncBatchHandler.FlushAsync();
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        DisposeAsync().AsTask().Wait();
-    }
+    public void Dispose() => DisposeAsync().AsTask().Wait();
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
