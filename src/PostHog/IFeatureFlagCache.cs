@@ -26,6 +26,12 @@ public interface IFeatureFlagCache
 /// </summary>
 public sealed class NullFeatureFlagCache : IFeatureFlagCache
 {
+    public static readonly NullFeatureFlagCache Instance = new();
+
+    private NullFeatureFlagCache()
+    {
+    }
+
     /// <inheritdoc/>
     public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetAndCacheFeatureFlagsAsync(
         string distinctId,

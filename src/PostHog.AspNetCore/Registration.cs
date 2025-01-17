@@ -1,10 +1,8 @@
-﻿using System;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using PostHog.Api;
+using PostHog.Cache;
 using PostHog.Config;
 
 namespace PostHog;
@@ -48,7 +46,10 @@ public static class Registration
         builder = builder ?? throw new ArgumentNullException(nameof(builder));
 
         builder.Services.Configure<PostHogOptions>(configurationSection);
+        builder.Services.AddSingleton<IPostHogApiClient, PostHogApiClient>();
+        builder.Services.AddSingleton<IFeatureFlagCache, HttpContextFeatureFlagCache>();
         builder.Services.AddSingleton<IPostHogClient, PostHogClient>();
+
         return builder;
     }
 }
