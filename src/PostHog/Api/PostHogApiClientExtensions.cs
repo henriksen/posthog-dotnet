@@ -19,7 +19,7 @@ internal static class PostHogApiClientExtensions
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     public static async Task<ApiResult> IdentifyPersonAsync(
-        this PostHogApiClient client,
+        this IPostHogApiClient client,
         string distinctId,
         Dictionary<string, object> userPropertiesToSet,
         Dictionary<string, object> userPropertiesToSetOnce,
@@ -41,7 +41,7 @@ internal static class PostHogApiClientExtensions
     /// Identify a group with additional properties
     /// </summary>
     public static async Task<ApiResult> IdentifyGroupAsync(
-        this PostHogApiClient client,
+        this IPostHogApiClient client,
         string type,
         StringOrValue<int> key,
         Dictionary<string, object>? properties,
@@ -74,7 +74,7 @@ internal static class PostHogApiClientExtensions
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     public static async Task<ApiResult> AliasAsync(
-        this PostHogApiClient client,
+        this IPostHogApiClient client,
         string distinctId,
         string alias,
         CancellationToken cancellationToken)
@@ -94,7 +94,7 @@ internal static class PostHogApiClientExtensions
     /// Unlink future events with the current user. Call this when a user logs out.
     /// </summary>
     public static async Task ResetAsync(
-        this PostHogApiClient client,
+        this IPostHogApiClient client,
         string distinctId,
         CancellationToken cancellationToken)
     {
@@ -109,7 +109,7 @@ internal static class PostHogApiClientExtensions
     /// Capture an event with optional properties
     /// </summary>
     public static async Task<ApiResult> CaptureAsync(
-        this PostHogApiClient client,
+        this IPostHogApiClient client,
         string distinctId,
         string eventName,
         Dictionary<string, object>? properties,
@@ -125,7 +125,7 @@ internal static class PostHogApiClientExtensions
     }
 
     static async Task<ApiResult> SendEventAsync(
-        this PostHogApiClient client,
+        this IPostHogApiClient client,
         string distinctId,
         string eventName,
         Dictionary<string, object> properties,

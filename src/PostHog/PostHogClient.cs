@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PostHog.Api;
 using PostHog.Config;
@@ -12,7 +13,8 @@ namespace PostHog;
 public sealed class PostHogClient : IPostHogClient
 {
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
-    readonly PostHogApiClient _apiClient;
+    readonly IPostHogApiClient _apiClient;
+    readonly IFeatureFlagCache _featureFlagCache;
     private readonly TimeProvider _timeProvider;
     readonly ILogger<PostHogClient> _logger;
 
@@ -20,29 +22,47 @@ public sealed class PostHogClient : IPostHogClient
     /// Constructs a <see cref="PostHogClient"/> with the specified <paramref name="options"/>,
     /// <see cref="TimeProvider"/>, and <paramref name="logger"/>.
     /// </summary>
+    /// <param name="postHogApiClient">The <see cref="IPostHogApiClient"/> used to make requests.</param>
+    /// <param name="featureFlagCache">Caches feature flags for a duration appropriate to the environment.</param>
     /// <param name="options">The options used to configure the client.</param>
     /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
     public PostHogClient(
+        IPostHogApiClient postHogApiClient,
+        IFeatureFlagCache featureFlagCache,
         IOptions<PostHogOptions> options,
         TimeProvider timeProvider,
         ILogger<PostHogClient> logger)
     {
         options = options ?? throw new ArgumentNullException(nameof(options));
-        _apiClient = new PostHogApiClient(options, timeProvider, logger);
+        _apiClient = postHogApiClient;
+        _featureFlagCache = featureFlagCache;
         _asyncBatchHandler = new(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
             timeProvider,
             logger);
 
+        _featureFlagCache = featureFlagCache;
         _timeProvider = timeProvider;
         _logger = logger;
 
         _logger.LogInfoClientCreated(options.Value.MaxBatchSize, options.Value.FlushInterval, options.Value.FlushAt);
     }
 
+    /// <summary>
+    /// The simplest way to create a <see cref="PostHogClient"/>.
+    /// </summary>
+    /// <param name="options">The options used to configure the client.</param>
+    public PostHogClient(IOptions<PostHogOptions> options) : this(
+        new PostHogApiClient(options, TimeProvider.System, NullLogger<PostHogApiClient>.Instance),
+        NullFeatureFlagCache.Instance,
+        options,
+        TimeProvider.System,
+        NullLogger<PostHogClient>.Instance)
+    {
+    }
 
     /// <inheritdoc/>
     public async Task<ApiResult> IdentifyPersonAsync(
@@ -90,9 +110,19 @@ public sealed class PostHogClient : IPostHogClient
         _logger.LogTraceCaptureCalled(eventName, properties.Count, _asyncBatchHandler.Count);
     }
 
-    public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(string distinctId, CancellationToken cancellationToken)
+    /// <inheritdoc/>
+    public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
+        string distinctId,
+        CancellationToken cancellationToken)
+        => await _featureFlagCache.GetAndCacheFeatureFlagsAsync(
+            distinctId,
+            fetcher: ct => FetchFeatureFlagsAsync(distinctId, ct), cancellationToken);
+
+    async Task<IReadOnlyDictionary<string, FeatureFlag>> FetchFeatureFlagsAsync(
+        string distinctId,
+        CancellationToken cancellationToken)
     {
-        var results = await _apiClient.RequestFeatureFlagsAsync(distinctId, cancellationToken);
+        var results = await _apiClient.GetFeatureFlagsAsync(distinctId, cancellationToken);
         return results.FeatureFlags.ToReadOnlyDictionary(
             kvp => kvp.Key,
             kvp => new FeatureFlag(
@@ -102,23 +132,11 @@ public sealed class PostHogClient : IPostHogClient
                 results.FeatureFlagPayloads.GetValueOrDefault(kvp.Key)));
     }
 
-    public async Task<StringOrValue<bool>?> GetFeatureFlagAsync(
-        string distinctId,
-        string featureKey,
-        Dictionary<string, object> userProperties)
-    {
-        var results = await _apiClient.RequestFeatureFlagsAsync(distinctId, CancellationToken.None);
-        return results.FeatureFlags.GetValueOrDefault(featureKey);
-    }
-
     /// <inheritdoc/>
     public async Task FlushAsync() => await _asyncBatchHandler.FlushAsync();
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        DisposeAsync().AsTask().Wait();
-    }
+    public void Dispose() => DisposeAsync().AsTask().Wait();
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()

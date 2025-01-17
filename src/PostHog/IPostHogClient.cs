@@ -79,7 +79,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// </returns>
     Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
         string distinctId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken); // TODO: Should this support more properties?
 
     /// <summary>
     /// Flushes the event queue and sends all queued events to PostHog.

@@ -6,10 +6,8 @@ using PostHog.Versioning;
 
 namespace PostHog.Api;
 
-/// <summary>
-/// PostHog API client for capturing events and managing user tracking
-/// </summary>
-internal sealed class PostHogApiClient : IDisposable
+/// <inheritdoc cref="IPostHogApiClient" />
+public sealed class PostHogApiClient : IPostHogApiClient
 {
     const string LibraryName = "posthog-dotnet";
 
@@ -23,7 +21,10 @@ internal sealed class PostHogApiClient : IDisposable
     /// <param name="options">The options used to configure this client.</param>
     /// <param name="timeProvider"></param>
     /// <param name="logger">The logger.</param>
-    public PostHogApiClient(IOptions<PostHogOptions> options, TimeProvider timeProvider, ILogger logger)
+    public PostHogApiClient(
+        IOptions<PostHogOptions> options,
+        TimeProvider timeProvider,
+        ILogger<PostHogApiClient> logger)
     {
         _options = options;
 
@@ -38,9 +39,7 @@ internal sealed class PostHogApiClient : IDisposable
     string ProjectApiKey => _options.Value.ProjectApiKey
                             ?? throw new InvalidOperationException("The Project API Key is not configured.");
 
-    /// <summary>
-    /// Capture an event with optional properties
-    /// </summary>
+    /// <inheritdoc/>
     public async Task<ApiResult> CaptureBatchAsync(
         IEnumerable<CapturedEvent> events,
         CancellationToken cancellationToken)
@@ -59,14 +58,13 @@ internal sealed class PostHogApiClient : IDisposable
                ?? new ApiResult(0);
     }
 
-    /// <summary>
-    /// Method to send an event to the PostHog API's /capture endpoint. This is used for
-    /// capturing events, identify, alias, etc.
-    /// </summary>
+    /// <inheritdoc/>
     public async Task<ApiResult> SendEventAsync(
         Dictionary<string, object> payload,
         CancellationToken cancellationToken)
     {
+        payload = payload ?? throw new ArgumentNullException(nameof(payload));
+
         PrepareAndMutatePayload(payload);
 
         var endpointUrl = new Uri(HostUrl, "capture");
@@ -75,7 +73,8 @@ internal sealed class PostHogApiClient : IDisposable
                ?? new ApiResult(0);
     }
 
-    public async Task<FeatureFlagsApiResult> RequestFeatureFlagsAsync(
+    /// <inheritdoc/>
+    public async Task<FeatureFlagsApiResult> GetFeatureFlagsAsync(
         string distinctUserId,
         CancellationToken cancellationToken)
     {
@@ -119,5 +118,5 @@ internal static partial class PostHogApiClientLoggerExtensions
         EventId = 1,
         Level = LogLevel.Trace,
         Message = "Api Client Created: {HostUrl}")]
-    public static partial void LogTraceApiClientCreated(this ILogger logger, Uri hostUrl);
+    public static partial void LogTraceApiClientCreated(this ILogger<PostHogApiClient> logger, Uri hostUrl);
 }

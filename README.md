@@ -32,6 +32,12 @@ $ dotnet build
 
 Sample projects are located in the `samples` directory.
 
+To run the samples, you'll need to set your PostHog project API key. From the repository root you can run:
+
+```bash
+bin/user-secrets set PostHog:ProjectApiKey YOUR_API_KEY
+```
+
 The main ASP.NET Core sample app can be run with the following command:
 
 ```bash

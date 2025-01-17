@@ -37,9 +37,7 @@ internal static class CollectionExtensions
         this IEnumerable<TItem> enumerable,
         Func<TItem, TKey> keySelector,
         Func<TItem, TValue> valueSelector) where TKey : notnull
-    {
-        return new ReadOnlyDictionary<TKey, TValue>(enumerable.ToDictionary(keySelector, valueSelector));
-    }
+        => new ReadOnlyDictionary<TKey, TValue>(enumerable.ToDictionary(keySelector, valueSelector));
 
     /// <summary>
     /// Filters out null values from an <see cref="IEnumerable{T}"/>.
@@ -49,9 +47,7 @@ internal static class CollectionExtensions
     /// <returns></returns>
     public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> source)
         where T : class
-    {
-        return source.Where(item => item is not null)!;
-    }
+        => source.Where(item => item is not null)!;
 
     /// <summary>
     /// Dequeues a batch of items from a <see cref="ConcurrentQueue{T}"/>.

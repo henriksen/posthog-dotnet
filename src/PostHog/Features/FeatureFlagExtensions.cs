@@ -110,4 +110,32 @@ public static class FeatureFlagExtensions
         var flags = await client.GetFeatureFlagsAsync(distinctId, cancellationToken);
         return flags.GetValueOrDefault(featureKey);
     }
+
+    /// <summary>
+    /// Retrieves a feature flag.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
+    public static async Task<FeatureFlag?> GetFeatureFlagAsync(
+        this IPostHogClient client,
+        string distinctId,
+        string featureKey,
+        CancellationToken cancellationToken)
+        => await client.GetFeatureFlagAsync(distinctId, featureKey, new Dictionary<string, object>(), cancellationToken);
+
+    /// <summary>
+    /// Retrieves a feature flag.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="featureKey">The name of the feature flag.</param>
+    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
+    public static async Task<FeatureFlag?> GetFeatureFlagAsync(
+        this IPostHogClient client,
+        string distinctId,
+        string featureKey)
+        => await client.GetFeatureFlagAsync(distinctId, featureKey, new Dictionary<string, object>(), CancellationToken.None);
 }
