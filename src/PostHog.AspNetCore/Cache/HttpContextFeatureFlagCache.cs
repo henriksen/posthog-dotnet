@@ -32,14 +32,14 @@ public class HttpContextFeatureFlagCache(
 
         var httpContext = httpContextAccessor.HttpContext;
 
-        if (httpContext?.Items[$"$feature_flags:{distinctId}"] is not IReadOnlyDictionary<string, FeatureFlag> flags)
+        if (httpContext?.Items[GetCacheKey(distinctId)] is not IReadOnlyDictionary<string, FeatureFlag> flags)
         {
             logger.LogTraceFetchingFeatureFlags(distinctId);
             flags = await fetcher(cancellationToken);
             if (httpContext is not null)
             {
                 logger.LogTraceStoringFeatureFlagsInCache(distinctId);
-                httpContext.Items[$"$feature_flags:{distinctId}"] = flags;
+                httpContext.Items[GetCacheKey(distinctId)] = flags;
             }
         }
         else
@@ -49,6 +49,8 @@ public class HttpContextFeatureFlagCache(
 
         return flags;
     }
+
+    static string GetCacheKey(string distinctId) => $"$PostHog(feature_flags):{distinctId}";
 }
 
 internal static partial class HttpContextFeatureFlagCacheLoggerExtensions

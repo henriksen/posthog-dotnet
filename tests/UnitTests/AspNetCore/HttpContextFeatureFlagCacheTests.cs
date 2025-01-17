@@ -30,7 +30,7 @@ public class HttpContextFeatureFlagCacheTests
 
             // Assert
             Assert.Equal(featureFlags, result);
-            Assert.Equal(featureFlags, httpContext.Items[$"$feature_flags:{distinctId}"]);
+            Assert.Equal(featureFlags, httpContext.Items[$"$PostHog(feature_flags):{distinctId}"]);
         }
 
         [Fact]
@@ -44,7 +44,7 @@ public class HttpContextFeatureFlagCacheTests
             {
                 { "feature1", new FeatureFlag(Key: "feature1", IsEnabled: true, null, null) }
             };
-            httpContext.Items[$"$feature_flags:{distinctId}"] = cachedFeatureFlags;
+            httpContext.Items[$"$PostHog(feature_flags):{distinctId}"] = cachedFeatureFlags;
             httpContextAccessor.HttpContext.Returns(httpContext);
 
             var cache = new HttpContextFeatureFlagCache(httpContextAccessor);
