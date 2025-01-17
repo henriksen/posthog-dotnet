@@ -13,6 +13,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
     readonly TimeProvider _timeProvider;
     readonly HttpClient _httpClient;
+    readonly LoggingHttpMessageHandler _loggingHandler;
     readonly IOptions<PostHogOptions> _options;
 
     /// <summary>
@@ -29,7 +30,12 @@ public sealed class PostHogApiClient : IPostHogApiClient
         _options = options;
 
         _timeProvider = timeProvider;
-        _httpClient = new HttpClient();
+        _loggingHandler = new LoggingHttpMessageHandler(logger)
+        {
+            InnerHandler = new HttpClientHandler()
+        };
+
+        _httpClient = new HttpClient(_loggingHandler);
 
         logger.LogTraceApiClientCreated(HostUrl);
     }
@@ -108,6 +114,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
     /// </summary>
     public void Dispose()
     {
+        _loggingHandler.Dispose();
         _httpClient.Dispose();
     }
 }
