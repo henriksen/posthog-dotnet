@@ -49,6 +49,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\stale-labeller.yaml = .github\workflows\stale-labeller.yaml
 		.github\workflows\main.yaml = .github\workflows\main.yaml
+		.github\workflows\release.yaml = .github\workflows\release.yaml
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "problemMatchers", "problemMatchers", "{DE86ACE8-2A13-4B5C-A715-1BA6412DA314}"
