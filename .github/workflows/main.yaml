@@ -7,6 +7,8 @@ on:
   pull_request:
     branches:
       - main
+  release:
+    types: [ published ]
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -23,7 +25,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup .NET
+      - name: Setup .NET Core
         uses: actions/setup-dotnet@v3.0.3
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
@@ -37,8 +39,9 @@ jobs:
         run: dotnet build --configuration Release --no-restore --nologo
         shell: bash
 
-      # Upload the package using the SHA in the name
+      # Upload the package using the SHA in the name of the artifact
       - name: Upload NuGet Package Artifacts
+        if: github.event_name == 'release'
         uses: actions/upload-artifact@v4
         with:
           name: nuget-${{ github.sha }}
@@ -90,4 +93,28 @@ jobs:
 
       - name: Format!
         run: bin/fmt --check
+        shell: bash
+
+  release:
+    # Publish only when we publish a GitHub release
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      # Download the NuGet packages created in the build job for this tagged commit.
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget-${{ github.sha }}
+          path: .
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # Publish all NuGet packages to NuGet.org
+      # Use --skip-duplicate to prevent errors if a package with the same version already exists.
+      # If you retry a failed workflow, already published packages will be skipped without error.
+      - name: Publish NuGet package
+        run: bin/publish . ${{ secrets.NUGET_API_KEY }}
         shell: bash
