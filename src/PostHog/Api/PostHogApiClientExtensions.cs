@@ -124,6 +124,14 @@ internal static class PostHogApiClientExtensions
             cancellationToken);
     }
 
+    /// <summary>
+    /// Capture an event with optional properties
+    /// </summary>
+    public static async Task<ApiResult> CaptureAsync(
+        this IPostHogApiClient client,
+        string distinctId,
+        string eventName) => await client.CaptureAsync(distinctId, eventName, null, CancellationToken.None);
+
     static async Task<ApiResult> SendEventAsync(
         this IPostHogApiClient client,
         string distinctId,

@@ -1,9 +1,11 @@
+using Microsoft.Extensions.Options;
+
 namespace PostHog.Config;
 
 /// <summary>
 /// Options for configuring the PostHog client.
 /// </summary>
-public class PostHogOptions : AsyncBatchHandlerOptions
+public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogOptions>
 {
     /// <summary>
     /// The project API key that identifies which project this client works with.
@@ -31,4 +33,8 @@ public class PostHogOptions : AsyncBatchHandlerOptions
     /// PostHog API host, usually 'https://us.i.posthog.com' (default) or 'https://eu.i.posthog.com'
     /// </summary>
     public Uri HostUrl { get; set; } = new("https://us.i.posthog.com");
+
+    // Explicit implementation to hide this value from most users.
+    // This is here to make it easier to instantiate the client with the options.
+    PostHogOptions IOptions<PostHogOptions>.Value => this;
 }

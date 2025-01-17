@@ -10,3 +10,14 @@ This is a client SDK for the PostHog API written in C#. This is the core impleme
 ## Goals
 
 The goal of this package is to be usable in multiple .NET environments. At this moment, we are far short of that goal. We only support ASP.NET Core via [PostHog.AspNetCore](../PostHog.AspNetCore/README.md).
+
+## Usage
+
+To use this package, you need to create an instance of `PostHogClient` and call the appropriate methods. Here's an example:
+
+```csharp
+using PostHog;
+
+var client = new PostHogClient(new PostHogOptions { ProjectApiKey = "YOUR_PROJECT_API_KEY" });
+await client.CaptureAsync("user-123", "Test Event");
+```
