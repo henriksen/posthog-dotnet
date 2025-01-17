@@ -79,4 +79,6 @@ Now you can go to GitHub to [Draft a new Release](https://github.com/Posthog/pos
 When you create the Release, the [`main.yml`](../.github/.workflow.release.yml) workflow builds and publishes the package to NuGet.
 
 > ![IMPORTANT]
-> When creating a release, it's important to create and publish it in one go. If you save a draft of the release and then later publish it, the workflow will not run.
+> When creating a release, it's important to create and publish it in one go. If you save a draft of the release and
+> then later publish it, the workflow will not run. If you find yourself in that position, you can [manually trigger the workflow run](https://github.com/PostHog/posthog-dotnet/actions/workflows/main.yaml)
+> and select the tag to publish.
