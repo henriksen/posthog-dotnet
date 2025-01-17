@@ -76,5 +76,7 @@ git push --tags
 
 Now you can go to GitHub to [Draft a new Release](https://github.com/Posthog/posthog-dotnet/releases/new) and click the button to "Auto-generate release notes". Edit the notes accordingly create the Release.
 
+When you create the Release, the [`main.yml`](../.github/.workflow.release.yml) workflow builds and publishes the package to NuGet.
 
-When you create the Release, the [`release.yml`](../.github/.workflow.release.yml) workflow builds and publishes the package to NPM.
+> ![IMPORTANT]
+> When creating a release, it's important to create and publish it in one go. If you save a draft of the release and then later publish it, the workflow will not run.
