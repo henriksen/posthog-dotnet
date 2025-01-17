@@ -1,24 +1,22 @@
 name: Publish Package to NuGet
 on:
-  workflow_dispatch:
   release:
     types: [created]
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   DOTNET_NOLOGO: true
-  PackageDirectory: ${{ github.workspace }}/build/packages/Release
   DOTNET_VERSION: 9.0.101
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Download the NuGet packages created in the build job
+      # Download the NuGet packages created in the build job for this tagged commit.
       - uses: actions/download-artifact@v4
         with:
-          name: nuget
-          path: ${{ env.PackageDirectory }}
+          name: nuget-${{ github.sha }}
+          path: .
 
       - name: Setup .NET Core
         uses: actions/setup-dotnet@v4
@@ -29,5 +27,5 @@ jobs:
       # Use --skip-duplicate to prevent errors if a package with the same version already exists.
       # If you retry a failed workflow, already published packages will be skipped without error.
       - name: Publish NuGet package
-        run: bin/publish ${{ env.PackageDirectory }} ${{ secrets.NUGET_API_KEY }}
+        run: bin/publish . ${{ secrets.NUGET_API_KEY }}
         shell: bash

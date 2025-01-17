@@ -37,11 +37,11 @@ jobs:
         run: dotnet build --configuration Release --no-restore --nologo
         shell: bash
 
-      # Upload the packages so the release.yaml workflow can pick them up
-      - if: github.ref == 'refs/heads/main'
+      # Upload the package using the SHA in the name
+      - name: Upload NuGet Package Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: nuget
+          name: nuget-${{ github.sha }}
           if-no-files-found: error
           retention-days: 7
           path: ${{ env.PackageDirectory }}/*.nupkg
