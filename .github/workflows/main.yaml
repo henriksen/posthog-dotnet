@@ -2,8 +2,6 @@ name: Build PostHog .NET SDK
 
 on:
   push:
-    tags:
-      - v*
     branches:
       - main
   pull_request:
@@ -39,18 +37,11 @@ jobs:
         run: dotnet build --configuration Release --no-restore --nologo
         shell: bash
 
-      # Retrieve the release tag, if this is a tag push
-      - if: startsWith(github.ref, 'refs/tags/')
-        name: Get release tag
-        id: get_tag
-        run: echo "RELEASE_TAG=${{ github.ref }}" >> $GITHUB_ENV
-
-      # Upload the packages so the release.yaml workflow can pick them up, if this is a tag push
-      - if: startsWith(github.ref, 'refs/tags/') # Only upload packages for tags
-        name: Upload NuGet Package Artifacts
+      # Upload the package using the SHA in the name
+      - name: Upload NuGet Package Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: nuget-${{ env.RELEASE_TAG }}
+          name: nuget-${{ github.sha }}
           if-no-files-found: error
           retention-days: 7
           path: ${{ env.PackageDirectory }}/*.nupkg
