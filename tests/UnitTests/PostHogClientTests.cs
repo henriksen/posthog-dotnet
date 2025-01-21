@@ -26,7 +26,6 @@ public class PostHogClientTests
             // Set up a call to the API client that returns all feature flags
             apiClient.GetFeatureFlagsAsync(
                     distinctUserId: "1234",
-                    groups: null,
                     personProperties: null,
                     groupProperties: null,
                     cancellationToken: Arg.Any<CancellationToken>())
@@ -51,13 +50,11 @@ public class PostHogClientTests
 
             var flags = await client.GetFeatureFlagsAsync(
                 distinctId: "1234",
-                groups: null,
                 personProperties: null,
                 groupProperties: null,
                 CancellationToken.None);
             var flagsAgain = await client.GetFeatureFlagsAsync(
                 distinctId: "1234",
-                groups: null,
                 personProperties: null,
                 groupProperties: null,
                 CancellationToken.None);

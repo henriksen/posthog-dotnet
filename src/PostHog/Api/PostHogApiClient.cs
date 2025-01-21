@@ -82,9 +82,8 @@ public sealed class PostHogApiClient : IPostHogApiClient
     /// <inheritdoc/>
     public async Task<FeatureFlagsApiResult> GetFeatureFlagsAsync(
         string distinctUserId,
-        Dictionary<string, object>? groups,
         Dictionary<string, object>? personProperties,
-        Dictionary<string, object>? groupProperties,
+        GroupCollection? groupProperties,
         CancellationToken cancellationToken)
     {
         var endpointUrl = new Uri(HostUrl, "decide?v=3");
@@ -94,20 +93,12 @@ public sealed class PostHogApiClient : IPostHogApiClient
             ["distinct_id"] = distinctUserId,
         };
 
-        if (groups is { Count: > 0 })
-        {
-            payload["groups"] = groups;
-        }
-
         if (personProperties is { Count: > 0 })
         {
             payload["person_properties"] = personProperties;
         }
 
-        if (groupProperties is { Count: > 0 })
-        {
-            payload["group_properties"] = groupProperties;
-        }
+        groupProperties?.AddToPayload(payload);
 
         PrepareAndMutatePayload(payload);
 

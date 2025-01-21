@@ -169,6 +169,25 @@ if (await posthogClient.GetFeatureFlagAsync(userId, "awesome-new-feature") is { 
 
 ### Get All Feature Flags
 
+Using information on the PostHog server.
+
 ```csharp
 var flags = await posthogClient.GetFeatureFlagsAsync(userId);
+```
+
+Overriding the groups for the current user.
+
+```csharp
+var flags = await postHogClient.GetFeatureFlagsAsync(
+    userId,
+    personProperties: null,
+    groupProperties:
+    [
+        new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object>
+        {
+            ["$group_key"] = "aaaa-bbbb-cccc",
+            ["size"] = ProjectSize ?? "large"
+        })
+    ],
+    cancellationToken: HttpContext.RequestAborted);
 ```

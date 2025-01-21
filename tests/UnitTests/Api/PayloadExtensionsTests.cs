@@ -1,19 +1,20 @@
 
 using PostHog;
+using PostHog.Api;
 
-public class GroupPropertiesTests
+public class PayloadExtensionsTests
 {
-    public class TheAddToPropertiesMethod
+    public class TheAddToPayloadMethod
     {
         [Fact]
         public void AddsToGroups()
         {
-            var groups = new GroupProperties();
+            var groups = new GroupCollection();
             groups.Add("company", "acme");
             groups.Add("project", "123");
             var properties = new Dictionary<string, object>();
 
-            groups.AddToProperties(properties);
+            groups.AddToPayload(properties);
 
             Assert.Equal(new Dictionary<string, object> {
                 ["groups"] = new Dictionary<string, string>
@@ -27,14 +28,14 @@ public class GroupPropertiesTests
         [Fact]
         public void AddsGroupsToGroups()
         {
-            var groups = new GroupProperties
+            var groups = new GroupCollection
             {
                 new Group("company", "acme"),
                 new Group("project", "123")
             };
             var properties = new Dictionary<string, object>();
 
-            groups.AddToProperties(properties);
+            groups.AddToPayload(properties);
 
             Assert.Equal(new Dictionary<string, object> {
                 ["groups"] = new Dictionary<string, string>
@@ -48,14 +49,14 @@ public class GroupPropertiesTests
         [Fact]
         public void AddsToGroupsWithCollectionInitializer()
         {
-            var groups = new GroupProperties
+            var groups = new GroupCollection
             {
                 { "company", "acme" },
                 { "project", "42" }
             };
             var properties = new Dictionary<string, object>();
 
-            groups.AddToProperties(properties);
+            groups.AddToPayload(properties);
 
             Assert.Equal(new Dictionary<string, object> {
                 ["groups"] = new Dictionary<string, string>
@@ -69,7 +70,7 @@ public class GroupPropertiesTests
         [Fact]
         public void AddsGroupPropertiesWithGroupInitializer()
         {
-            var groups = new GroupProperties
+            var groups = new GroupCollection
             {
                 new Group("project", "123")
                 {
@@ -83,7 +84,7 @@ public class GroupPropertiesTests
             };
             var properties = new Dictionary<string, object>();
 
-            groups.AddToProperties(properties);
+            groups.AddToPayload(properties);
 
             Assert.Equal(new Dictionary<string, object> {
                 ["groups"] = new Dictionary<string, string>
@@ -111,7 +112,7 @@ public class GroupPropertiesTests
         [Fact]
         public void AddsToExistingGroupsAndGroupProperties()
         {
-            var groups = new GroupProperties
+            var groups = new GroupCollection
             {
                 new Group("project", "123")
                 {
@@ -139,7 +140,7 @@ public class GroupPropertiesTests
                 }
             };
 
-            groups.AddToProperties(properties);
+            groups.AddToPayload(properties);
 
             Assert.Equal(new Dictionary<string, object> {
                 ["groups"] = new Dictionary<string, string>
