@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using PostHog.Api;
 using PostHog.Features;
 using PostHog.Json;
@@ -73,13 +69,17 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// Retrieves all the feature flags.
     /// </summary>
     /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
+    /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>
     /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
     /// </returns>
     Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
         string distinctId,
-        CancellationToken cancellationToken); // TODO: Should this support more properties?
+        Dictionary<string, object>? personProperties,
+        GroupCollection? groupProperties,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Flushes the event queue and sends all queued events to PostHog.

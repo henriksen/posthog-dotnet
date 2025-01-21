@@ -13,6 +13,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
     readonly TimeProvider _timeProvider;
     readonly HttpClient _httpClient;
+    readonly LoggingHttpMessageHandler _loggingHandler;
     readonly IOptions<PostHogOptions> _options;
 
     /// <summary>
@@ -29,7 +30,12 @@ public sealed class PostHogApiClient : IPostHogApiClient
         _options = options;
 
         _timeProvider = timeProvider;
-        _httpClient = new HttpClient();
+        _loggingHandler = new LoggingHttpMessageHandler(logger)
+        {
+            InnerHandler = new HttpClientHandler()
+        };
+
+        _httpClient = new HttpClient(_loggingHandler);
 
         logger.LogTraceApiClientCreated(HostUrl);
     }
@@ -76,6 +82,8 @@ public sealed class PostHogApiClient : IPostHogApiClient
     /// <inheritdoc/>
     public async Task<FeatureFlagsApiResult> GetFeatureFlagsAsync(
         string distinctUserId,
+        Dictionary<string, object>? personProperties,
+        GroupCollection? groupProperties,
         CancellationToken cancellationToken)
     {
         var endpointUrl = new Uri(HostUrl, "decide?v=3");
@@ -84,6 +92,13 @@ public sealed class PostHogApiClient : IPostHogApiClient
         {
             ["distinct_id"] = distinctUserId,
         };
+
+        if (personProperties is { Count: > 0 })
+        {
+            payload["person_properties"] = personProperties;
+        }
+
+        groupProperties?.AddToPayload(payload);
 
         PrepareAndMutatePayload(payload);
 
@@ -108,6 +123,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
     /// </summary>
     public void Dispose()
     {
+        _loggingHandler.Dispose();
         _httpClient.Dispose();
     }
 }

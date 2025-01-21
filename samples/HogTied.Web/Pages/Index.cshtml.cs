@@ -34,6 +34,10 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
     public PostHogOptions PostHogOptions => options.Value;
 
+    [BindProperty(SupportsGet = true)]
+    [FromQuery]
+    public string? ProjectSize { get; set; }
+
     public async Task OnGetAsync()
     {
         ApiKeyIsSet = options.Value.ProjectApiKey is not (null or []);
@@ -55,7 +59,18 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                     HttpContext.RequestAborted);
             }
 
-            var flags = await postHogClient.GetFeatureFlagsAsync(UserId, HttpContext.RequestAborted);
+            var flags = await postHogClient.GetFeatureFlagsAsync(
+                UserId,
+                personProperties: null,
+                groupProperties:
+                [
+                    new Group("organization","01943db3-83be-0000-e7ea-ecae4d9b5afb"),
+                    new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object>
+                    {
+                        ["size"] = ProjectSize ?? "large"
+                    })
+                ],
+                cancellationToken: HttpContext.RequestAborted);
 
             foreach (var (key, flag) in flags)
             {
@@ -107,7 +122,7 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                 ["size"] = "large",
                 ["location"] = "San Francisco"
             },
-            HttpContext.RequestAborted);
+            cancellationToken: HttpContext.RequestAborted);
 
         StatusMessage = result.Status == 1
             ? "Group Identified!"

@@ -41,6 +41,15 @@
                 <strong>The Project API Key is set! We're ready to go!</strong>
             </div>
 
+            <form method="get">
+                <div class="form-group mb-2">
+                    <label asp-for="ProjectSize">Override Project Size (for evaluating feature flags). <code>default: Large</code></label>
+                    <input asp-for="ProjectSize" class="form-control" placeholder="Enter project size"/>
+                </div>
+
+                <button type="submit" class="btn btn-primary mb-2">Override Project Size</button>
+            </form>
+
             <div class="d-flex justify-content-between px-3">
                 <div>
                     <h2 class="mt-5">PostHog Client Configuration</h2>
@@ -117,8 +126,7 @@
                                 <label asp-for="EventName">Event Name</label>
                                 <input asp-for="EventName" class="form-control" placeholder="Enter event name"/>
                             </div>
-                            @if (Model.UserId is null)
-                            {
+                            @if (Model.UserId is null) {
                                 <div class="form-group mb-2">
                                     <label asp-for="FakeUserId">User Id</label>
                                     <input asp-for="FakeUserId" class="form-control" placeholder="Enter a user id"/>

@@ -113,16 +113,28 @@ public sealed class PostHogClient : IPostHogClient
     /// <inheritdoc/>
     public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
         string distinctId,
+        Dictionary<string, object>? personProperties,
+        GroupCollection? groupProperties,
         CancellationToken cancellationToken)
         => await _featureFlagCache.GetAndCacheFeatureFlagsAsync(
             distinctId,
-            fetcher: ct => FetchFeatureFlagsAsync(distinctId, ct), cancellationToken);
+            fetcher: ct => FetchFeatureFlagsAsync(
+                distinctId,
+                personProperties,
+                groupProperties,
+                ct), cancellationToken);
 
     async Task<IReadOnlyDictionary<string, FeatureFlag>> FetchFeatureFlagsAsync(
         string distinctId,
+        Dictionary<string, object>? userProperties,
+        GroupCollection? groupProperties,
         CancellationToken cancellationToken)
     {
-        var results = await _apiClient.GetFeatureFlagsAsync(distinctId, cancellationToken);
+        var results = await _apiClient.GetFeatureFlagsAsync(
+            distinctId,
+            userProperties,
+            groupProperties,
+            cancellationToken);
         return results.FeatureFlags.ToReadOnlyDictionary(
             kvp => kvp.Key,
             kvp => new FeatureFlag(
