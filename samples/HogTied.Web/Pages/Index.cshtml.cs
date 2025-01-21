@@ -34,7 +34,7 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
     public PostHogOptions PostHogOptions => options.Value;
 
-    [BindProperty]
+    [BindProperty(SupportsGet = true)]
     [FromQuery]
     public string? ProjectSize { get; set; }
 
@@ -63,7 +63,10 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                 ? new Dictionary<string, object>
                 {
                     ["project"] = new Dictionary<string, object>
-                        { ["size"] = ProjectSize }
+                    {
+                        ["$group_key"] = "aaaa-bbbb-cccc",
+                        ["size"] = ProjectSize
+                    }
                 }
                 : null;
 
