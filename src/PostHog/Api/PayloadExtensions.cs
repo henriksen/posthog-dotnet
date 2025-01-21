@@ -32,7 +32,7 @@ internal static class PayloadExtensions
             group.AddToPayload(ref groups, ref groupProperties);
         }
 
-        if (groups is { Count: > 0})
+        if (groups is { Count: > 0 })
         {
             payload["groups"] = groups;
         }

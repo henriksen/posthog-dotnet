@@ -79,7 +79,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
         string distinctId,
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,
-        CancellationToken cancellationToken); // TODO: Should this support more properties?
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Flushes the event queue and sends all queued events to PostHog.

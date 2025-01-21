@@ -86,7 +86,7 @@ public class FeatureFlagExtensionsTests
         {
             var client = Substitute.For<IPostHogClient>();
             client.GetFeatureFlagsAsync(
-                    distinctId :"distinctId",
+                    distinctId: "distinctId",
                     personProperties: null,
                     groupProperties: null,
                     cancellationToken: Arg.Any<CancellationToken>())
@@ -110,7 +110,7 @@ public class FeatureFlagExtensionsTests
         {
             var client = Substitute.For<IPostHogClient>();
             client.GetFeatureFlagsAsync(
-                    distinctId :"distinctId",
+                    distinctId: "distinctId",
                     personProperties: null,
                     groupProperties: null,
                     cancellationToken: Arg.Any<CancellationToken>())

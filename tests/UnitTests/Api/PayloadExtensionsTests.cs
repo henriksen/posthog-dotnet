@@ -16,7 +16,8 @@ public class PayloadExtensionsTests
 
             groups.AddToPayload(properties);
 
-            Assert.Equal(new Dictionary<string, object> {
+            Assert.Equal(new Dictionary<string, object>
+            {
                 ["groups"] = new Dictionary<string, string>
                 {
                     ["company"] = "acme",
@@ -37,7 +38,8 @@ public class PayloadExtensionsTests
 
             groups.AddToPayload(properties);
 
-            Assert.Equal(new Dictionary<string, object> {
+            Assert.Equal(new Dictionary<string, object>
+            {
                 ["groups"] = new Dictionary<string, string>
                 {
                     ["company"] = "acme",
@@ -58,7 +60,8 @@ public class PayloadExtensionsTests
 
             groups.AddToPayload(properties);
 
-            Assert.Equal(new Dictionary<string, object> {
+            Assert.Equal(new Dictionary<string, object>
+            {
                 ["groups"] = new Dictionary<string, string>
                 {
                     ["company"] = "acme",
@@ -86,7 +89,8 @@ public class PayloadExtensionsTests
 
             groups.AddToPayload(properties);
 
-            Assert.Equal(new Dictionary<string, object> {
+            Assert.Equal(new Dictionary<string, object>
+            {
                 ["groups"] = new Dictionary<string, string>
                 {
                     ["company"] = "acme",
@@ -142,7 +146,8 @@ public class PayloadExtensionsTests
 
             groups.AddToPayload(properties);
 
-            Assert.Equal(new Dictionary<string, object> {
+            Assert.Equal(new Dictionary<string, object>
+            {
                 ["groups"] = new Dictionary<string, string>
                 {
                     ["company"] = "acme",

@@ -64,9 +64,9 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                 personProperties: null,
                 groupProperties:
                 [
+                    new Group("organization","01943db3-83be-0000-e7ea-ecae4d9b5afb"),
                     new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object>
                     {
-                        ["$group_key"] = "aaaa-bbbb-cccc",
                         ["size"] = ProjectSize ?? "large"
                     })
                 ],

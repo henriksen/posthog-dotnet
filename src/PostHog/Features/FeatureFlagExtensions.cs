@@ -130,6 +130,24 @@ public static class FeatureFlagExtensions
     }
 
     /// <summary>
+    /// Retrieves all the feature flags.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
+    /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
+    /// <returns>
+    /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
+    /// </returns>
+    public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
+        this IPostHogClient client,
+        string distinctId,
+        Dictionary<string, object>? personProperties,
+        GroupCollection? groupProperties)
+        => await (client ?? throw new ArgumentNullException(nameof(client)))
+            .GetFeatureFlagsAsync(distinctId, personProperties, groupProperties, CancellationToken.None);
+
+    /// <summary>
     /// Retrieves a feature flag.
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
