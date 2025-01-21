@@ -11,13 +11,17 @@ public class FeatureFlagExtensionsTests
         public async Task ReturnsUndefinedWhenFlagDoesNotExist()
         {
             var client = Substitute.For<IPostHogClient>();
-            client.GetFeatureFlagsAsync("distinctId", Arg.Any<CancellationToken>())
+            client.GetFeatureFlagsAsync(
+                    distinctId: "distinctId",
+                    groups: null,
+                    personProperties: null,
+                    groupProperties: null,
+                    cancellationToken: Arg.Any<CancellationToken>())
                 .Returns(new ReadOnlyDictionary<string, FeatureFlag>(new Dictionary<string, FeatureFlag>()));
 
             var result = await client.GetFeatureFlagAsync(
                 "distinctId",
                 "flag-key",
-                new Dictionary<string, object>(),
                 CancellationToken.None);
 
             Assert.Null(result);
@@ -29,7 +33,12 @@ public class FeatureFlagExtensionsTests
         public async Task ReturnsFlag(bool enabled)
         {
             var client = Substitute.For<IPostHogClient>();
-            client.GetFeatureFlagsAsync("distinctId", Arg.Any<CancellationToken>())
+            client.GetFeatureFlagsAsync(
+                    distinctId: "distinctId",
+                    groups: null,
+                    personProperties: null,
+                    groupProperties: null,
+                    cancellationToken: Arg.Any<CancellationToken>())
                 .Returns(new ReadOnlyDictionary<string, FeatureFlag>(
                     new Dictionary<string, FeatureFlag>
                     {
@@ -39,7 +48,6 @@ public class FeatureFlagExtensionsTests
             var result = await client.GetFeatureFlagAsync(
                 "distinctId",
                 "flag-key",
-                new Dictionary<string, object>(),
                 CancellationToken.None);
 
             Assert.NotNull(result);
@@ -50,7 +58,12 @@ public class FeatureFlagExtensionsTests
         public async Task ReturnsStringFlag()
         {
             var client = Substitute.For<IPostHogClient>();
-            client.GetFeatureFlagsAsync("distinctId", Arg.Any<CancellationToken>())
+            client.GetFeatureFlagsAsync(
+                    distinctId: "distinctId",
+                    groups: null,
+                    personProperties: null,
+                    groupProperties: null,
+                    cancellationToken: Arg.Any<CancellationToken>())
                 .Returns(new ReadOnlyDictionary<string, FeatureFlag>(
                     new Dictionary<string, FeatureFlag>
                     {
@@ -60,7 +73,6 @@ public class FeatureFlagExtensionsTests
             var result = await client.GetFeatureFlagAsync(
                 "distinctId",
                 "flag-key",
-                new Dictionary<string, object>(),
                 CancellationToken.None);
 
             Assert.NotNull(result);
@@ -76,7 +88,12 @@ public class FeatureFlagExtensionsTests
         public async Task ReturnsFlagResult(bool enabled)
         {
             var client = Substitute.For<IPostHogClient>();
-            client.GetFeatureFlagsAsync("distinctId", Arg.Any<CancellationToken>())
+            client.GetFeatureFlagsAsync(
+                    distinctId :"distinctId",
+                    groups: null,
+                    personProperties: null,
+                    groupProperties: null,
+                    cancellationToken: Arg.Any<CancellationToken>())
                 .Returns(new ReadOnlyDictionary<string, FeatureFlag>(
                     new Dictionary<string, FeatureFlag>
                     {
@@ -86,7 +103,6 @@ public class FeatureFlagExtensionsTests
             var result = await client.IsFeatureEnabledAsync(
                 "distinctId",
                 "flag-key",
-                new Dictionary<string, object>(),
                 CancellationToken.None);
 
             Assert.NotNull(result);
@@ -97,7 +113,12 @@ public class FeatureFlagExtensionsTests
         public async Task ReturnsTrueWhenFlagReturnsString()
         {
             var client = Substitute.For<IPostHogClient>();
-            client.GetFeatureFlagsAsync("distinctId", Arg.Any<CancellationToken>())
+            client.GetFeatureFlagsAsync(
+                    distinctId :"distinctId",
+                    groups: null,
+                    personProperties: null,
+                    groupProperties: null,
+                    cancellationToken: Arg.Any<CancellationToken>())
                 .Returns(new ReadOnlyDictionary<string, FeatureFlag>(
                     new Dictionary<string, FeatureFlag>
                     {
@@ -107,7 +128,6 @@ public class FeatureFlagExtensionsTests
             var result = await client.IsFeatureEnabledAsync(
                 "distinctId",
                 "flag-key",
-                new Dictionary<string, object>(),
                 CancellationToken.None);
 
             Assert.NotNull(result);
@@ -118,13 +138,17 @@ public class FeatureFlagExtensionsTests
         public async Task ReturnsNullWhenFlagDoesNotExist()
         {
             var client = Substitute.For<IPostHogClient>();
-            client.GetFeatureFlagsAsync("distinctId", Arg.Any<CancellationToken>())
+            client.GetFeatureFlagsAsync(
+                    distinctId: "distinctId",
+                    groups: null,
+                    personProperties: null,
+                    groupProperties: null,
+                    cancellationToken: Arg.Any<CancellationToken>())
                 .Returns(new ReadOnlyDictionary<string, FeatureFlag>(new Dictionary<string, FeatureFlag>()));
 
             var result = await client.IsFeatureEnabledAsync(
                 "distinctId",
                 "missing-flag-key",
-                new Dictionary<string, object>(),
                 CancellationToken.None);
 
             Assert.Null(result);

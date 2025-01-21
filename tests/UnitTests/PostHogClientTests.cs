@@ -24,7 +24,12 @@ public class PostHogClientTests
             var options = new FakeOptions<PostHogOptions>(new PostHogOptions());
             var apiClient = Substitute.For<IPostHogApiClient>();
             // Set up a call to the API client that returns all feature flags
-            apiClient.GetFeatureFlagsAsync("1234", Arg.Any<CancellationToken>())
+            apiClient.GetFeatureFlagsAsync(
+                    distinctUserId: "1234",
+                    groups: null,
+                    personProperties: null,
+                    groupProperties: null,
+                    cancellationToken: Arg.Any<CancellationToken>())
                 .Returns(
                     _ => new FeatureFlagsApiResult
                     {
@@ -45,10 +50,16 @@ public class PostHogClientTests
                 NullLogger<PostHogClient>.Instance);
 
             var flags = await client.GetFeatureFlagsAsync(
-                "1234",
+                distinctId: "1234",
+                groups: null,
+                personProperties: null,
+                groupProperties: null,
                 CancellationToken.None);
             var flagsAgain = await client.GetFeatureFlagsAsync(
-                "1234",
+                distinctId: "1234",
+                groups: null,
+                personProperties: null,
+                groupProperties: null,
                 CancellationToken.None);
             var firstFlag = await client.GetFeatureFlagAsync("1234", "flag-key");
 

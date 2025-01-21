@@ -34,6 +34,10 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
     public PostHogOptions PostHogOptions => options.Value;
 
+    [BindProperty]
+    [FromQuery]
+    public string? ProjectSize { get; set; }
+
     public async Task OnGetAsync()
     {
         ApiKeyIsSet = options.Value.ProjectApiKey is not (null or []);
@@ -55,7 +59,23 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                     HttpContext.RequestAborted);
             }
 
-            var flags = await postHogClient.GetFeatureFlagsAsync(UserId, HttpContext.RequestAborted);
+            var groupProperties = ProjectSize is not (null or [])
+                ? new Dictionary<string, object>
+                {
+                    ["project"] = new Dictionary<string, object>
+                        { ["size"] = ProjectSize }
+                }
+                : null;
+
+            var flags = await postHogClient.GetFeatureFlagsAsync(
+                UserId,
+                groups: new Dictionary<string, object>
+                {
+                    ["project"] = "aaaa-bbbb-cccc"
+                },
+                personProperties: null,
+                groupProperties: groupProperties,
+                HttpContext.RequestAborted);
 
             foreach (var (key, flag) in flags)
             {
