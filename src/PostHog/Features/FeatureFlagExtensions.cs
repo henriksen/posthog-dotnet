@@ -26,10 +26,7 @@ public static class FeatureFlagExtensions
         => (client ?? throw new ArgumentNullException(nameof(client))).IsFeatureEnabledAsync(
             distinctId,
             featureKey,
-            personProperties: null,
-            groupProperties: null,
-            onlyEvaluateLocally: false,
-            sendFeatureFlagEvents: true,
+            options: null,
             cancellationToken: cancellationToken);
 
     /// <summary>
@@ -48,10 +45,7 @@ public static class FeatureFlagExtensions
         => (client ?? throw new ArgumentNullException(nameof(client))).IsFeatureEnabledAsync(
             distinctId,
             featureKey,
-            personProperties: null,
-            groupProperties: null,
-            onlyEvaluateLocally: false,
-            sendFeatureFlagEvents: true,
+            options: null,
             cancellationToken: CancellationToken.None);
 
     /// <summary>
@@ -60,7 +54,7 @@ public static class FeatureFlagExtensions
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
+    /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
     /// <returns>
     /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
     /// </returns>
@@ -68,14 +62,11 @@ public static class FeatureFlagExtensions
         this IPostHogClient client,
         string distinctId,
         string featureKey,
-        Dictionary<string, object> personProperties)
+        FeatureFlagOptions? options)
         => (client ?? throw new ArgumentNullException(nameof(client))).IsFeatureEnabledAsync(
             distinctId,
             featureKey,
-            personProperties,
-            groupProperties: null,
-            onlyEvaluateLocally: false,
-            sendFeatureFlagEvents: true,
+            options,
             cancellationToken: CancellationToken.None);
 
     /// <summary>
@@ -126,10 +117,7 @@ public static class FeatureFlagExtensions
         => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(
             distinctId,
             featureKey,
-            personProperties: null,
-            groupProperties: null,
-            onlyEvaluateLocally: false,
-            sendFeatureFlagEvents: true,
+            options: null,
             cancellationToken: cancellationToken);
 
     /// <summary>
@@ -146,10 +134,26 @@ public static class FeatureFlagExtensions
         => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(
             distinctId,
             featureKey,
-            personProperties: null,
-            groupProperties: null,
-            onlyEvaluateLocally: false,
-            sendFeatureFlagEvents: true,
+            options: null,
+            cancellationToken: CancellationToken.None);
+
+    /// <summary>
+    /// Retrieves a feature flag.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
+    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
+    public static async Task<FeatureFlag?> GetFeatureFlagAsync(
+        this IPostHogClient client,
+        string distinctId,
+        string featureKey,
+        FeatureFlagOptions options)
+        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(
+            distinctId,
+            featureKey,
+            options,
             cancellationToken: CancellationToken.None);
 
     /// <summary>

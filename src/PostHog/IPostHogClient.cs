@@ -53,28 +53,6 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Determines whether a feature is enabled for the specified user.
-    /// </summary>
-    /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
-    /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
-    /// <param name="onlyEvaluateLocally">Optional - whether to only evaluate the flag locally. Defaults to <c>false</c>.</param>
-    /// <param name="sendFeatureFlagEvents">Optional - whether to send feature flag events. Used for Experiments. Defaults to <c>true</c>.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>
-    /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
-    /// </returns>
-    Task<bool?> IsFeatureEnabledAsync(
-        string distinctId,
-        string featureKey,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties,
-        bool onlyEvaluateLocally,
-        bool sendFeatureFlagEvents,
-        CancellationToken cancellationToken);
-
-    /// <summary>
     /// Captures an event.
     /// </summary>
     /// <param name="distinctId">The identifier you use for the user.</param>
@@ -88,23 +66,33 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
         Dictionary<string, object>? groups);
 
     /// <summary>
+    /// Determines whether a feature is enabled for the specified user.
+    /// </summary>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>
+    /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
+    /// </returns>
+    Task<bool?> IsFeatureEnabledAsync(
+        string distinctId,
+        string featureKey,
+        FeatureFlagOptions? options,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Retrieves a feature flag.
     /// </summary>
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
-    /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
-    /// <param name="onlyEvaluateLocally">Optional - whether to only evaluate the flag locally. Defaults to <c>false</c>.</param>
-    /// <param name="sendFeatureFlagEvents">Default <c>true</c>. If <c>true</c>, this method captures a $feature_flag_called event.</param>
+    /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
     Task<FeatureFlag?> GetFeatureFlagAsync(
         string distinctId,
         string featureKey,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties,
-        bool onlyEvaluateLocally,
-        bool sendFeatureFlagEvents,
+        FeatureFlagOptions? options,
         CancellationToken cancellationToken);
 
     /// <summary>

@@ -129,19 +129,13 @@ public sealed class PostHogClient : IPostHogClient
     public async Task<bool?> IsFeatureEnabledAsync(
         string distinctId,
         string featureKey,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties,
-        bool onlyEvaluateLocally,
-        bool sendFeatureFlagEvents,
+        FeatureFlagOptions? options,
         CancellationToken cancellationToken)
     {
         var result = await GetFeatureFlagAsync(
             distinctId,
             featureKey,
-            personProperties,
-            groupProperties,
-            onlyEvaluateLocally,
-            sendFeatureFlagEvents,
+            options,
             cancellationToken);
 
         return result?.IsEnabled;
@@ -151,21 +145,20 @@ public sealed class PostHogClient : IPostHogClient
     public async Task<FeatureFlag?> GetFeatureFlagAsync(
         string distinctId,
         string featureKey,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties,
-        bool onlyEvaluateLocally,
-        bool sendFeatureFlagEvents,
+        FeatureFlagOptions? options,
         CancellationToken cancellationToken)
     {
         var flags = await GetFeatureFlagsAsync(
             distinctId,
-            personProperties,
-            groupProperties,
+            options?.PersonProperties,
+            options?.GroupProperties,
             cancellationToken);
 
         var flag = flags.GetValueOrDefault(featureKey);
 
-        var returnValue = sendFeatureFlagEvents
+        options ??= new FeatureFlagOptions(); // We need the defaults if options is null.
+
+        var returnValue = options.SendFeatureFlagEvents
             ? _featureFlagSentCache.GetOrCreate((distinctId, featureKey),
                 cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, flag))
             : flag;

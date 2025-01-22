@@ -6,6 +6,7 @@ using PostHog;
 using PostHog.Api;
 using PostHog.Cache;
 using PostHog.Config;
+using PostHog.Features;
 using PostHog.Json;
 
 #pragma warning disable CA2000
@@ -120,13 +121,9 @@ public class PostHogClientTests
                 responseBody: new { status = 1 });
 
             await client.IsFeatureEnabledAsync(
-                "a-distinct-id",
-                "flag-key",
-                personProperties: null,
-                groupProperties: null,
-                onlyEvaluateLocally: false,
-                sendFeatureFlagEvents: false,
-                CancellationToken.None);
+                distinctId: "a-distinct-id",
+                featureKey: "flag-key",
+                options: new FeatureFlagOptions { SendFeatureFlagEvents = false });
 
             await client.FlushAsync();
             Assert.Empty(captureRequestHandler.ReceivedRequests);
@@ -476,13 +473,9 @@ public class PostHogClientTests
                 responseBody: new { status = 1 });
 
             await client.GetFeatureFlagAsync(
-                "a-distinct-id",
-                "flag-key",
-                personProperties: null,
-                groupProperties: null,
-                onlyEvaluateLocally: false,
-                sendFeatureFlagEvents: false,
-                CancellationToken.None);
+                distinctId: "a-distinct-id",
+                featureKey: "flag-key",
+                options: new FeatureFlagOptions { SendFeatureFlagEvents = false });
 
             await client.FlushAsync();
             Assert.Empty(captureRequestHandler.ReceivedRequests);
@@ -530,8 +523,7 @@ public class PostHogClientTests
             var flagsAgain = await client.GetFeatureFlagsAsync(
                 distinctId: "1234",
                 personProperties: null,
-                groupProperties: null,
-                CancellationToken.None);
+                groupProperties: null);
             var firstFlag = await client.GetFeatureFlagAsync("1234", "flag-key");
 
             Assert.NotEmpty(flags);
