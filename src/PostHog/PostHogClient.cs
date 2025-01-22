@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -15,7 +16,8 @@ public sealed class PostHogClient : IPostHogClient
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
     readonly IPostHogApiClient _apiClient;
     readonly IFeatureFlagCache _featureFlagCache;
-    private readonly TimeProvider _timeProvider;
+    readonly MemoryCache _featureFlagSentCache;
+    readonly TimeProvider _timeProvider;
     readonly ILogger<PostHogClient> _logger;
 
     /// <summary>
@@ -45,6 +47,12 @@ public sealed class PostHogClient : IPostHogClient
             logger);
 
         _featureFlagCache = featureFlagCache;
+        _featureFlagSentCache = new MemoryCache(new MemoryCacheOptions
+        {
+            SizeLimit = options.Value.FeatureFlagSentCacheSizeLimit,
+            Clock = new TimeProviderSystemClock(timeProvider)
+        });
+
         _timeProvider = timeProvider;
         _logger = logger;
 
@@ -127,27 +135,35 @@ public sealed class PostHogClient : IPostHogClient
 
         var flag = flags.GetValueOrDefault(featureKey);
 
-        if (sendFeatureFlagEvents)
-        {
-            var cacheKey = (distinctId, featureKey);
+        return sendFeatureFlagEvents
+            ? _featureFlagSentCache.GetOrCreate((distinctId, featureKey),
+                cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, flag))
+            : flag;
+    }
 
-            var flagResponse = flag.ToResponseObject();
+    FeatureFlag? CaptureFeatureFlagSentEvent(
+        string distinctId,
+        string featureKey,
+        ICacheEntry cacheEntry,
+        FeatureFlag? flag)
+    {
+        cacheEntry.SetSize(1); // Each entry has a size of 1
+        cacheEntry.SetPriority(CacheItemPriority.Low);
 
-            CaptureEvent(
-                distinctId,
-                eventName: "$feature_flag_called",
-                properties: new Dictionary<string, object>
-                {
-                    ["$feature_flag"] = featureKey,
-                    ["$feature_flag_response"] = flagResponse,
-                    ["locally_evaluated"] = false,
-                    [$"$feature/{featureKey}"] = flagResponse
-                },
-                // TODO: transform groupProperties into what we expect here.
-                groups: new Dictionary<string, object>());
-        }
+        CaptureEvent(
+            distinctId,
+            eventName: "$feature_flag_called",
+            properties: new Dictionary<string, object>
+            {
+                ["$feature_flag"] = featureKey,
+                ["$feature_flag_response"] = flag.ToResponseObject(),
+                ["locally_evaluated"] = false,
+                [$"$feature/{featureKey}"] = flag.ToResponseObject()
+            },
+            // TODO: transform groupProperties into what we expect here.
+            groups: new Dictionary<string, object>());
 
-        return flags.GetValueOrDefault(featureKey);
+        return flag;
     }
 
     /// <inheritdoc/>
@@ -177,11 +193,7 @@ public sealed class PostHogClient : IPostHogClient
             cancellationToken);
         return results.FeatureFlags.ToReadOnlyDictionary(
             kvp => kvp.Key,
-            kvp => new FeatureFlag(
-                kvp.Key,
-                kvp.Value.Value,
-                kvp.Value.StringValue,
-                results.FeatureFlagPayloads.GetValueOrDefault(kvp.Key)));
+            kvp => new FeatureFlag(kvp, results.FeatureFlagPayloads));
     }
 
     /// <inheritdoc/>
@@ -199,6 +211,7 @@ public sealed class PostHogClient : IPostHogClient
         // Stop the polling and wait for it.
         await _asyncBatchHandler.DisposeAsync();
         _apiClient.Dispose();
+        _featureFlagSentCache.Dispose();
     }
 }
 
