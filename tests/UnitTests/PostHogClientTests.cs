@@ -124,6 +124,7 @@ public class PostHogClientTests
                 "flag-key",
                 personProperties: null,
                 groupProperties: null,
+                onlyEvaluateLocally: false,
                 sendFeatureFlagEvents: false,
                 CancellationToken.None);
 
@@ -479,6 +480,7 @@ public class PostHogClientTests
                 "flag-key",
                 personProperties: null,
                 groupProperties: null,
+                onlyEvaluateLocally: false,
                 sendFeatureFlagEvents: false,
                 CancellationToken.None);
 

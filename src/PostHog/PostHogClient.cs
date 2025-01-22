@@ -126,11 +126,34 @@ public sealed class PostHogClient : IPostHogClient
     }
 
     /// <inheritdoc/>
+    public async Task<bool?> IsFeatureEnabledAsync(
+        string distinctId,
+        string featureKey,
+        Dictionary<string, object>? personProperties,
+        GroupCollection? groupProperties,
+        bool onlyEvaluateLocally,
+        bool sendFeatureFlagEvents,
+        CancellationToken cancellationToken)
+    {
+        var result = await GetFeatureFlagAsync(
+            distinctId,
+            featureKey,
+            personProperties,
+            groupProperties,
+            onlyEvaluateLocally,
+            sendFeatureFlagEvents,
+            cancellationToken);
+
+        return result?.IsEnabled;
+    }
+
+    /// <inheritdoc/>
     public async Task<FeatureFlag?> GetFeatureFlagAsync(
         string distinctId,
         string featureKey,
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,
+        bool onlyEvaluateLocally,
         bool sendFeatureFlagEvents,
         CancellationToken cancellationToken)
     {
