@@ -12,7 +12,7 @@ public class PostHogApiClientTests
         {
             using var messageHandler = new FakeHttpMessageHandler();
             var timeProvider = new FakeTimeProvider();
-            timeProvider.SetUtcNow(new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            timeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
             var requestHandler = messageHandler.AddResponse(
                 new Uri("https://us.i.posthog.com/batch"),
                 HttpMethod.Post,
@@ -31,20 +31,19 @@ public class PostHogApiClientTests
             var received = requestHandler.GetReceivedRequestBody(indented: true);
             Assert.Equal($$"""
                          {
+                           "api_key": "test",
                            "historical_migrations": false,
                            "batch": [
                              {
                                "event": "some_event",
-                               "distinct_id": "some-distinct-id",
                                "properties": {
-                                 "$lib": "{{PostHogApiClient.LibraryName}}",
+                                 "distinct_id": "some-distinct-id",
+                                 "$lib": "posthog-dotnet",
                                  "$lib_version": "{{client.Version}}"
                                },
-                               "timestamp": "1999-12-31T16:00:00-08:00"
+                               "timestamp": "2024-01-21T19:08:23\u002B00:00"
                              }
-                           ],
-                           "api_key": "test",
-                           "timestamp": "1999-12-31T16:00:00-08:00"
+                           ]
                          }
                          """, received);
         }

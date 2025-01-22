@@ -104,7 +104,7 @@ public sealed class PostHogClient : IPostHogClient
             eventName,
             distinctId,
             properties,
-            _timeProvider.GetUtcNow().DateTime);
+            timestamp: _timeProvider.GetUtcNow());
 
         _asyncBatchHandler.Enqueue(capturedEvent);
 

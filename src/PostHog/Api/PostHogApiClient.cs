@@ -72,11 +72,10 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
         var payload = new Dictionary<string, object>
         {
+            ["api_key"] = ProjectApiKey,
             ["historical_migrations"] = false,
             ["batch"] = events.ToReadOnlyList()
         };
-
-        PrepareAndMutatePayload(payload);
 
         return await _httpClient.PostJsonAsync<ApiResult>(endpointUrl, payload, cancellationToken)
                ?? new ApiResult(0);
@@ -129,13 +128,14 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
     void PrepareAndMutatePayload(Dictionary<string, object> payload)
     {
+        payload["api_key"] = ProjectApiKey;
+
         if (payload.GetValueOrDefault("properties") is Dictionary<string, object> properties)
         {
             properties["$lib"] = LibraryName;
             properties["$lib_version"] = VersionConstants.Version;
         }
 
-        payload["api_key"] = ProjectApiKey;
         payload["timestamp"] = _timeProvider.GetUtcNow(); // ISO 8601
     }
 

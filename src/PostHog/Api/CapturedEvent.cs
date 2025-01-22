@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using PostHog.Versioning;
 
@@ -10,6 +8,13 @@ namespace PostHog.Api;
 /// </summary>
 public class CapturedEvent
 {
+    /// <summary>
+    /// Creates a <see cref="CapturedEvent"/>.
+    /// </summary>
+    /// <param name="eventName">The name of the event.</param>
+    /// <param name="distinctId">The identifier for the user.</param>
+    /// <param name="properties">The properties to associate with the event.</param>
+    /// <param name="timestamp">The ISO 8601 timestamp.</param>
     public CapturedEvent(
         string eventName,
         string distinctId,
@@ -17,12 +22,12 @@ public class CapturedEvent
         DateTimeOffset timestamp)
     {
         EventName = eventName;
-        DistinctId = distinctId;
         Timestamp = timestamp;
 
         Properties = properties;
 
         // Every event has to have these properties.
+        Properties["distinct_id"] = distinctId;
         Properties["$lib"] = PostHogApiClient.LibraryName;
         Properties["$lib_version"] = VersionConstants.Version;
     }
@@ -32,12 +37,6 @@ public class CapturedEvent
     /// </summary>
     [JsonPropertyName("event")]
     public string EventName { get; }
-
-    /// <summary>
-    /// The distinct identifier.
-    /// </summary>
-    [JsonPropertyName("distinct_id")]
-    public string DistinctId { get; private set; }
 
     /// <summary>
     /// The properties to send with the event.

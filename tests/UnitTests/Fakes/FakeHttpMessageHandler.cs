@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 /// <summary>
 /// Useful class for testing HTTP clients.
@@ -11,7 +11,7 @@ public class FakeHttpMessageHandler : HttpMessageHandler
     readonly List<RequestHandler> _handlers = [];
 
     public static HttpResponseMessage CreateResponse<TResponseBody>(TResponseBody responseBody, string contentType = "application/json")
-        => CreateResponse(JsonConvert.SerializeObject(responseBody), contentType);
+        => CreateResponse(SerializeObject(responseBody), contentType);
 
     public static HttpResponseMessage CreateResponse(string responseBody, string contentType) =>
         new()
@@ -53,7 +53,7 @@ public class FakeHttpMessageHandler : HttpMessageHandler
         TResponseBody responseBody,
         string contentType = "application/json")
     {
-        var json = JsonConvert.SerializeObject(responseBody);
+        var json = SerializeObject(responseBody);
         return AddResponse(url, httpMethod, json, contentType);
     }
 
@@ -170,12 +170,29 @@ public class FakeHttpMessageHandler : HttpMessageHandler
 
         public HttpRequestMessage ReceivedRequest => _receivedRequests.Single();
 
-        public string GetReceivedRequestBody(bool indented = false)
+        public string GetReceivedRequestBody(bool indented)
         {
             var json = _receivedBodiesJson.Single();
-            return indented
-                ? JsonConvert.SerializeObject(JsonConvert.DeserializeObject(json), Formatting.Indented)
-                : json;
+            return indented ? FormatJson(json) : json;
         }
+    }
+
+    static string FormatJson(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+        return JsonSerializer.Serialize(doc.RootElement, options);
+    }
+
+    static string SerializeObject<T>(T obj)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+        return JsonSerializer.Serialize(obj, options);
     }
 }
