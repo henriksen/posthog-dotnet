@@ -185,7 +185,6 @@ var flags = await postHogClient.GetFeatureFlagsAsync(
     [
         new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object>
         {
-            ["$group_key"] = "aaaa-bbbb-cccc",
             ["size"] = ProjectSize ?? "large"
         })
     ],
