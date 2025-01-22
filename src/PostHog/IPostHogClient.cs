@@ -86,4 +86,9 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// </summary>
     /// <returns>A <see cref="Task"/>.</returns>
     Task FlushAsync();
+
+    /// <summary>
+    /// The version of this library.
+    /// </summary>
+    Version Version { get; }
 }

@@ -33,4 +33,9 @@ public interface IPostHogApiClient : IDisposable
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The version of the client.
+    /// </summary>
+    Version Version { get; }
 }
