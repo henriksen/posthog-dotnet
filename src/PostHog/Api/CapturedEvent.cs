@@ -30,6 +30,7 @@ public class CapturedEvent
         Properties["distinct_id"] = distinctId;
         Properties["$lib"] = PostHogApiClient.LibraryName;
         Properties["$lib_version"] = VersionConstants.Version;
+        Properties["$geoip_disable"] = true;
     }
 
     /// <summary>

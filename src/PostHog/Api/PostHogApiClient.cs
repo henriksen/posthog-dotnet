@@ -134,6 +134,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
         {
             properties["$lib"] = LibraryName;
             properties["$lib_version"] = VersionConstants.Version;
+            properties["$geoip_disable"] = true;
         }
 
         payload["timestamp"] = _timeProvider.GetUtcNow(); // ISO 8601
