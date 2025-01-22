@@ -13,13 +13,13 @@ public class PostHogClientTests
 {
     public class TheGetFeatureFlagAsyncMethod
     {
-        static PostHogClient SetUpPostHogClient(out FakeHttpMessageHandler messageHandler)
+        static PostHogClient SetUpPostHogClient(out FakeHttpMessageHandler messageHandler, PostHogOptions? options = null)
         {
             messageHandler = new FakeHttpMessageHandler();
             var timeProvider = new FakeTimeProvider();
             timeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
             var httpClient = new HttpClient(messageHandler);
-            var options = new PostHogOptions { ProjectApiKey = "test" };
+            options ??= new PostHogOptions { ProjectApiKey = "test" };
             var apiClient = new PostHogApiClient(
                 httpClient,
                 options,
@@ -163,34 +163,14 @@ public class PostHogClientTests
         public async Task CapturesFeatureFlagCalledEventOnlyOncePerDistinctIdAndFlagKey()
         {
             var client = SetUpPostHogClient(out var messageHandler);
-            messageHandler.AddResponse(
+            messageHandler.AddRepeatedResponses(4,
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                responseBody: new FeatureFlagsApiResult
+                count => new FeatureFlagsApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
-                        ["flag-key"] = "premium-experience"
-                    }.AsReadOnly()
-                });
-            messageHandler.AddResponse(
-                new Uri("https://us.i.posthog.com/decide?v=3"),
-                HttpMethod.Post,
-                responseBody: new FeatureFlagsApiResult
-                {
-                    FeatureFlags = new Dictionary<string, StringOrValue<bool>>
-                    {
-                        ["flag-key"] = "premium-experience"
-                    }.AsReadOnly()
-                });
-            messageHandler.AddResponse(
-                new Uri("https://us.i.posthog.com/decide?v=3"),
-                HttpMethod.Post,
-                responseBody: new FeatureFlagsApiResult
-                {
-                    FeatureFlags = new Dictionary<string, StringOrValue<bool>>
-                    {
-                        ["flag-key"] = false
+                        ["flag-key"] = $"feature-value-{count}"
                     }.AsReadOnly()
                 });
             var captureRequestHandler = messageHandler.AddResponse(
@@ -202,7 +182,7 @@ public class PostHogClientTests
                 "a-distinct-id",
                 "flag-key",
                 CancellationToken.None);
-            var result = await client.GetFeatureFlagAsync(
+            await client.GetFeatureFlagAsync(
                 "a-distinct-id",
                 "flag-key",
                 CancellationToken.None);
@@ -211,8 +191,6 @@ public class PostHogClientTests
                 "flag-key",
                 CancellationToken.None);
 
-            Assert.NotNull(result);
-            Assert.Equal("premium-experience", result.VariantKey);
             await client.FlushAsync();
             var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
             Assert.Equal($$"""
@@ -224,9 +202,9 @@ public class PostHogClientTests
                                  "event": "$feature_flag_called",
                                  "properties": {
                                    "$feature_flag": "flag-key",
-                                   "$feature_flag_response": "premium-experience",
+                                   "$feature_flag_response": "feature-value-0",
                                    "locally_evaluated": false,
-                                   "$feature/flag-key": "premium-experience",
+                                   "$feature/flag-key": "feature-value-0",
                                    "distinct_id": "a-distinct-id",
                                    "$lib": "posthog-dotnet",
                                    "$lib_version": "{{client.Version}}",
@@ -238,9 +216,103 @@ public class PostHogClientTests
                                  "event": "$feature_flag_called",
                                  "properties": {
                                    "$feature_flag": "flag-key",
-                                   "$feature_flag_response": false,
+                                   "$feature_flag_response": "feature-value-2",
                                    "locally_evaluated": false,
-                                   "$feature/flag-key": false,
+                                   "$feature/flag-key": "feature-value-2",
+                                   "distinct_id": "another-distinct-id",
+                                   "$lib": "posthog-dotnet",
+                                   "$lib_version": "{{client.Version}}",
+                                   "$geoip_disable": true
+                                 },
+                                 "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                               }
+                             ]
+                           }
+                           """, received);
+        }
+
+        [Fact]
+        public async Task CapturesFeatureFlagCalledEventAgainIfCacheLimitExceeded()
+        {
+            var client = SetUpPostHogClient(out var messageHandler, new PostHogOptions
+            {
+                ProjectApiKey = "test-api-key",
+                FeatureFlagSentCacheSizeLimit = 1
+            });
+            messageHandler.AddRepeatedResponses(4,
+                new Uri("https://us.i.posthog.com/decide?v=3"),
+                HttpMethod.Post,
+                count => new FeatureFlagsApiResult
+                {
+                    FeatureFlags = new Dictionary<string, StringOrValue<bool>>
+                    {
+                        ["flag-key"] = $"flag-variant-{count}"
+                    }.AsReadOnly()
+                });
+            var captureRequestHandler = messageHandler.AddResponse(
+                new Uri("https://us.i.posthog.com/batch"),
+                HttpMethod.Post,
+                responseBody: new { status = 1 });
+
+            await client.GetFeatureFlagAsync(
+                "a-distinct-id",
+                "flag-key",
+                CancellationToken.None);
+            await client.GetFeatureFlagAsync(
+                "another-distinct-id",
+                "flag-key",
+                CancellationToken.None);
+            await client.GetFeatureFlagAsync(
+                "another-distinct-id",
+                "flag-key",
+                CancellationToken.None);
+            await client.GetFeatureFlagAsync(
+                "a-distinct-id",
+                "flag-key",
+                CancellationToken.None);
+
+            await client.FlushAsync();
+            var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
+            Assert.Equal($$"""
+                           {
+                             "api_key": "test-api-key",
+                             "historical_migrations": false,
+                             "batch": [
+                               {
+                                 "event": "$feature_flag_called",
+                                 "properties": {
+                                   "$feature_flag": "flag-key",
+                                   "$feature_flag_response": "flag-variant-0",
+                                   "locally_evaluated": false,
+                                   "$feature/flag-key": "flag-variant-0",
+                                   "distinct_id": "a-distinct-id",
+                                   "$lib": "posthog-dotnet",
+                                   "$lib_version": "{{client.Version}}",
+                                   "$geoip_disable": true
+                                 },
+                                 "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                               },
+                               {
+                                 "event": "$feature_flag_called",
+                                 "properties": {
+                                   "$feature_flag": "flag-key",
+                                   "$feature_flag_response": "flag-variant-1",
+                                   "locally_evaluated": false,
+                                   "$feature/flag-key": "flag-variant-1",
+                                   "distinct_id": "another-distinct-id",
+                                   "$lib": "posthog-dotnet",
+                                   "$lib_version": "{{client.Version}}",
+                                   "$geoip_disable": true
+                                 },
+                                 "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                               },
+                               {
+                                 "event": "$feature_flag_called",
+                                 "properties": {
+                                   "$feature_flag": "flag-key",
+                                   "$feature_flag_response": "flag-variant-2",
+                                   "locally_evaluated": false,
+                                   "$feature/flag-key": "flag-variant-2",
                                    "distinct_id": "another-distinct-id",
                                    "$lib": "posthog-dotnet",
                                    "$lib_version": "{{client.Version}}",

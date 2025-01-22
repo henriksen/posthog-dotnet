@@ -15,9 +15,10 @@ public sealed class PostHogClient : IPostHogClient
 {
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
     readonly IPostHogApiClient _apiClient;
-    readonly IFeatureFlagCache _featureFlagCache;
+    readonly IFeatureFlagCache _featureFlagsCache;
     readonly MemoryCache _featureFlagSentCache;
     readonly TimeProvider _timeProvider;
+    readonly IOptions<PostHogOptions> _options;
     readonly ILogger<PostHogClient> _logger;
 
     /// <summary>
@@ -25,28 +26,28 @@ public sealed class PostHogClient : IPostHogClient
     /// <see cref="TimeProvider"/>, and <paramref name="logger"/>.
     /// </summary>
     /// <param name="postHogApiClient">The <see cref="IPostHogApiClient"/> used to make requests.</param>
-    /// <param name="featureFlagCache">Caches feature flags for a duration appropriate to the environment.</param>
+    /// <param name="featureFlagsCache">Caches feature flags for a duration appropriate to the environment.</param>
     /// <param name="options">The options used to configure the client.</param>
     /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
     public PostHogClient(
         IPostHogApiClient postHogApiClient,
-        IFeatureFlagCache featureFlagCache,
+        IFeatureFlagCache featureFlagsCache,
         IOptions<PostHogOptions> options,
         TimeProvider timeProvider,
         ILogger<PostHogClient> logger)
     {
-        options = options ?? throw new ArgumentNullException(nameof(options));
+        _options = options ?? throw new ArgumentNullException(nameof(options));
         _apiClient = postHogApiClient;
-        _featureFlagCache = featureFlagCache;
+        _featureFlagsCache = featureFlagsCache;
         _asyncBatchHandler = new(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
             timeProvider,
             logger);
 
-        _featureFlagCache = featureFlagCache;
+        _featureFlagsCache = featureFlagsCache;
         _featureFlagSentCache = new MemoryCache(new MemoryCacheOptions
         {
             SizeLimit = options.Value.FeatureFlagSentCacheSizeLimit,
@@ -149,6 +150,7 @@ public sealed class PostHogClient : IPostHogClient
     {
         cacheEntry.SetSize(1); // Each entry has a size of 1
         cacheEntry.SetPriority(CacheItemPriority.Low);
+        cacheEntry.SetSlidingExpiration(_options.Value.FeatureFlagSentCacheSlidingExpiration);
 
         CaptureEvent(
             distinctId,
@@ -172,7 +174,7 @@ public sealed class PostHogClient : IPostHogClient
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,
         CancellationToken cancellationToken)
-        => await _featureFlagCache.GetAndCacheFeatureFlagsAsync(
+        => await _featureFlagsCache.GetAndCacheFeatureFlagsAsync(
             distinctId,
             fetcher: ct => FetchFeatureFlagsAsync(
                 distinctId,

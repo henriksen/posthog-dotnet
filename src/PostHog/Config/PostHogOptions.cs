@@ -45,6 +45,12 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     /// </remarks>
     public long FeatureFlagSentCacheSizeLimit { get; set; } = 50_000;
 
+    /// <summary>
+    /// Sets a sliding expiration for the $feature_flag_sent cache. See <see cref="FeatureFlagSentCacheSizeLimit"/>
+    /// for more about the cache.
+    /// </summary>
+    public TimeSpan FeatureFlagSentCacheSlidingExpiration { get; set; } = TimeSpan.FromMinutes(10);
+
     // Explicit implementation to hide this value from most users.
     // This is here to make it easier to instantiate the client with the options.
     PostHogOptions IOptions<PostHogOptions>.Value => this;
