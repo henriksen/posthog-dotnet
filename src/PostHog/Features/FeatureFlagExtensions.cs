@@ -15,6 +15,7 @@ public static class FeatureFlagExtensions
     /// <param name="featureKey">The name of the feature flag.</param>
     /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
     /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
+    /// <param name="sendFeatureFlagEvents">Optional - whether to send feature flag events. Used for Experiments. Defaults to <c>true</c>.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>
     /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
@@ -24,6 +25,7 @@ public static class FeatureFlagExtensions
         string featureKey,
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,
+        bool sendFeatureFlagEvents,
         CancellationToken cancellationToken)
     {
         client = client ?? throw new ArgumentNullException(nameof(client));
@@ -32,7 +34,7 @@ public static class FeatureFlagExtensions
             featureKey,
             personProperties,
             groupProperties,
-            sendFeatureFlagEvents: true,
+            sendFeatureFlagEvents,
             cancellationToken);
 
         return result?.IsEnabled;
@@ -59,6 +61,7 @@ public static class FeatureFlagExtensions
             featureKey,
             personProperties: null,
             groupProperties: null,
+            sendFeatureFlagEvents: true,
             cancellationToken: cancellationToken);
 
     /// <summary>
@@ -79,6 +82,7 @@ public static class FeatureFlagExtensions
             featureKey,
             personProperties: null,
             groupProperties: null,
+            sendFeatureFlagEvents: true,
             cancellationToken: CancellationToken.None);
 
     /// <summary>
@@ -101,6 +105,7 @@ public static class FeatureFlagExtensions
             featureKey,
             personProperties,
             groupProperties: null,
+            sendFeatureFlagEvents: true,
             cancellationToken: CancellationToken.None);
 
     /// <summary>
@@ -133,7 +138,7 @@ public static class FeatureFlagExtensions
         this IPostHogClient client,
         string distinctId)
         => await (client ?? throw new ArgumentNullException(nameof(client)))
-            .GetFeatureFlagsAsync(distinctId, new(), new(), CancellationToken.None);
+            .GetFeatureFlagsAsync(distinctId, personProperties: null, groupProperties: null, CancellationToken.None);
 
     /// <summary>
     /// Retrieves a feature flag.

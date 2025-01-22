@@ -83,8 +83,8 @@ public sealed class PostHogClient : IPostHogClient
     /// <inheritdoc/>
     public async Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
-        Dictionary<string, object> userPropertiesToSet,
-        Dictionary<string, object> userPropertiesToSetOnce,
+        Dictionary<string, object>? userPropertiesToSet,
+        Dictionary<string, object>? userPropertiesToSetOnce,
         CancellationToken cancellationToken)
         => await _apiClient.IdentifyPersonAsync(
             distinctId,
@@ -96,7 +96,7 @@ public sealed class PostHogClient : IPostHogClient
     public Task<ApiResult> IdentifyGroupAsync(
         string type,
         StringOrValue<int> key,
-        Dictionary<string, object> properties,
+        Dictionary<string, object>? properties,
         CancellationToken cancellationToken)
     => _apiClient.IdentifyGroupAsync(type, key, properties, cancellationToken);
 
@@ -104,14 +104,13 @@ public sealed class PostHogClient : IPostHogClient
     public void CaptureEvent(
         string distinctId,
         string eventName,
-        Dictionary<string, object> properties,
-        Dictionary<string, object> groups)
+        Dictionary<string, object>? properties,
+        Dictionary<string, object>? groups)
     {
-        properties = properties ?? throw new ArgumentNullException(nameof(properties));
-        groups = groups ?? throw new ArgumentNullException(nameof(groups));
 
-        if (groups.Count > 0)
+        if (groups is { Count: > 0 })
         {
+            properties ??= new Dictionary<string, object>();
             properties["$groups"] = groups;
         }
 
@@ -123,7 +122,7 @@ public sealed class PostHogClient : IPostHogClient
 
         _asyncBatchHandler.Enqueue(capturedEvent);
 
-        _logger.LogTraceCaptureCalled(eventName, properties.Count, _asyncBatchHandler.Count);
+        _logger.LogTraceCaptureCalled(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
     }
 
     /// <inheritdoc/>

@@ -33,8 +33,8 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
-        Dictionary<string, object> userPropertiesToSet,
-        Dictionary<string, object> userPropertiesToSetOnce,
+        Dictionary<string, object>? userPropertiesToSet,
+        Dictionary<string, object>? userPropertiesToSetOnce,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -49,7 +49,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     Task<ApiResult> IdentifyGroupAsync(
         string type,
         StringOrValue<int> key,
-        Dictionary<string, object> properties,
+        Dictionary<string, object>? properties,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -62,8 +62,8 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     void CaptureEvent(
         string distinctId,
         string eventName,
-        Dictionary<string, object> properties,
-        Dictionary<string, object> groups);
+        Dictionary<string, object>? properties,
+        Dictionary<string, object>? groups);
 
     /// <summary>
     /// Retrieves a feature flag.

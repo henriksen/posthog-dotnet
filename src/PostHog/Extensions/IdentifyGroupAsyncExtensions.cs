@@ -21,11 +21,11 @@ public static class IdentifyGroupAsyncExtensions
         string type,
         StringOrValue<int> key,
         string name,
-        Dictionary<string, object> properties,
+        Dictionary<string, object>? properties,
         CancellationToken cancellationToken)
     {
         client = client ?? throw new ArgumentNullException(nameof(client));
-        properties = properties ?? throw new ArgumentNullException(nameof(properties));
+        properties ??= new Dictionary<string, object>();
         properties["name"] = name;
         return await client.IdentifyGroupAsync(type, key, properties, cancellationToken);
     }

@@ -18,13 +18,13 @@ public class CapturedEvent
     public CapturedEvent(
         string eventName,
         string distinctId,
-        Dictionary<string, object> properties,
+        Dictionary<string, object>? properties,
         DateTimeOffset timestamp)
     {
         EventName = eventName;
         Timestamp = timestamp;
 
-        Properties = properties;
+        Properties = properties ?? new Dictionary<string, object>();
 
         // Every event has to have these properties.
         Properties["distinct_id"] = distinctId;
