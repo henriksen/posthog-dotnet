@@ -39,7 +39,8 @@ public class PostHogApiClientTests
                                "properties": {
                                  "distinct_id": "some-distinct-id",
                                  "$lib": "posthog-dotnet",
-                                 "$lib_version": "{{client.Version}}"
+                                 "$lib_version": "{{client.Version}}",
+                                 "$geoip_disable": true
                                },
                                "timestamp": "2024-01-21T19:08:23\u002B00:00"
                              }
