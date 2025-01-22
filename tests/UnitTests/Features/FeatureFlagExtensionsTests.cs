@@ -27,6 +27,7 @@ public class FeatureFlagExtensionsTests
             apiClient,
             NullFeatureFlagCache.Instance,
             options,
+            new FakeTaskScheduler(),
             timeProvider,
             new NullLogger<PostHogClient>());
     }

@@ -91,7 +91,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>
-    /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
+    /// A dictionary containing all the feature flags. The key is the feature flag key and the value is the feature flag.
     /// </returns>
     Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
         string distinctId,

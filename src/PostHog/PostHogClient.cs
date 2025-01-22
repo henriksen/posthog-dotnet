@@ -19,6 +19,7 @@ public sealed class PostHogClient : IPostHogClient
     readonly MemoryCache _featureFlagSentCache;
     readonly TimeProvider _timeProvider;
     readonly IOptions<PostHogOptions> _options;
+    readonly ITaskScheduler _taskScheduler;
     readonly ILogger<PostHogClient> _logger;
 
     /// <summary>
@@ -28,6 +29,7 @@ public sealed class PostHogClient : IPostHogClient
     /// <param name="postHogApiClient">The <see cref="IPostHogApiClient"/> used to make requests.</param>
     /// <param name="featureFlagsCache">Caches feature flags for a duration appropriate to the environment.</param>
     /// <param name="options">The options used to configure the client.</param>
+    /// <param name="taskScheduler">Used to run tasks on the background.</param>
     /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
@@ -35,15 +37,18 @@ public sealed class PostHogClient : IPostHogClient
         IPostHogApiClient postHogApiClient,
         IFeatureFlagCache featureFlagsCache,
         IOptions<PostHogOptions> options,
+        ITaskScheduler taskScheduler,
         TimeProvider timeProvider,
         ILogger<PostHogClient> logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _taskScheduler = taskScheduler ?? throw new ArgumentNullException(nameof(taskScheduler));
         _apiClient = postHogApiClient;
         _featureFlagsCache = featureFlagsCache;
         _asyncBatchHandler = new(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
+            taskScheduler,
             timeProvider,
             logger);
 
@@ -51,7 +56,8 @@ public sealed class PostHogClient : IPostHogClient
         _featureFlagSentCache = new MemoryCache(new MemoryCacheOptions
         {
             SizeLimit = options.Value.FeatureFlagSentCacheSizeLimit,
-            Clock = new TimeProviderSystemClock(timeProvider)
+            Clock = new TimeProviderSystemClock(timeProvider),
+            CompactionPercentage = options.Value.FeatureFlagSentCacheCompactionPercentage,
         });
 
         _timeProvider = timeProvider;
@@ -68,6 +74,7 @@ public sealed class PostHogClient : IPostHogClient
         new PostHogApiClient(options, TimeProvider.System, NullLogger<PostHogApiClient>.Instance),
         NullFeatureFlagCache.Instance,
         options,
+        new TaskRunTaskScheduler(),
         TimeProvider.System,
         NullLogger<PostHogClient>.Instance)
     {
@@ -136,10 +143,20 @@ public sealed class PostHogClient : IPostHogClient
 
         var flag = flags.GetValueOrDefault(featureKey);
 
-        return sendFeatureFlagEvents
+        var returnValue = sendFeatureFlagEvents
             ? _featureFlagSentCache.GetOrCreate((distinctId, featureKey),
                 cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, flag))
             : flag;
+
+        if (_featureFlagSentCache.Count >= _options.Value.FeatureFlagSentCacheSizeLimit)
+        {
+            // We need to fire and forget the compaction because it can be expensive.
+            _taskScheduler.Run(
+                () => _featureFlagSentCache.Compact(_options.Value.FeatureFlagSentCacheCompactionPercentage),
+                cancellationToken);
+        }
+
+        return returnValue;
     }
 
     FeatureFlag? CaptureFeatureFlagSentEvent(

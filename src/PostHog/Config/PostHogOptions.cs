@@ -46,6 +46,11 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     public long FeatureFlagSentCacheSizeLimit { get; set; } = 50_000;
 
     /// <summary>
+    /// Gets the amount (as a percentage) the cache should be compacted when it reaches its size limit.
+    /// </summary>
+    public double FeatureFlagSentCacheCompactionPercentage { get; set; } = 0.2; // 20%
+
+    /// <summary>
     /// Sets a sliding expiration for the $feature_flag_sent cache. See <see cref="FeatureFlagSentCacheSizeLimit"/>
     /// for more about the cache.
     /// </summary>
