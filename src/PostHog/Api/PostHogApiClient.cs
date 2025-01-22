@@ -9,12 +9,33 @@ namespace PostHog.Api;
 /// <inheritdoc cref="IPostHogApiClient" />
 public sealed class PostHogApiClient : IPostHogApiClient
 {
-    const string LibraryName = "posthog-dotnet";
+    internal const string LibraryName = "posthog-dotnet";
 
     readonly TimeProvider _timeProvider;
     readonly HttpClient _httpClient;
-    readonly LoggingHttpMessageHandler _loggingHandler;
     readonly IOptions<PostHogOptions> _options;
+
+    /// <summary>
+    /// Initialize a new PostHog client
+    /// </summary>
+    /// <param name="httpClient">The <see cref="HttpClient"/> used to make requests.</param>
+    /// <param name="options">The options used to configure this client.</param>
+    /// <param name="timeProvider"></param>
+    /// <param name="logger">The logger.</param>
+    public PostHogApiClient(
+        HttpClient httpClient,
+        IOptions<PostHogOptions> options,
+        TimeProvider timeProvider,
+        ILogger<PostHogApiClient> logger)
+    {
+        _options = options;
+
+        _timeProvider = timeProvider;
+
+        _httpClient = httpClient;
+
+        logger.LogTraceApiClientCreated(HostUrl);
+    }
 
     /// <summary>
     /// Initialize a new PostHog client
@@ -26,18 +47,15 @@ public sealed class PostHogApiClient : IPostHogApiClient
         IOptions<PostHogOptions> options,
         TimeProvider timeProvider,
         ILogger<PostHogApiClient> logger)
+        : this(
+#pragma warning disable CA2000
+            // LoggingHttpMessageHandler is disposed when we dispose the HttpClient
+            new HttpClient(new LoggingHttpMessageHandler(logger)
+            {
+                InnerHandler = new HttpClientHandler()
+            }), options, timeProvider, logger)
+#pragma warning restore CA2000
     {
-        _options = options;
-
-        _timeProvider = timeProvider;
-        _loggingHandler = new LoggingHttpMessageHandler(logger)
-        {
-            InnerHandler = new HttpClientHandler()
-        };
-
-        _httpClient = new HttpClient(_loggingHandler);
-
-        logger.LogTraceApiClientCreated(HostUrl);
     }
 
     Uri HostUrl => _options.Value.HostUrl;
@@ -106,6 +124,9 @@ public sealed class PostHogApiClient : IPostHogApiClient
                ?? new FeatureFlagsApiResult();
     }
 
+    /// <inheritdoc/>
+    public Version Version => new(VersionConstants.Version);
+
     void PrepareAndMutatePayload(Dictionary<string, object> payload)
     {
         if (payload.GetValueOrDefault("properties") is Dictionary<string, object> properties)
@@ -115,17 +136,13 @@ public sealed class PostHogApiClient : IPostHogApiClient
         }
 
         payload["api_key"] = ProjectApiKey;
-        payload["timestamp"] = _timeProvider.GetUtcNow().ToUnixTimeSeconds();
+        payload["timestamp"] = _timeProvider.GetUtcNow(); // ISO 8601
     }
 
     /// <summary>
     /// Dispose of HttpClient
     /// </summary>
-    public void Dispose()
-    {
-        _loggingHandler.Dispose();
-        _httpClient.Dispose();
-    }
+    public void Dispose() => _httpClient.Dispose();
 }
 
 internal static partial class PostHogApiClientLoggerExtensions

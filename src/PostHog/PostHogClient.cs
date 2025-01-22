@@ -6,6 +6,7 @@ using PostHog.Config;
 using PostHog.Features;
 using PostHog.Json;
 using PostHog.Library;
+using PostHog.Versioning;
 
 namespace PostHog;
 
@@ -146,6 +147,9 @@ public sealed class PostHogClient : IPostHogClient
 
     /// <inheritdoc/>
     public async Task FlushAsync() => await _asyncBatchHandler.FlushAsync();
+
+    /// <inheritdoc/>
+    public Version Version => _apiClient.Version;
 
     /// <inheritdoc/>
     public void Dispose() => DisposeAsync().AsTask().Wait();
