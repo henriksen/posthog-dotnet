@@ -104,54 +104,6 @@ public static class FeatureFlagExtensions
             cancellationToken: CancellationToken.None);
 
     /// <summary>
-    /// Retrieves a feature flag.
-    /// </summary>
-    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
-    /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
-    /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
-    /// <param name="sendFeatureFlagEvents">Default <c>true</c>. If <c>true</c>, this method captures a $feature_flag_called event.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
-    public static async Task<FeatureFlag?> GetFeatureFlagAsync(
-        this IPostHogClient client,
-        string distinctId,
-        string featureKey,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties,
-        bool sendFeatureFlagEvents,
-        CancellationToken cancellationToken)
-    {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-        var flags = await client.GetFeatureFlagsAsync(
-            distinctId,
-            personProperties,
-            groupProperties,
-            cancellationToken);
-
-        var flag = flags.GetValueOrDefault(featureKey);
-
-        if (sendFeatureFlagEvents)
-        {
-            object flagResponse = flag.ToResponseObject();
-
-            client.CaptureEvent(
-                distinctId,
-                eventName: "$feature_flag_called",
-                properties: new Dictionary<string, object>
-                {
-                    ["$feature_flag"] = featureKey,
-                    ["$feature_flag_response"] = flagResponse,
-                    ["locally_evaluated"] = false,
-                    [$"$feature/{featureKey}"] = flagResponse
-                });
-        }
-
-        return flags.GetValueOrDefault(featureKey);
-    }
-
-    /// <summary>
     /// Retrieves all the feature flags.
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
@@ -182,7 +134,7 @@ public static class FeatureFlagExtensions
         string distinctId,
         string featureKey,
         CancellationToken cancellationToken)
-        => await client.GetFeatureFlagAsync(
+        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(
             distinctId,
             featureKey,
             personProperties: null,
@@ -201,7 +153,7 @@ public static class FeatureFlagExtensions
         this IPostHogClient client,
         string distinctId,
         string featureKey)
-        => await client.GetFeatureFlagAsync(
+        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(
             distinctId,
             featureKey,
             personProperties: null,

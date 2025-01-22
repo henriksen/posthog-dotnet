@@ -66,6 +66,24 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
         Dictionary<string, object> groups);
 
     /// <summary>
+    /// Retrieves a feature flag.
+    /// </summary>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
+    /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
+    /// <param name="sendFeatureFlagEvents">Default <c>true</c>. If <c>true</c>, this method captures a $feature_flag_called event.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
+    Task<FeatureFlag?> GetFeatureFlagAsync(
+        string distinctId,
+        string featureKey,
+        Dictionary<string, object>? personProperties,
+        GroupCollection? groupProperties,
+        bool sendFeatureFlagEvents,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Retrieves all the feature flags.
     /// </summary>
     /// <param name="distinctId">The identifier you use for the user.</param>

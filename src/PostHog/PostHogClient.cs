@@ -6,7 +6,6 @@ using PostHog.Config;
 using PostHog.Features;
 using PostHog.Json;
 using PostHog.Library;
-using PostHog.Versioning;
 
 namespace PostHog;
 
@@ -109,6 +108,46 @@ public sealed class PostHogClient : IPostHogClient
         _asyncBatchHandler.Enqueue(capturedEvent);
 
         _logger.LogTraceCaptureCalled(eventName, properties.Count, _asyncBatchHandler.Count);
+    }
+
+    /// <inheritdoc/>
+    public async Task<FeatureFlag?> GetFeatureFlagAsync(
+        string distinctId,
+        string featureKey,
+        Dictionary<string, object>? personProperties,
+        GroupCollection? groupProperties,
+        bool sendFeatureFlagEvents,
+        CancellationToken cancellationToken)
+    {
+        var flags = await GetFeatureFlagsAsync(
+            distinctId,
+            personProperties,
+            groupProperties,
+            cancellationToken);
+
+        var flag = flags.GetValueOrDefault(featureKey);
+
+        if (sendFeatureFlagEvents)
+        {
+            var cacheKey = (distinctId, featureKey);
+
+            var flagResponse = flag.ToResponseObject();
+
+            CaptureEvent(
+                distinctId,
+                eventName: "$feature_flag_called",
+                properties: new Dictionary<string, object>
+                {
+                    ["$feature_flag"] = featureKey,
+                    ["$feature_flag_response"] = flagResponse,
+                    ["locally_evaluated"] = false,
+                    [$"$feature/{featureKey}"] = flagResponse
+                },
+                // TODO: transform groupProperties into what we expect here.
+                groups: new Dictionary<string, object>());
+        }
+
+        return flags.GetValueOrDefault(featureKey);
     }
 
     /// <inheritdoc/>
