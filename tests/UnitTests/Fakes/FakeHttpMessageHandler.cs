@@ -57,6 +57,20 @@ public class FakeHttpMessageHandler : HttpMessageHandler
         return AddResponse(url, httpMethod, json, contentType);
     }
 
+    public void AddRepeatedResponses<TResponseBody>(
+        int count,
+        Uri url,
+        HttpMethod httpMethod,
+        Func<int, TResponseBody> responseBodyFunc,
+        string contentType = "application/json")
+    {
+        responseBodyFunc = responseBodyFunc ?? throw new ArgumentNullException(nameof(responseBodyFunc));
+        for (var i = 0; i < count; i++)
+        {
+            AddResponse(url, httpMethod, responseBodyFunc(i), contentType);
+        }
+    }
+
     public RequestHandler AddResponse(Uri url, HttpMethod httpMethod, Func<Task<HttpResponseMessage>> responseHandler)
     {
         var handler = new RequestHandler(url, httpMethod, responseHandler);

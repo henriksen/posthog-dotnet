@@ -21,15 +21,21 @@ internal static class PostHogApiClientExtensions
     public static async Task<ApiResult> IdentifyPersonAsync(
         this IPostHogApiClient client,
         string distinctId,
-        Dictionary<string, object> userPropertiesToSet,
-        Dictionary<string, object> userPropertiesToSetOnce,
+        Dictionary<string, object>? userPropertiesToSet,
+        Dictionary<string, object>? userPropertiesToSetOnce,
         CancellationToken cancellationToken)
     {
-        var properties = new Dictionary<string, object>
+        var properties = new Dictionary<string, object>();
+
+        if (userPropertiesToSet is not null)
         {
-            ["$set"] = userPropertiesToSet,
-            ["$set_once"] = userPropertiesToSetOnce
-        };
+            properties["$set"] = userPropertiesToSet;
+        }
+
+        if (userPropertiesToSetOnce is not null)
+        {
+            properties["$set_once"] = userPropertiesToSetOnce;
+        }
 
         return await client.SendEventAsync(distinctId,
             eventName: "$identify",
@@ -136,7 +142,7 @@ internal static class PostHogApiClientExtensions
         this IPostHogApiClient client,
         string distinctId,
         string eventName,
-        Dictionary<string, object> properties,
+        Dictionary<string, object>? properties,
         CancellationToken cancellationToken)
     {
         client = client ?? throw new ArgumentNullException(nameof(client));
@@ -144,9 +150,12 @@ internal static class PostHogApiClientExtensions
         var payload = new Dictionary<string, object>
         {
             ["event"] = eventName,
-            ["distinct_id"] = distinctId,
-            ["properties"] = properties
+            ["distinct_id"] = distinctId
         };
+        if (properties is not null)
+        {
+            payload["properties"] = properties;
+        }
 
         return await client.SendEventAsync(payload, cancellationToken);
     }

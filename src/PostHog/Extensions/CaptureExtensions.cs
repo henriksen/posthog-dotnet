@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace PostHog;
 
 /// <summary>
@@ -19,16 +16,15 @@ public static class CaptureExtensions
         this IPostHogClient client,
         string distinctId,
         string eventName,
-        Dictionary<string, object> properties)
+        Dictionary<string, object>? properties)
     {
         client = client ?? throw new ArgumentNullException(nameof(client));
-        properties = properties ?? throw new ArgumentNullException(nameof(properties));
 
         client.CaptureEvent(
             distinctId,
             eventName,
             properties,
-            groups: new());
+            groups: null);
     }
 
     /// <summary>
@@ -42,7 +38,7 @@ public static class CaptureExtensions
         this IPostHogClient client,
         string distinctId,
         string pagePath,
-        Dictionary<string, object> properties)
+        Dictionary<string, object>? properties)
         => client.CaptureSpecialEvent(
             distinctId,
             eventName: "$pageview",
@@ -59,7 +55,7 @@ public static class CaptureExtensions
     public static void CapturePageView(
         this IPostHogClient client,
         string distinctId,
-        string pagePath) => client.CapturePageView(distinctId, pagePath, new());
+        string pagePath) => client.CapturePageView(distinctId, pagePath, properties: null);
 
     /// <summary>
     /// Captures a Screen View ($screen) event.
@@ -72,7 +68,7 @@ public static class CaptureExtensions
         this IPostHogClient client,
         string distinctId,
         string screenName,
-        Dictionary<string, object> properties)
+        Dictionary<string, object>? properties)
         => client.CaptureSpecialEvent(
             distinctId,
             eventName: "$screen",
@@ -89,7 +85,7 @@ public static class CaptureExtensions
     public static void CaptureScreenView(
         this IPostHogClient client,
         string distinctId,
-        string screenName) => client.CaptureScreenView(distinctId, screenName, new());
+        string screenName) => client.CaptureScreenView(distinctId, screenName, properties: null);
 
     /// <summary>
     /// Captures a survey response.
@@ -104,7 +100,7 @@ public static class CaptureExtensions
         string distinctId,
         string surveyId,
         string surveyResponse,
-        Dictionary<string, object> properties)
+        Dictionary<string, object>? properties)
         => client.CaptureSurveyResponses(
             distinctId,
             surveyId,
@@ -124,12 +120,12 @@ public static class CaptureExtensions
         string distinctId,
         string surveyId,
         IReadOnlyList<string> surveyResponses,
-        Dictionary<string, object> properties)
+        Dictionary<string, object>? properties)
     {
         client = client ?? throw new ArgumentNullException(nameof(client));
-        properties = properties ?? throw new ArgumentNullException(nameof(properties));
         surveyResponses = surveyResponses ?? throw new ArgumentNullException(nameof(surveyResponses));
 
+        properties ??= new Dictionary<string, object>();
         properties["$survey_id"] = surveyId;
 
         if (surveyResponses.Count > 0)
@@ -142,7 +138,7 @@ public static class CaptureExtensions
             properties[$"survey_response_{i}"] = surveyResponses[i];
         }
 
-        client.CaptureEvent(distinctId, "survey sent", properties, new());
+        client.CaptureEvent(distinctId, "survey sent", properties, groups: null);
     }
 
     /// <summary>
@@ -156,7 +152,7 @@ public static class CaptureExtensions
         this IPostHogClient client,
         string distinctId,
         string surveyId,
-        Dictionary<string, object> properties)
+        Dictionary<string, object>? properties)
         => client.CaptureSpecialEvent(
             distinctId,
             eventName: "survey shown",
@@ -175,12 +171,12 @@ public static class CaptureExtensions
         this IPostHogClient client,
         string distinctId,
         string surveyId,
-        Dictionary<string, object> properties)
+        Dictionary<string, object>? properties)
         => client.CaptureSpecialEvent(
             distinctId,
             eventName: "survey dismissed",
             eventPropertyName: "$survey_id",
-            surveyId,
+            eventPropertyValue: surveyId,
             properties);
 
     static void CaptureSpecialEvent(
@@ -189,11 +185,11 @@ public static class CaptureExtensions
         string eventName,
         string eventPropertyName,
         string eventPropertyValue,
-        Dictionary<string, object> properties)
+        Dictionary<string, object>? properties)
     {
         client = client ?? throw new ArgumentNullException(nameof(client));
-        properties = properties ?? throw new ArgumentNullException(nameof(properties));
 
+        properties ??= new Dictionary<string, object>();
         properties[eventPropertyName] = eventPropertyValue;
         client.CaptureEvent(distinctId, eventName, properties);
     }

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -6,7 +7,6 @@ using PostHog.Config;
 using PostHog.Features;
 using PostHog.Json;
 using PostHog.Library;
-using PostHog.Versioning;
 
 namespace PostHog;
 
@@ -15,8 +15,11 @@ public sealed class PostHogClient : IPostHogClient
 {
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
     readonly IPostHogApiClient _apiClient;
-    readonly IFeatureFlagCache _featureFlagCache;
-    private readonly TimeProvider _timeProvider;
+    readonly IFeatureFlagCache _featureFlagsCache;
+    readonly MemoryCache _featureFlagSentCache;
+    readonly TimeProvider _timeProvider;
+    readonly IOptions<PostHogOptions> _options;
+    readonly ITaskScheduler _taskScheduler;
     readonly ILogger<PostHogClient> _logger;
 
     /// <summary>
@@ -24,28 +27,39 @@ public sealed class PostHogClient : IPostHogClient
     /// <see cref="TimeProvider"/>, and <paramref name="logger"/>.
     /// </summary>
     /// <param name="postHogApiClient">The <see cref="IPostHogApiClient"/> used to make requests.</param>
-    /// <param name="featureFlagCache">Caches feature flags for a duration appropriate to the environment.</param>
+    /// <param name="featureFlagsCache">Caches feature flags for a duration appropriate to the environment.</param>
     /// <param name="options">The options used to configure the client.</param>
+    /// <param name="taskScheduler">Used to run tasks on the background.</param>
     /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
     public PostHogClient(
         IPostHogApiClient postHogApiClient,
-        IFeatureFlagCache featureFlagCache,
+        IFeatureFlagCache featureFlagsCache,
         IOptions<PostHogOptions> options,
+        ITaskScheduler taskScheduler,
         TimeProvider timeProvider,
         ILogger<PostHogClient> logger)
     {
-        options = options ?? throw new ArgumentNullException(nameof(options));
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _taskScheduler = taskScheduler ?? throw new ArgumentNullException(nameof(taskScheduler));
         _apiClient = postHogApiClient;
-        _featureFlagCache = featureFlagCache;
+        _featureFlagsCache = featureFlagsCache;
         _asyncBatchHandler = new(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
+            taskScheduler,
             timeProvider,
             logger);
 
-        _featureFlagCache = featureFlagCache;
+        _featureFlagsCache = featureFlagsCache;
+        _featureFlagSentCache = new MemoryCache(new MemoryCacheOptions
+        {
+            SizeLimit = options.Value.FeatureFlagSentCacheSizeLimit,
+            Clock = new TimeProviderSystemClock(timeProvider),
+            CompactionPercentage = options.Value.FeatureFlagSentCacheCompactionPercentage,
+        });
+
         _timeProvider = timeProvider;
         _logger = logger;
 
@@ -60,6 +74,7 @@ public sealed class PostHogClient : IPostHogClient
         new PostHogApiClient(options, TimeProvider.System, NullLogger<PostHogApiClient>.Instance),
         NullFeatureFlagCache.Instance,
         options,
+        new TaskRunTaskScheduler(),
         TimeProvider.System,
         NullLogger<PostHogClient>.Instance)
     {
@@ -68,8 +83,8 @@ public sealed class PostHogClient : IPostHogClient
     /// <inheritdoc/>
     public async Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
-        Dictionary<string, object> userPropertiesToSet,
-        Dictionary<string, object> userPropertiesToSetOnce,
+        Dictionary<string, object>? userPropertiesToSet,
+        Dictionary<string, object>? userPropertiesToSetOnce,
         CancellationToken cancellationToken)
         => await _apiClient.IdentifyPersonAsync(
             distinctId,
@@ -81,7 +96,7 @@ public sealed class PostHogClient : IPostHogClient
     public Task<ApiResult> IdentifyGroupAsync(
         string type,
         StringOrValue<int> key,
-        Dictionary<string, object> properties,
+        Dictionary<string, object>? properties,
         CancellationToken cancellationToken)
     => _apiClient.IdentifyGroupAsync(type, key, properties, cancellationToken);
 
@@ -89,14 +104,13 @@ public sealed class PostHogClient : IPostHogClient
     public void CaptureEvent(
         string distinctId,
         string eventName,
-        Dictionary<string, object> properties,
-        Dictionary<string, object> groups)
+        Dictionary<string, object>? properties,
+        Dictionary<string, object>? groups)
     {
-        properties = properties ?? throw new ArgumentNullException(nameof(properties));
-        groups = groups ?? throw new ArgumentNullException(nameof(groups));
 
-        if (groups.Count > 0)
+        if (groups is { Count: > 0 })
         {
+            properties ??= new Dictionary<string, object>();
             properties["$groups"] = groups;
         }
 
@@ -108,7 +122,66 @@ public sealed class PostHogClient : IPostHogClient
 
         _asyncBatchHandler.Enqueue(capturedEvent);
 
-        _logger.LogTraceCaptureCalled(eventName, properties.Count, _asyncBatchHandler.Count);
+        _logger.LogTraceCaptureCalled(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
+    }
+
+    /// <inheritdoc/>
+    public async Task<FeatureFlag?> GetFeatureFlagAsync(
+        string distinctId,
+        string featureKey,
+        Dictionary<string, object>? personProperties,
+        GroupCollection? groupProperties,
+        bool sendFeatureFlagEvents,
+        CancellationToken cancellationToken)
+    {
+        var flags = await GetFeatureFlagsAsync(
+            distinctId,
+            personProperties,
+            groupProperties,
+            cancellationToken);
+
+        var flag = flags.GetValueOrDefault(featureKey);
+
+        var returnValue = sendFeatureFlagEvents
+            ? _featureFlagSentCache.GetOrCreate((distinctId, featureKey),
+                cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, flag))
+            : flag;
+
+        if (_featureFlagSentCache.Count >= _options.Value.FeatureFlagSentCacheSizeLimit)
+        {
+            // We need to fire and forget the compaction because it can be expensive.
+            _taskScheduler.Run(
+                () => _featureFlagSentCache.Compact(_options.Value.FeatureFlagSentCacheCompactionPercentage),
+                cancellationToken);
+        }
+
+        return returnValue;
+    }
+
+    FeatureFlag? CaptureFeatureFlagSentEvent(
+        string distinctId,
+        string featureKey,
+        ICacheEntry cacheEntry,
+        FeatureFlag? flag)
+    {
+        cacheEntry.SetSize(1); // Each entry has a size of 1
+        cacheEntry.SetPriority(CacheItemPriority.Low);
+        cacheEntry.SetSlidingExpiration(_options.Value.FeatureFlagSentCacheSlidingExpiration);
+
+        CaptureEvent(
+            distinctId,
+            eventName: "$feature_flag_called",
+            properties: new Dictionary<string, object>
+            {
+                ["$feature_flag"] = featureKey,
+                ["$feature_flag_response"] = flag.ToResponseObject(),
+                ["locally_evaluated"] = false,
+                [$"$feature/{featureKey}"] = flag.ToResponseObject()
+            },
+            // TODO: transform groupProperties into what we expect here.
+            groups: new Dictionary<string, object>());
+
+        return flag;
     }
 
     /// <inheritdoc/>
@@ -117,7 +190,7 @@ public sealed class PostHogClient : IPostHogClient
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,
         CancellationToken cancellationToken)
-        => await _featureFlagCache.GetAndCacheFeatureFlagsAsync(
+        => await _featureFlagsCache.GetAndCacheFeatureFlagsAsync(
             distinctId,
             fetcher: ct => FetchFeatureFlagsAsync(
                 distinctId,
@@ -138,11 +211,7 @@ public sealed class PostHogClient : IPostHogClient
             cancellationToken);
         return results.FeatureFlags.ToReadOnlyDictionary(
             kvp => kvp.Key,
-            kvp => new FeatureFlag(
-                kvp.Key,
-                kvp.Value.Value,
-                kvp.Value.StringValue,
-                results.FeatureFlagPayloads.GetValueOrDefault(kvp.Key)));
+            kvp => new FeatureFlag(kvp, results.FeatureFlagPayloads));
     }
 
     /// <inheritdoc/>
@@ -160,6 +229,7 @@ public sealed class PostHogClient : IPostHogClient
         // Stop the polling and wait for it.
         await _asyncBatchHandler.DisposeAsync();
         _apiClient.Dispose();
+        _featureFlagSentCache.Dispose();
     }
 }
 

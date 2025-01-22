@@ -5,16 +5,21 @@ namespace PostHog;
 /// </summary>
 /// <param name="GroupType">The type of group in PostHog. For example, company, project, etc.</param>
 /// <param name="GroupKey">The identifier for the group such as the ID of the group in the database.</param>
-/// <param name="Properties">The group properties to associate with this group. These can be used in feature flag calls to override whats on the server.</param>
-public record Group(string GroupType, string GroupKey, Dictionary<string, object> Properties)
+public record Group(string GroupType, string GroupKey)
 {
     /// <summary>
-    /// Constructs a group with the specified group type and group key.
+    /// Constructs a <see cref="Group"/>
     /// </summary>
     /// <param name="groupType">The type of group in PostHog. For example, company, project, etc.</param>
     /// <param name="groupKey">The identifier for the group such as the ID of the group in the database.</param>
-    public Group(string groupType, string groupKey) : this(groupType, groupKey, new Dictionary<string, object>())
-    { }
+    /// <param name="properties">The group properties to associate with this group. These can be used in feature flag calls to override whats on the server.</param>
+    public Group(string groupType, string groupKey, Dictionary<string, object>? properties)
+        : this(groupType, groupKey)
+    {
+        Properties = properties;
+    }
+
+    public Dictionary<string, object>? Properties { get; private set; }
 
     /// <summary>
     /// Adds a property and its value to the group.
@@ -24,6 +29,7 @@ public record Group(string GroupType, string GroupKey, Dictionary<string, object
     /// <returns>The <see cref="Group"/> that contains these properties.</returns>
     public Group AddProperty(string name, object value)
     {
+        Properties ??= new Dictionary<string, object>();
         Properties.Add(name, value);
         return this;
     }
@@ -35,7 +41,15 @@ public record Group(string GroupType, string GroupKey, Dictionary<string, object
     /// <exception cref="KeyNotFoundException"></exception>
     public object this[string name]
     {
-        get => Properties[name] ?? throw new KeyNotFoundException();
-        set => Properties[name] = value;
+        get
+        {
+            Properties ??= new Dictionary<string, object>();
+            return Properties[name] ?? throw new KeyNotFoundException();
+        }
+        set
+        {
+            Properties ??= new Dictionary<string, object>();
+            Properties[name] = value;
+        }
     }
 }

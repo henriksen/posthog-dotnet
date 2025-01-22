@@ -20,6 +20,7 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
         IOptions<AsyncBatchHandlerOptions> options,
+        ITaskScheduler taskScheduler,
         TimeProvider timeProvider,
         ILogger logger)
     {
@@ -31,15 +32,15 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
             FullMode = BoundedChannelFullMode.DropOldest
         });
         _timer = new PeriodicTimer(options.Value.FlushInterval, timeProvider);
-        _ = Task.Run(() => HandleTimer(_cancellationTokenSource.Token));
-        _ = Task.Run(() => HandleFlushSignal(_cancellationTokenSource.Token));
+        taskScheduler.Run(() => HandleTimer(_cancellationTokenSource.Token));
+        taskScheduler.Run(() => HandleFlushSignal(_cancellationTokenSource.Token));
     }
 
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
         TimeProvider timeProvider,
         IOptions<AsyncBatchHandlerOptions> options)
-        : this(batchHandlerFunc, options, timeProvider, NullLogger.Instance)
+        : this(batchHandlerFunc, options, new TaskRunTaskScheduler(), timeProvider, NullLogger.Instance)
     {
     }
 

@@ -34,6 +34,28 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     /// </summary>
     public Uri HostUrl { get; set; } = new("https://us.i.posthog.com");
 
+    /// <summary>
+    /// The size limit of the $feature_flag_sent cache.
+    /// </summary>
+    /// <remarks>
+    /// When evaluating a feature flag and <c>sendFeatureFlagEvents</c> is <c>true</c>, the client captures a
+    /// $feature_flag_called event. To limit the cost to the customer, it only sends this event once per
+    /// feature flag/distinct_id combination. To do this, it caches the sent events. This property sets the
+    /// the size limit of that cache.
+    /// </remarks>
+    public long FeatureFlagSentCacheSizeLimit { get; set; } = 50_000;
+
+    /// <summary>
+    /// Gets the amount (as a percentage) the cache should be compacted when it reaches its size limit.
+    /// </summary>
+    public double FeatureFlagSentCacheCompactionPercentage { get; set; } = 0.2; // 20%
+
+    /// <summary>
+    /// Sets a sliding expiration for the $feature_flag_sent cache. See <see cref="FeatureFlagSentCacheSizeLimit"/>
+    /// for more about the cache.
+    /// </summary>
+    public TimeSpan FeatureFlagSentCacheSlidingExpiration { get; set; } = TimeSpan.FromMinutes(10);
+
     // Explicit implementation to hide this value from most users.
     // This is here to make it easier to instantiate the client with the options.
     PostHogOptions IOptions<PostHogOptions>.Value => this;

@@ -1,5 +1,7 @@
 ﻿@page
+@using PostHog
 @model IndexModel
+@inject IPostHogClient PostHog
 @{
     ViewData["Title"] = "Home page";
 }
@@ -38,17 +40,55 @@
         }
         else {
             <div class="alert alert-info mt-3" role="alert">
-                <strong>The Project API Key is set! We're ready to go!</strong>
+                <strong>
+                    The Project API Key (@Model.PostHogOptions.ProjectApiKey) is set pointing to
+                    <code>@Model.PostHogOptions.HostUrl!</code>
+                    <br />We're ready to go!
+                </strong>
             </div>
 
             <form method="get">
                 <div class="form-group mb-2">
                     <label asp-for="ProjectSize">Override Project Size (for evaluating feature flags). <code>default: Large</code></label>
+                    <input asp-for="FeatureFlagKey" class="form-control" type="hidden"/>
                     <input asp-for="ProjectSize" class="form-control" placeholder="Enter project size"/>
                 </div>
 
                 <button type="submit" class="btn btn-primary mb-2">Override Project Size</button>
             </form>
+
+            @if (Model.UserId is not null) {
+                <div class="px-3">
+                    <h2 class="mt-5">Feature Flag Checker</h2>
+                    <form method="get">
+                        <div class="form-group mb-2">
+                            <label asp-for="FeatureFlagKey">Feature Flag Key</label>
+                            <input asp-for="ProjectSize" type="hidden" class="form-control" />
+                            <input asp-for="FeatureFlagKey" class="form-control" placeholder="Feature Flag Key"/>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary mb-2">Check Feature Flag</button>
+                    </form>
+                    @if (Model.FeatureFlagKey is { } key) {
+                        var flag = await PostHog.IsFeatureEnabledAsync(Model.UserId, key);
+                        @if (flag == true) {
+                            <div class="alert alert-success" role="alert">
+                                The feature flag <code>@Model.FeatureFlagKey</code> is enabled.
+                            </div>
+                        }
+                        else if (flag == false) {
+                            <div class="alert alert-danger" role="alert">
+                                The feature flag <code>@Model.FeatureFlagKey</code> is disabled.
+                            </div>
+                        }
+                        else {
+                            <div class="alert alert-warning" role="alert">
+                                The feature flag <code>@Model.FeatureFlagKey</code> does not exist.
+                            </div>
+                        }
+                    }
+                </div>
+            }
 
             <div class="d-flex justify-content-between px-3">
                 <div>
