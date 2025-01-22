@@ -21,6 +21,8 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
     public bool ApiKeyIsSet { get; private set; }
 
+    public string? ProjectApiKey { get; private set; }
+
     public bool? NonExistentFlag { get; private set; }
 
     public Dictionary<string, (FeatureFlag, bool?)> FeatureFlags { get; private set; } = new();
@@ -37,6 +39,10 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
     [BindProperty(SupportsGet = true)]
     [FromQuery]
     public string? ProjectSize { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    [FromQuery]
+    public string? FeatureFlagKey { get; set; }
 
     public async Task OnGetAsync()
     {
