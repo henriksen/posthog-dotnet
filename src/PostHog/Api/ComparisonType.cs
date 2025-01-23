@@ -1,4 +1,3 @@
-using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
 namespace PostHog.Api;
@@ -9,20 +8,17 @@ namespace PostHog.Api;
 [JsonConverter(typeof(JsonStringEnumConverter<ComparisonType>))]
 public enum ComparisonType
 {
+    [JsonStringEnumMemberName("in")]
+    In, // Only used for cohort filters
+
     [JsonStringEnumMemberName("exact")]
     Exact,
 
-    [JsonStringEnumMemberName("in")]
-    In,
+    [JsonStringEnumMemberName("is_not")]
+    IsNot,
 
     [JsonStringEnumMemberName("is_set")]
     IsSet,
-
-    [JsonStringEnumMemberName("eq")]
-    Equals,
-
-    [JsonStringEnumMemberName("ne")]
-    NotEquals,
 
     [JsonStringEnumMemberName("gt")]
     GreaterThan,
@@ -36,15 +32,21 @@ public enum ComparisonType
     [JsonStringEnumMemberName("lte")]
     LessThanOrEquals,
 
-    [JsonStringEnumMemberName("contains")]
-    Contains,
-
     [JsonStringEnumMemberName("icontains")]
     ContainsIgnoreCase,
+
+    [JsonStringEnumMemberName("not_icontains")]
+    DoesNotContainsIgnoreCase,
 
     [JsonStringEnumMemberName("regex")]
     Regex,
 
-    [JsonStringEnumMemberName("iregex")]
-    RegexIgnoreCase
+    [JsonStringEnumMemberName("not_regex")]
+    NotRegex,
+
+    [JsonStringEnumMemberName("is_date_before")]
+    IsDateBefore,
+
+    [JsonStringEnumMemberName("is_date_after")]
+    IsDateAfter,
 }
