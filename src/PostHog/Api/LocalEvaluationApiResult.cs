@@ -22,17 +22,35 @@ public record LocalFeatureFlag(
     [property: JsonPropertyName("ensure_experience_continuity")]
     bool EnsureExperienceContinuity);
 
-
+/// <summary>
+/// Defines the targeting rules for a feature flag - essentially determining who sees what variant of the feature.
+/// </summary>
+/// <remarks>
+/// In PostHog, this is stored as a JSON blob in the <c>posthog_featureflag</c> table.
+/// </remarks>
+/// <param name="Groups">These are sets of conditions that determine who sees the feature flag. If any group matches,
+/// the flag is active for that user.</param>
+/// <param name="Payloads"></param>
+/// <param name="Multivariate"></param>
+/// <param name="AggregationGroupTypeIndex"></param>
 public record FeatureFlagFilters(
     IReadOnlyList<FeatureFlagGroup> Groups,
     IReadOnlyDictionary<string, string> Payloads,
-    Multivariate? Multivariate);
+    Multivariate? Multivariate,
+    [property: JsonPropertyName("aggregation_group_type_index")]
+    int? AggregationGroupTypeIndex);
 
+/// <summary>
+/// Set of conditions that determine who sees the feature flag. If any group matches, the flag is active for that user.
+/// </summary>
+/// <param name="Variant">Optional override to serve a specific variant to users matching this group.</param>
+/// <param name="Properties">Conditions about the user/group. (e.g. "user is in country X" or "user is in cohort Y")</param>
+/// <param name="RolloutPercentage">Optional percentage (0-100) for gradual rollouts. Defaults to 100.</param>
 public record FeatureFlagGroup(
-    string? Variant,
     IReadOnlyList<FilterProperty> Properties,
+    string? Variant = null,
     [property: JsonPropertyName("rollout_percentage")]
-    int RolloutPercentage);
+    int RolloutPercentage = 100);
 
 public record Multivariate(IReadOnlyCollection<Variant> Variants);
 
@@ -40,13 +58,13 @@ public record Variant(
     string Key,
     string Name,
     [property: JsonPropertyName("rollout_percentage")]
-    int RolloutPercentage);
+    int RolloutPercentage = 100);
 
 public record FilterProperty(
     string Key,
     string Type,
     JsonElement Value,
-    string Operator,
+    ComparisonType Operator,
     [property: JsonPropertyName("group_type_index")]
     int? GroupTypeIndex = null)
 {

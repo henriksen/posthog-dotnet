@@ -16,6 +16,29 @@ public class JsonSerializerHelperTests
 
             Assert.Equal("{\"propertyOne\":\"value\",\"propertyTwo\":1}", json);
         }
+
+        [Fact]
+        public async Task CanSerializeFilterProperty()
+        {
+            var obj = new FilterProperty(
+                Key: "$group_key",
+                Type: "group",
+                Value: JsonDocument.Parse("\"01943db3-83be-0000-e7ea-ecae4d9b5afb\"").RootElement,
+                Operator: ComparisonType.Exact,
+                GroupTypeIndex: 2);
+
+            var json = await JsonSerializerHelper.SerializeToCamelCaseJsonStringAsync(obj, writeIndented: true);
+
+            Assert.Equal("""
+                         {
+                           "key": "$group_key",
+                           "type": "group",
+                           "value": "01943db3-83be-0000-e7ea-ecae4d9b5afb",
+                           "operator": "exact",
+                           "group_type_index": 2
+                         }
+                         """, json);
+        }
     }
 
     public class TheDeserializeFromCamelCaseJsonMethod
@@ -92,7 +115,7 @@ public class JsonSerializerHelperTests
                 Key: "size",
                 Type: "group",
                 Value: JsonSerializer.SerializeToElement(new[] { "small" }),
-                Operator: "exact",
+                Operator: ComparisonType.Exact,
                 GroupTypeIndex: 3),
                 firstFlagGroup.Properties[0]
             );
@@ -101,18 +124,18 @@ public class JsonSerializerHelperTests
                         Key: "size",
                         Type: "group",
                         Value: JsonSerializer.SerializeToElement(new[] { "small" }),
-                        Operator: "exact",
+                        Operator: ComparisonType.Exact,
                         GroupTypeIndex: 3),
                     new FilterProperty(
                         Key: "id",
                         Type: "cohort",
                         Value: JsonSerializer.SerializeToElement(1),
-                        Operator: "in"),
+                        Operator:  ComparisonType.In),
                     new FilterProperty(
                         Key: "$group_key",
                         Type: "group",
                         Value: JsonSerializer.SerializeToElement("12345"),
-                        Operator: "exact",
+                        Operator: ComparisonType.Exact,
                         GroupTypeIndex: 3)
                 ],
                 firstFlagGroup.Properties.ToList());
@@ -146,7 +169,7 @@ public class JsonSerializerHelperTests
                     Key: "$group_key",
                     Type: "group",
                     Value: JsonSerializer.SerializeToElement("01943db3-83be-0000-e7ea-ecae4d9b5afb"),
-                    Operator: "exact",
+                    Operator: ComparisonType.Exact,
                     GroupTypeIndex: 2),
             ], secondFlagGroup.Properties);
             Assert.Equal(
@@ -176,7 +199,7 @@ public class JsonSerializerHelperTests
                         "sansa@example.com",
                         "ned@example.com"
                     ]),
-                    Operator: "exact")
+                    Operator: ComparisonType.Exact)
             ], Assert.Single(thirdFlag.Filters.Groups).Properties);
             Assert.Equal(new Dictionary<string, string>
             {
@@ -196,7 +219,7 @@ public class JsonSerializerHelperTests
                                 Values: [
                                     new FilterProperty(
                                         Key: "email",
-                                        Operator: "is_set",
+                                        Operator: ComparisonType.IsSet,
                                         Type: "person",
                                         Value: JsonSerializer.SerializeToElement("is_set"))
                                 ])
@@ -214,6 +237,29 @@ public class JsonSerializerHelperTests
 
             Assert.NotNull(result);
             Assert.Equal(1, result.Status);
+        }
+
+        [Fact]
+        public async Task CanDeserializeFilterProperty()
+        {
+            var json = """
+                       {
+                         "key": "$group_key",
+                         "type": "group",
+                         "value": "01943db3-83be-0000-e7ea-ecae4d9b5afb",
+                         "operator": "exact",
+                         "group_type_index": 2
+                       }
+                       """;
+
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<FilterProperty>(json);
+
+            Assert.Equal(new FilterProperty(
+                Key: "$group_key",
+                Type: "group",
+                Value: JsonDocument.Parse("\"01943db3-83be-0000-e7ea-ecae4d9b5afb\"").RootElement,
+                Operator: ComparisonType.Exact,
+                GroupTypeIndex: 2), result);
         }
 
         [Fact]
