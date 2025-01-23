@@ -8,7 +8,7 @@ namespace PostHog.Json;
 
 internal static class JsonSerializerHelper
 {
-    static readonly JsonSerializerOptions Options = new()
+    internal static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
