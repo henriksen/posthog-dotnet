@@ -97,7 +97,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<DecideApiResult> GetFeatureFlagsAsync(
+    public async Task<DecideApiResult> GetFeatureFlagsFromDecideAsync(
         string distinctUserId,
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,

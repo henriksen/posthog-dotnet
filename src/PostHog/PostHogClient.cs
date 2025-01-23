@@ -220,7 +220,7 @@ public sealed class PostHogClient : IPostHogClient
         GroupCollection? groupProperties,
         CancellationToken cancellationToken)
     {
-        var results = await _apiClient.GetFeatureFlagsAsync(
+        var results = await _apiClient.GetFeatureFlagsFromDecideAsync(
             distinctId,
             userProperties,
             groupProperties,

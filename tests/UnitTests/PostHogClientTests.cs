@@ -494,7 +494,7 @@ public class PostHogClientTests
             var options = new FakeOptions<PostHogOptions>(new PostHogOptions());
             var apiClient = Substitute.For<IPostHogApiClient>();
             // Set up a call to the API client that returns all feature flags
-            apiClient.GetFeatureFlagsAsync(
+            apiClient.GetFeatureFlagsFromDecideAsync(
                     distinctUserId: "1234",
                     personProperties: null,
                     groupProperties: null,
