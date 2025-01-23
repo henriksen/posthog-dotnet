@@ -97,7 +97,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<FeatureFlagsApiResult> GetFeatureFlagsAsync(
+    public async Task<DecideApiResult> GetFeatureFlagsAsync(
         string distinctUserId,
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,
@@ -119,8 +119,8 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
         PrepareAndMutatePayload(payload);
 
-        return await _httpClient.PostJsonAsync<FeatureFlagsApiResult>(endpointUrl, payload, cancellationToken)
-               ?? new FeatureFlagsApiResult();
+        return await _httpClient.PostJsonAsync<DecideApiResult>(endpointUrl, payload, cancellationToken)
+               ?? new DecideApiResult();
     }
 
     /// <inheritdoc/>

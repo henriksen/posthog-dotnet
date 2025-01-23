@@ -24,14 +24,10 @@ public class JsonSerializerHelperTests
         [Fact]
         public async Task ShouldDeserializeFeatureFlagsJsonToFeatureFlagResult()
         {
-            // Arrange
-            var json = await File.ReadAllTextAsync("./Json/feature-flags-v3.json");
+            var json = await File.ReadAllTextAsync("./Json/decide-api-result-v3.json");
 
-            // Act
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(json);
 
-            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<FeatureFlagsApiResult>(json);
-
-            // Assert
             Assert.NotNull(result);
             Assert.True(result.Config.EnableCollectEverything);
             Assert.False(result.IsAuthenticated);
@@ -54,14 +50,10 @@ public class JsonSerializerHelperTests
         [Fact]
         public async Task ShouldDeserializeFeatureFlagsNegatedJsonToFeatureFlagResult()
         {
-            // Arrange
-            var json = await File.ReadAllTextAsync("./Json/feature-flags-v3-negated.json");
+            var json = await File.ReadAllTextAsync("./Json/decide-api-result-v3-negated.json");
 
-            // Act
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(json);
 
-            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<FeatureFlagsApiResult>(json);
-
-            // Assert
             Assert.NotNull(result);
             Assert.False(result.Config.EnableCollectEverything);
             Assert.True(result.IsAuthenticated);
@@ -80,13 +72,10 @@ public class JsonSerializerHelperTests
         [Fact]
         public async Task ShouldDeserializeApiResult()
         {
-            // Arrange
             var json = "{\"status\": 1}";
 
-            // Act
             var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<ApiResult>(json);
 
-            // Assert
             Assert.NotNull(result);
             Assert.Equal(1, result.Status);
         }

@@ -34,10 +34,10 @@
       <None Update="Json\user.json">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
-      <None Update="Json\feature-flags-v3.json">
+      <None Update="Json\decide-api-result-v3.json">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
-      <None Update="Json\feature-flags-v3-negated.json">
+      <None Update="Json\decide-api-result-v3-negated.json">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
     </ItemGroup>

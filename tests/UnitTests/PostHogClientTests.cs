@@ -45,7 +45,7 @@ public class PostHogClientTests
             messageHandler.AddRepeatedResponses(4,
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                count => new FeatureFlagsApiResult
+                count => new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -108,7 +108,7 @@ public class PostHogClientTests
             messageHandler.AddRepeatedResponses(4,
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                count => new FeatureFlagsApiResult
+                count => new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -139,7 +139,7 @@ public class PostHogClientTests
             messageHandler.AddResponse(
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                responseBody: new FeatureFlagsApiResult
+                responseBody: new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -162,7 +162,7 @@ public class PostHogClientTests
             messageHandler.AddResponse(
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                responseBody: new FeatureFlagsApiResult
+                responseBody: new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -183,7 +183,7 @@ public class PostHogClientTests
             messageHandler.AddResponse(
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                responseBody: new FeatureFlagsApiResult
+                responseBody: new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -204,7 +204,7 @@ public class PostHogClientTests
             messageHandler.AddResponse(
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                responseBody: new FeatureFlagsApiResult
+                responseBody: new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -258,7 +258,7 @@ public class PostHogClientTests
             messageHandler.AddRepeatedResponses(6,
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                count => new FeatureFlagsApiResult
+                count => new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -362,7 +362,7 @@ public class PostHogClientTests
             messageHandler.AddRepeatedResponses(6,
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                count => new FeatureFlagsApiResult
+                count => new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -460,7 +460,7 @@ public class PostHogClientTests
             messageHandler.AddRepeatedResponses(4,
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                count => new FeatureFlagsApiResult
+                count => new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -500,7 +500,7 @@ public class PostHogClientTests
                     groupProperties: null,
                     cancellationToken: Arg.Any<CancellationToken>())
                 .Returns(
-                    _ => new FeatureFlagsApiResult
+                    _ => new DecideApiResult
                     {
                         FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                         {

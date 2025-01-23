@@ -43,7 +43,7 @@ public class FeatureFlagExtensionsTests
             messageHandler.AddResponse(
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                responseBody: new FeatureFlagsApiResult
+                responseBody: new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
@@ -67,7 +67,7 @@ public class FeatureFlagExtensionsTests
             messageHandler.AddResponse(
                 new Uri("https://us.i.posthog.com/decide?v=3"),
                 HttpMethod.Post,
-                responseBody: new FeatureFlagsApiResult
+                responseBody: new DecideApiResult
                 {
                     FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                     {
