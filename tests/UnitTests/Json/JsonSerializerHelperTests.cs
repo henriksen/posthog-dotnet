@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Text.Json;
 using PostHog.Api;
 using PostHog.Json;
 
@@ -8,13 +10,10 @@ public class JsonSerializerHelperTests
         [Fact]
         public async Task ShouldSerializeObjectToCamelCaseJson()
         {
-            // Arrange
             var obj = new { PropertyOne = "value", PropertyTwo = 1 };
 
-            // Act
             var json = await JsonSerializerHelper.SerializeToCamelCaseJsonStringAsync(obj);
 
-            // Assert
             Assert.Equal("{\"propertyOne\":\"value\",\"propertyTwo\":1}", json);
         }
     }
@@ -22,13 +21,14 @@ public class JsonSerializerHelperTests
     public class TheDeserializeFromCamelCaseJsonMethod
     {
         [Fact]
-        public async Task ShouldDeserializeFeatureFlagsJsonToFeatureFlagResult()
+        public async Task CanDeserializeJsonToDecideApiResult()
         {
             var json = await File.ReadAllTextAsync("./Json/decide-api-result-v3.json");
 
             var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(json);
 
-            Assert.NotNull(result);
+            Assert.NotNull(result?.Config);
+            Assert.NotNull(result.Analytics);
             Assert.True(result.Config.EnableCollectEverything);
             Assert.False(result.IsAuthenticated);
             Assert.Equal(new Dictionary<string, StringOrValue<bool>>()
@@ -48,13 +48,15 @@ public class JsonSerializerHelperTests
         }
 
         [Fact]
-        public async Task ShouldDeserializeFeatureFlagsNegatedJsonToFeatureFlagResult()
+        public async Task CanDeserializeNegatedJsonToDecideApiResult()
         {
             var json = await File.ReadAllTextAsync("./Json/decide-api-result-v3-negated.json");
 
             var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(json);
 
-            Assert.NotNull(result);
+            Assert.NotNull(result?.Config);
+            Assert.NotNull(result.Analytics);
+            Assert.NotNull(result.FeatureFlagPayloads);
             Assert.False(result.Config.EnableCollectEverything);
             Assert.True(result.IsAuthenticated);
             Assert.Equal(new Dictionary<string, StringOrValue<bool>>()
@@ -67,6 +69,140 @@ public class JsonSerializerHelperTests
             Assert.False(result.DefaultIdentifiedOnly);
             Assert.True(result.ErrorsWhileComputingFlags);
             Assert.Empty(result.FeatureFlagPayloads);
+        }
+
+        [Fact]
+        public async Task CanDeserializeLocalEvaluationApiResult()
+        {
+            var json = await File.ReadAllTextAsync("./Json/local-evaluation-api-result.json");
+
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(json);
+
+            Assert.NotNull(result);
+            Assert.Equal(3, result.Flags.Count);
+            var firstFlag = result.Flags[0];
+            Assert.Equal(91866, firstFlag.Id);
+            Assert.Equal(110510, firstFlag.TeamId);
+            Assert.Equal("A multivariate feature flag that tells you what character you are", firstFlag.Name);
+            Assert.Equal("hogtied_got_character", firstFlag.Key);
+            var firstFlagGroup = Assert.Single(firstFlag.Filters.Groups);
+            Assert.Null(firstFlagGroup.Variant);
+
+            Assert.Equal(new FilterProperty(
+                Key: "size",
+                Type: "group",
+                Value: JsonSerializer.SerializeToElement(new[] { "small" }),
+                Operator: "exact",
+                GroupTypeIndex: 3),
+                firstFlagGroup.Properties[0]
+            );
+            Assert.Equal([
+                    new FilterProperty(
+                        Key: "size",
+                        Type: "group",
+                        Value: JsonSerializer.SerializeToElement(new[] { "small" }),
+                        Operator: "exact",
+                        GroupTypeIndex: 3),
+                    new FilterProperty(
+                        Key: "id",
+                        Type: "cohort",
+                        Value: JsonSerializer.SerializeToElement(1),
+                        Operator: "in"),
+                    new FilterProperty(
+                        Key: "$group_key",
+                        Type: "group",
+                        Value: JsonSerializer.SerializeToElement("12345"),
+                        Operator: "exact",
+                        GroupTypeIndex: 3)
+                ],
+                firstFlagGroup.Properties.ToList());
+            Assert.Equal(100, firstFlagGroup.RolloutPercentage);
+            Assert.Equal(
+                new Dictionary<string, string>
+                {
+                    ["cersei"] = """{"role": "burn it all down"}""",
+                    ["tyrion"] = """{"role": "advisor"}""",
+                    ["danaerys"] = """{"role": "khaleesi"}""",
+                    ["jon-snow"] = """{"role": "king in the north"}"""
+                },
+                firstFlag.Filters.Payloads);
+            Assert.NotNull(firstFlag.Filters.Multivariate);
+            Assert.Equal([
+                    new Variant(Key: "tyrion", Name: "The one who talks", RolloutPercentage: 25),
+                    new Variant(Key: "danaerys", Name: "The mother of dragons", RolloutPercentage: 25),
+                    new Variant(Key: "jon-snow", Name: "Knows nothing", RolloutPercentage: 25),
+                    new Variant(Key: "cersei", Name: "Not nice", RolloutPercentage: 25),
+                ], firstFlag.Filters.Multivariate.Variants);
+            var secondFlag = result.Flags[1];
+            Assert.Equal(91468, secondFlag.Id);
+            Assert.Equal(110510, secondFlag.TeamId);
+            Assert.Equal("Testing a PostHog client", secondFlag.Name);
+            Assert.Equal("hogtied-homepage-user", secondFlag.Key);
+            var secondFlagGroup = Assert.Single(secondFlag.Filters.Groups);
+            Assert.Null(secondFlagGroup.Variant);
+            Assert.Equal(80, secondFlagGroup.RolloutPercentage);
+            Assert.Equal([
+                new FilterProperty(
+                    Key: "$group_key",
+                    Type: "group",
+                    Value: JsonSerializer.SerializeToElement("01943db3-83be-0000-e7ea-ecae4d9b5afb"),
+                    Operator: "exact",
+                    GroupTypeIndex: 2),
+            ], secondFlagGroup.Properties);
+            Assert.Equal(
+                new Dictionary<string, string>
+                {
+                    ["true"] = """{"is_cool": true}"""
+                },
+                secondFlag.Filters.Payloads);
+            Assert.Null(secondFlag.Filters.Multivariate);
+            Assert.False(secondFlag.Deleted);
+            Assert.True(secondFlag.EnsureExperienceContinuity);
+
+            var thirdFlag = result.Flags[2];
+            Assert.Equal(1, thirdFlag.Id);
+            Assert.Equal(42, thirdFlag.TeamId);
+            Assert.Equal("File previews", thirdFlag.Name);
+            Assert.Equal("file-previews", thirdFlag.Key);
+
+            Assert.Equal([
+                new FilterProperty(
+                    Key: "email",
+                    Type: "person",
+                    Value: JsonSerializer.SerializeToElement<string[]>(
+                    [
+                        "tyrion@example.com",
+                        "danaerys@example.com",
+                        "sansa@example.com",
+                        "ned@example.com"
+                    ]),
+                    Operator: "exact")
+            ], Assert.Single(thirdFlag.Filters.Groups).Properties);
+            Assert.Equal(new Dictionary<string, string>
+            {
+                ["0"] = "account",
+                ["1"] = "instance",
+                ["2"] = "organization",
+                ["3"] = "project",
+                ["4"] = "company"
+            }, result.GroupTypeMapping);
+            Assert.Equal(new ReadOnlyDictionary<string, ConditionContainer>(new Dictionary<string, ConditionContainer>
+                {
+                    ["1"] = new(
+                        Type: "OR",
+                        Values: [
+                            new ConditionGroup(
+                                Type: "AND",
+                                Values: [
+                                    new FilterProperty(
+                                        Key: "email",
+                                        Operator: "is_set",
+                                        Type: "person",
+                                        Value: JsonSerializer.SerializeToElement("is_set"))
+                                ])
+                        ])
+                }),
+                result.Cohorts);
         }
 
         [Fact]

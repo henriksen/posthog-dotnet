@@ -44,23 +44,23 @@ internal static class PayloadExtensions
     }
 
     static void AddToPayload(
-        this Group group,
+        this Group featureFlagGroup,
         ref Dictionary<string, string>? groups,
         ref Dictionary<string, Dictionary<string, object>>? groupProperties)
     {
         groups ??= new Dictionary<string, string>();
-        groups[group.GroupType] = group.GroupKey;
+        groups[featureFlagGroup.GroupType] = featureFlagGroup.GroupKey;
 
-        if (group.Properties is null or { Count: 0 })
+        if (featureFlagGroup.Properties is null or { Count: 0 })
         {
             return;
         }
 
         groupProperties ??= new Dictionary<string, Dictionary<string, object>>();
 
-        groupProperties[group.GroupType] = new Dictionary<string, object>(group.Properties)
+        groupProperties[featureFlagGroup.GroupType] = new Dictionary<string, object>(featureFlagGroup.Properties)
         {
-            ["$group_key"] = group.GroupKey
+            ["$group_key"] = featureFlagGroup.GroupKey
         };
     }
 

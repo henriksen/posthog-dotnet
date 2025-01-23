@@ -28,7 +28,7 @@ public interface IPostHogApiClient : IDisposable
     /// <param name="groupProperties">Optional: What group properties are known. Used to compute flags locally, if personalApiKey is present.  Not needed if using remote evaluation, but can be used to override remote values for the purposes of feature flag evaluation.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A <see cref="DecideApiResult"/>.</returns>
-    Task<DecideApiResult> GetFeatureFlagsFromDecideAsync(
+    Task<DecideApiResult?> GetFeatureFlagsFromDecideAsync(
         string distinctUserId,
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,

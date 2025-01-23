@@ -20,13 +20,17 @@ public record FeatureFlag(
     /// </summary>
     /// <param name="kvp">A key value pair with the feature key and the resulting value.</param>
     /// <param name="payloads">The payload dictionary from the API response.</param>
-    public FeatureFlag(KeyValuePair<string, StringOrValue<bool>> kvp, IReadOnlyDictionary<string, string> payloads)
+    public FeatureFlag(KeyValuePair<string, StringOrValue<bool>> kvp, IReadOnlyDictionary<string, string>? payloads)
         : this(kvp.Key, kvp.Value, payloads)
     {
     }
 
-    FeatureFlag(string key, StringOrValue<bool> value, IReadOnlyDictionary<string, string> payloads)
-        : this(key, value.IsString ? value.StringValue is not null : value.Value, value.StringValue, payloads.GetValueOrDefault(key))
+    FeatureFlag(string key, StringOrValue<bool> value, IReadOnlyDictionary<string, string>? payloads)
+        : this(
+            key,
+            value.IsString ? value.StringValue is not null : value.Value,
+            VariantKey: value.StringValue,
+            Payload: payloads?.GetValueOrDefault(key))
     {
 
     }

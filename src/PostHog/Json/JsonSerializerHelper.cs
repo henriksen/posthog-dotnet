@@ -1,8 +1,5 @@
-using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace PostHog.Json;
 
@@ -46,3 +43,4 @@ internal static class JsonSerializerHelper
         CancellationToken cancellationToken = default) =>
         await JsonSerializer.DeserializeAsync<T>(jsonStream, Options, cancellationToken);
 }
+

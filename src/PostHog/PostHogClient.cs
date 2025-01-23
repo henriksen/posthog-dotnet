@@ -225,9 +225,12 @@ public sealed class PostHogClient : IPostHogClient
             userProperties,
             groupProperties,
             cancellationToken);
-        return results.FeatureFlags.ToReadOnlyDictionary(
-            kvp => kvp.Key,
-            kvp => new FeatureFlag(kvp, results.FeatureFlagPayloads));
+
+        return results?.FeatureFlags is not null
+            ? results.FeatureFlags.ToReadOnlyDictionary(
+                kvp => kvp.Key,
+                kvp => new FeatureFlag(kvp, results.FeatureFlagPayloads))
+            : new Dictionary<string, FeatureFlag>();
     }
 
     /// <inheritdoc/>

@@ -40,6 +40,9 @@
       <None Update="Json\decide-api-result-v3-negated.json">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
+      <None Update="Json\local-evaluation-api-result.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

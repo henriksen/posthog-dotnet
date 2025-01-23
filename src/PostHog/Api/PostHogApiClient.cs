@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PostHog.Config;
@@ -13,17 +14,42 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
     readonly TimeProvider _timeProvider;
     readonly HttpClient _httpClient;
+    //readonly HttpClient? _authenticatedHttpClient;
     readonly IOptions<PostHogOptions> _options;
 
     /// <summary>
     /// Initialize a new PostHog client
     /// </summary>
+    /// <remarks>
+    /// This constructor is used for dependency injection.
+    /// </remarks>
+    /// <param name="options">The options used to configure this client.</param>
+    /// <param name="timeProvider"></param>
+    /// <param name="logger">The logger.</param>
+    public PostHogApiClient(
+        IOptions<PostHogOptions> options,
+        TimeProvider timeProvider,
+        ILogger<PostHogApiClient> logger)
+        : this(
+            CreateHttpClient(options, logger, authenticated: false)!,
+            /*CreateHttpClient(options, logger, authenticated: true),*/
+            options,
+            timeProvider,
+            logger)
+    {
+    }
+
+    /// <summary>
+    /// Initialize a new PostHog client
+    /// </summary>
     /// <param name="httpClient">The <see cref="HttpClient"/> used to make requests.</param>
+    /// <param name="authenticatedHttpClient">Optional: <see cref="HttpClient"/> used to make authenticated requests. This requires that <see cref="PostHogOptions.PersonalApiKey"/> is set.</param>
     /// <param name="options">The options used to configure this client.</param>
     /// <param name="timeProvider"></param>
     /// <param name="logger">The logger.</param>
     public PostHogApiClient(
         HttpClient httpClient,
+        //HttpClient? authenticatedHttpClient,
         IOptions<PostHogOptions> options,
         TimeProvider timeProvider,
         ILogger<PostHogApiClient> logger)
@@ -33,29 +59,32 @@ public sealed class PostHogApiClient : IPostHogApiClient
         _timeProvider = timeProvider;
 
         _httpClient = httpClient;
+        //_authenticatedHttpClient = authenticatedHttpClient;
 
         logger.LogTraceApiClientCreated(HostUrl);
     }
 
-    /// <summary>
-    /// Initialize a new PostHog client
-    /// </summary>
-    /// <param name="options">The options used to configure this client.</param>
-    /// <param name="timeProvider"></param>
-    /// <param name="logger">The logger.</param>
-    public PostHogApiClient(
-        IOptions<PostHogOptions> options,
-        TimeProvider timeProvider,
-        ILogger<PostHogApiClient> logger)
-        : this(
+    static HttpClient? CreateHttpClient(IOptions<PostHogOptions>? options, ILogger<PostHogApiClient> logger, bool authenticated)
+    {
+        if (authenticated && options?.Value.PersonalApiKey is null)
+        {
+            return null;
+        }
+
+        var httpClient = new HttpClient(
 #pragma warning disable CA2000
-            // LoggingHttpMessageHandler is disposed when we dispose the HttpClient
-            new HttpClient(new LoggingHttpMessageHandler(logger)
+            new LoggingHttpMessageHandler(logger)
+#pragma warning restore CA2000
             {
                 InnerHandler = new HttpClientHandler()
-            }), options, timeProvider, logger)
-#pragma warning restore CA2000
-    {
+            });
+
+        if (authenticated && options?.Value.PersonalApiKey is { } personalApiKey)
+        {
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", personalApiKey);
+        }
+
+        return httpClient;
     }
 
     Uri HostUrl => _options.Value.HostUrl;
@@ -97,7 +126,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<DecideApiResult> GetFeatureFlagsFromDecideAsync(
+    public async Task<DecideApiResult?> GetFeatureFlagsFromDecideAsync(
         string distinctUserId,
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,
@@ -119,9 +148,21 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
         PrepareAndMutatePayload(payload);
 
-        return await _httpClient.PostJsonAsync<DecideApiResult>(endpointUrl, payload, cancellationToken)
-               ?? new DecideApiResult();
+        return await _httpClient.PostJsonAsync<DecideApiResult>(
+                   endpointUrl,
+                   payload,
+                   cancellationToken);
     }
+
+    /*async Task<object?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken)
+    {
+        var httpClient = _authenticatedHttpClient ?? throw new InvalidOperationException("This API requires that a Personal API Key is set.");
+        var options = _options.Value ?? throw new InvalidOperationException(nameof(_options));
+
+        var endpointUrl = new Uri(HostUrl, $"/api/feature_flag/local_evaluation/?token={options.ProjectApiKey}?send_cohorts");
+
+        return await httpClient.GetFromJsonAsync<object>(endpointUrl, JsonSerializerHelper.Options, cancellationToken);
+    }*/
 
     /// <inheritdoc/>
     public Version Version => new(VersionConstants.Version);

@@ -10,7 +10,6 @@ public class HttpContextFeatureFlagCacheTests
         [Fact]
         public async Task CachesFlagsInHttpContext()
         {
-            // Arrange
             var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
             var httpContext = new DefaultHttpContext();
             httpContextAccessor.HttpContext.Returns(httpContext);
@@ -25,10 +24,8 @@ public class HttpContextFeatureFlagCacheTests
             Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher = _ =>
                 Task.FromResult((IReadOnlyDictionary<string, FeatureFlag>)featureFlags);
 
-            // Act
             var result = await cache.GetAndCacheFeatureFlagsAsync(distinctId, fetcher, CancellationToken.None);
 
-            // Assert
             Assert.Equal(featureFlags, result);
             Assert.Equal(featureFlags, httpContext.Items[$"$PostHog(feature_flags):{distinctId}"]);
         }
@@ -36,7 +33,6 @@ public class HttpContextFeatureFlagCacheTests
         [Fact]
         public async Task ReturnsCachedFlagsFromHttpContext()
         {
-            // Arrange
             var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
             var httpContext = new DefaultHttpContext();
             var distinctId = "user123";
@@ -52,17 +48,14 @@ public class HttpContextFeatureFlagCacheTests
             Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher = _ =>
                 Task.FromResult((IReadOnlyDictionary<string, FeatureFlag>)new Dictionary<string, FeatureFlag>());
 
-            // Act
             var result = await cache.GetAndCacheFeatureFlagsAsync(distinctId, fetcher, CancellationToken.None);
 
-            // Assert
             Assert.Equal(cachedFeatureFlags, result);
         }
 
         [Fact]
         public async Task DoesNotCacheIfHttpContextIsNull()
         {
-            // Arrange
             var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
             httpContextAccessor.HttpContext.Returns((HttpContext)null!);
 
@@ -76,10 +69,8 @@ public class HttpContextFeatureFlagCacheTests
             Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher = _ =>
                 Task.FromResult((IReadOnlyDictionary<string, FeatureFlag>)featureFlags);
 
-            // Act
             var result = await cache.GetAndCacheFeatureFlagsAsync(distinctId, fetcher, CancellationToken.None);
 
-            // Assert
             Assert.Equal(featureFlags, result);
         }
     }
