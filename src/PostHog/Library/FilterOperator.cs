@@ -6,14 +6,14 @@ namespace PostHog.Library;
 
 public record ComparisonOperator(ComparisonType ComparisonType)
 {
-    public bool IsMatch(AnyValue value, AnyValue overrideValue)
+    public bool IsMatch(FilterPropertyValue value, FilterPropertyValue overrideValue)
     {
         value = NotNull(value);
 
         return ComparisonType switch
         {
-            ComparisonType.Exact => value == overrideValue,
-            ComparisonType.IsNot => value != overrideValue,
+            ComparisonType.Exact => value.IsExactMatch(overrideValue),
+            ComparisonType.IsNot => !value.IsExactMatch(overrideValue),
             ComparisonType.GreaterThan => value > overrideValue,
             ComparisonType.LessThan => value < overrideValue,
             ComparisonType.GreaterThanOrEquals => value >= overrideValue,

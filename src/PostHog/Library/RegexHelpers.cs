@@ -14,7 +14,7 @@ public static class RegexHelpers
     /// <returns><c>true</c> if the pattern is a valid regular expression. Otherwise <c>false</c></returns>
     public static bool TryValidateRegex(
         string pattern,
-        [NotNullWhen(true)]out Regex? regex,
+        [NotNullWhen(true)] out Regex? regex,
         RegexOptions options)
     {
         regex = null;

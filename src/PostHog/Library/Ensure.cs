@@ -4,7 +4,7 @@ namespace PostHog.Library;
 
 public static class Ensure
 {
-    public static T NotNull<T>(T? value, [CallerArgumentExpression(nameof(value))]string? name = null)
+    public static T NotNull<T>(T? value, [CallerArgumentExpression(nameof(value))] string? name = null)
     {
         if (value is null)
         {

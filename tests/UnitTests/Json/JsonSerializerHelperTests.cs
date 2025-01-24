@@ -210,8 +210,8 @@ public class JsonSerializerHelperTests
                 ["4"] = "company"
             }, result.GroupTypeMapping);
             Assert.Equal(new ReadOnlyDictionary<string, ConditionContainer>(new Dictionary<string, ConditionContainer>
-                {
-                    ["1"] = new(
+            {
+                ["1"] = new(
                         Type: "OR",
                         Values: [
                             new ConditionGroup(
@@ -224,7 +224,7 @@ public class JsonSerializerHelperTests
                                         Value: JsonSerializer.SerializeToElement("is_set"))
                                 ])
                         ])
-                }),
+            }),
                 result.Cohorts);
         }
 
@@ -260,6 +260,23 @@ public class JsonSerializerHelperTests
                 Value: JsonDocument.Parse("\"01943db3-83be-0000-e7ea-ecae4d9b5afb\"").RootElement,
                 Operator: ComparisonType.Exact,
                 GroupTypeIndex: 2), result);
+        }
+
+        [Fact]
+        public async Task CanDeserializePropertiesDictionaryWithNullValue()
+        {
+            var json = """
+                       {
+                         "size": "large",
+                         "email": null
+                       }
+                       """;
+
+            var result = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<Dictionary<string, object?>>(json);
+
+            Assert.NotNull(result);
+            Assert.Equal("large", result["size"]?.ToString());
+            Assert.Null(result["email"]);
         }
 
         [Fact]
