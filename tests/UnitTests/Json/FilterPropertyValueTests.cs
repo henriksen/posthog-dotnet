@@ -2,61 +2,100 @@
 using System.Text.Json;
 using PostHog.Json;
 
-public class FilterPropertyValueTests
+namespace FilterPropertyValueTests;
+
+public class TheIsExactMatchMethod
 {
-    public class TheIsExactMatchMethod
+    [Fact]
+    public void ReturnsTrueWhenPropertyValueMatchesString()
     {
-        [Fact]
-        public void ReturnsTrueWhenPropertyValueMatchesString()
-        {
-            var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse("\"scooby\"").RootElement);
-            object overrideValue = "scooby";
-            object anotherOverrideValue = "shaggy";
+        var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse("\"scooby\"").RootElement);
+        object matchingOverrideValue = "scooby";
+        object anotherMatchingOverrideValue = "SCoObY";
+        object notMatchingOverrideValue = "shaggy";
 
-            Assert.NotNull(filterPropertyValue);
-            Assert.True(filterPropertyValue.IsExactMatch(overrideValue));
-            Assert.False(filterPropertyValue.IsExactMatch(anotherOverrideValue));
-        }
+        Assert.NotNull(filterPropertyValue);
+        Assert.True(filterPropertyValue.IsExactMatch(matchingOverrideValue));
+        Assert.True(filterPropertyValue.IsExactMatch(anotherMatchingOverrideValue));
+        Assert.False(filterPropertyValue.IsExactMatch(notMatchingOverrideValue));
+    }
 
-        [Fact]
-        public void ReturnsTrueWhenPropertyValueIsInStringArray()
-        {
-            var json = """["scooby", "shaggy", "velma", "daphne"]""";
-            var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse(json).RootElement);
-            object overrideValue = "scooby";
-            object anotherOverrideValue = "fred";
+    [Fact]
+    public void ReturnsTrueWhenPropertyValueIsInStringArray()
+    {
+        var json = """["scooby", "shaggy", "velma", "daphne"]""";
+        var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse(json).RootElement);
+        object matchingOverrideValue = "scooby";
+        object anotherMatchingOverrideValue = "SCoObY";
+        object notMatchingOverrideValue = "fred";
 
-            Assert.NotNull(filterPropertyValue);
-            Assert.True(filterPropertyValue.IsExactMatch(overrideValue));
-            Assert.False(filterPropertyValue.IsExactMatch(anotherOverrideValue));
-        }
+        Assert.NotNull(filterPropertyValue);
+        Assert.True(filterPropertyValue.IsExactMatch(matchingOverrideValue));
+        Assert.True(filterPropertyValue.IsExactMatch(anotherMatchingOverrideValue));
+        Assert.False(filterPropertyValue.IsExactMatch(notMatchingOverrideValue));
+    }
 
-        [Fact]
-        public void ReturnsTrueWhenPropertyValueIsInIntArray()
-        {
-            var json = """[4, 8, 15, 16, 23, 42 ]""";
-            var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse(json).RootElement);
-            object overrideValue = 42;
-            object anotherOverrideValue = 21;
-            object yetAnotherOverrideValue = 42.0;
+    [Fact]
+    public void ReturnsTrueWhenPropertyValueMatchesInt()
+    {
+        var json = """42""";
+        var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse(json).RootElement);
+        object matchingOverrideValue = 42;
+        object anotherMatchingOverrideValue = 42.0;
+        object notMatchingOverrideValue = 21;
+        object anotherNotMatchingOverrideValue = 21.3;
 
-            Assert.NotNull(filterPropertyValue);
-            Assert.True(filterPropertyValue.IsExactMatch(overrideValue));
-            Assert.False(filterPropertyValue.IsExactMatch(anotherOverrideValue));
-            Assert.True(filterPropertyValue.IsExactMatch(yetAnotherOverrideValue));
-        }
+        Assert.NotNull(filterPropertyValue);
+        Assert.True(filterPropertyValue.IsExactMatch(matchingOverrideValue));
+        Assert.True(filterPropertyValue.IsExactMatch(anotherMatchingOverrideValue));
+        Assert.False(filterPropertyValue.IsExactMatch(notMatchingOverrideValue));
+        Assert.False(filterPropertyValue.IsExactMatch(anotherNotMatchingOverrideValue));
+    }
 
-        [Fact]
-        public void ReturnsTrueWhenPropertyValueIsInDoubleArray()
-        {
-            var json = """[4.1, 8.2, 15.3, 16.4, 23.5, 42.42 ]""";
-            var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse(json).RootElement);
-            object overrideValue = 42.42;
-            object anotherOverrideValue = 23.01;
+    [Fact]
+    public void ReturnsTrueWhenPropertyValueMatchesDouble()
+    {
+        var json = """42.23""";
+        var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse(json).RootElement);
+        object matchingOverrideValue = 42.23;
+        object anotherMatchingOverrideValue = 42.230;
+        object notMatchingOverrideValue = 42;
+        object anotherNotMatchingOverrideValue = 42.239;
 
-            Assert.NotNull(filterPropertyValue);
-            Assert.True(filterPropertyValue.IsExactMatch(overrideValue));
-            Assert.False(filterPropertyValue.IsExactMatch(anotherOverrideValue));
-        }
+        Assert.NotNull(filterPropertyValue);
+        Assert.True(filterPropertyValue.IsExactMatch(matchingOverrideValue));
+        Assert.True(filterPropertyValue.IsExactMatch(anotherMatchingOverrideValue));
+        Assert.False(filterPropertyValue.IsExactMatch(notMatchingOverrideValue));
+        Assert.False(filterPropertyValue.IsExactMatch(anotherNotMatchingOverrideValue));
+    }
+
+    [Fact]
+    public void ReturnsTrueWhenPropertyValueIsInIntArray()
+    {
+        var json = """[4, 8, 15, 16, 23, 42 ]""";
+        var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse(json).RootElement);
+        object matchingOverrideValue = 42;
+        object anotherMatchingOverrideValue = 42.0;
+        object notMatchingOverrideValue = 21;
+
+        Assert.NotNull(filterPropertyValue);
+        Assert.True(filterPropertyValue.IsExactMatch(matchingOverrideValue));
+        Assert.True(filterPropertyValue.IsExactMatch(anotherMatchingOverrideValue));
+        Assert.False(filterPropertyValue.IsExactMatch(notMatchingOverrideValue));
+    }
+
+    [Fact]
+    public void ReturnsTrueWhenPropertyValueIsInDoubleArray()
+    {
+        var json = """[4.1, 8.2, 15.3, 16.4, 23.5, 42 ]""";
+        var filterPropertyValue = FilterPropertyValue.Create(JsonDocument.Parse(json).RootElement);
+        object matchingOverrideValue = 23.5;
+        object anotherMatchingOverrideValue = 42;
+        object notMatchingOverrideValue = 23.01;
+
+        Assert.NotNull(filterPropertyValue);
+        Assert.True(filterPropertyValue.IsExactMatch(matchingOverrideValue));
+        Assert.True(filterPropertyValue.IsExactMatch(anotherMatchingOverrideValue));
+        Assert.False(filterPropertyValue.IsExactMatch(notMatchingOverrideValue));
     }
 }

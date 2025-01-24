@@ -165,6 +165,7 @@ public class FilterPropertyValue
             { ListOfInts: { } intList } when overrideValue is int overrideIntValue => intList.Contains(overrideIntValue),
             { ListOfInts: { } intList } when overrideValue is double overrideDoubleValue => intList.Select(i => (double)i).Contains(overrideDoubleValue),
             { ListOfDoubles: { } doubleList } when overrideValue is double overrideDoubleValue => doubleList.Contains(overrideDoubleValue),
+            { ListOfDoubles: { } doubleList } when overrideValue is int overrideIntValue => doubleList.Contains(overrideIntValue),
             { ListOfStrings: { } stringList } when overrideValue is string overrideStringValue => stringList.Contains(overrideStringValue, StringComparer.OrdinalIgnoreCase),
             _ => CompareTo(overrideValue) == 0 // Defer to CompareTo for all other types.
         };
@@ -197,7 +198,8 @@ public class FilterPropertyValue
         return this switch
         {
             { StringValue: { } stringValue } => string.Compare(stringValue, other.ToString(), StringComparison.OrdinalIgnoreCase),
-            { DoubleValue: { } doubleValue } => doubleValue.CompareTo(other),
+            { DoubleValue: { } doubleValue } when other is double overrideDouble => doubleValue.CompareTo(overrideDouble),
+            { DoubleValue: { } doubleValue } when other is int overrideInt => doubleValue.CompareTo(overrideInt),
             { IntValue: { } intValue } => intValue.CompareTo(other),
             { BoolValue: { } boolValue } => boolValue.CompareTo(other),
             _ => 1

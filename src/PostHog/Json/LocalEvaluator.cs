@@ -1,5 +1,4 @@
 using PostHog.Api;
-using PostHog.Library;
 using static PostHog.Library.Ensure;
 
 namespace PostHog.Json;
@@ -22,7 +21,6 @@ public static class LocalEvaluator
     public static bool MatchProperty(FilterProperty filterProperty, Dictionary<string, object?> properties)
     {
         var key = NotNull(filterProperty).Key;
-        var filterOperator = new ComparisonOperator(filterProperty.Operator);
         var value = FilterPropertyValue.Create(filterProperty.Value)
             ?? throw new InconclusiveMatchException("The filter property value is null");
 
@@ -43,7 +41,7 @@ public static class LocalEvaluator
             return false;
         }
 
-        return filterOperator.ComparisonType switch
+        return filterProperty.Operator switch
         {
             ComparisonType.Exact => value.IsExactMatch(overrideValue),
             ComparisonType.IsNot => !value.IsExactMatch(overrideValue),
@@ -58,7 +56,7 @@ public static class LocalEvaluator
             ComparisonType.IsSet => true, // We already checked to see that the key exists.
             ComparisonType.IsDateBefore => throw new NotImplementedException(),
             ComparisonType.IsDateAfter => throw new NotImplementedException(),
-            _ => throw new ArgumentException($"Unknown operator: {filterOperator.ComparisonType}")
+            _ => throw new ArgumentException($"Unknown operator: {filterProperty.Operator}")
         };
     }
 }
