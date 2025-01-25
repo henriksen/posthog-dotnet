@@ -174,4 +174,36 @@ public class TheMatchPropertyMethod
 
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData("-30h", "2024-01-21T16:15:49Z", true)]
+    [InlineData("-30h", "2024-01-21T16:15:51Z", false)]
+    [InlineData("-24d", "2023-12-29T22:15:49Z", true)]
+    [InlineData("-24d", "2023-12-29T22:15:51Z", false)]
+    [InlineData("-2w", "2024-01-08T22:15:49Z", true)]
+    [InlineData("-2w", "2024-01-08T22:15:51Z", false)]
+    [InlineData("-1m", "2023-12-22T22:15:49Z", true)]
+    [InlineData("-1m", "2023-12-22T22:15:51Z", false)]
+    [InlineData("-1y", "2023-01-22T22:15:49Z", true)]
+    [InlineData("-1y", "2023-01-22T22:15:51Z", false)]
+    public void CanPerformIsDateBeforeComparisonCorrectlyWhenPropertyIsString(string relativeDateString, string joinDate, bool expected)
+    {
+        var timeProvider = new FakeTimeProvider();
+        var now = DateTimeOffset.Parse("2024-01-22T22:15:50Z", CultureInfo.InvariantCulture);
+        timeProvider.SetUtcNow(now);
+        var properties = new Dictionary<string, object?>
+        {
+            ["join_date"] = joinDate
+        };
+        var filterProperty = new FilterProperty(
+            Key: "join_date",
+            Type: "person",
+            Value: JsonDocument.Parse(json: $"\"{relativeDateString}\"").RootElement,
+            Operator: ComparisonType.IsDateBefore);
+        var localEvaluator = new LocalEvaluator(timeProvider);
+
+        var result = localEvaluator.MatchProperty(filterProperty, properties);
+
+        Assert.Equal(expected, result);
+    }
 }

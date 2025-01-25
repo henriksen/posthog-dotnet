@@ -208,16 +208,37 @@ public class FilterPropertyValue
         };
     }
 
+    /// <summary>
+    /// Determines whether the override value represents a date greater than the date represented by this instance.
+    /// </summary>
+    /// <param name="overrideValue">The supplied override value.</param>
+    /// <param name="now">The current date.</param>
+    /// <returns><c>true</c> if the override date value is before the date represented by the filter value.</returns>
+    /// <exception cref="InconclusiveMatchException">Thrown if the filter value can't be parsed.</exception>
     public bool IsDateBefore(object? overrideValue, DateTimeOffset now)
     {
-        if (overrideValue is not (DateTimeOffset or DateTime))
+        // Question: Should we support DateOnly and TimeOnly?
+        if (overrideValue is not (string or DateTimeOffset or DateTime))
         {
-            return false;
+            throw new InconclusiveMatchException("The date provided must be a string, DateTime, or DateTimeOffset, object");
         }
 
-        return RelativeDate.TryParseRelativeDate(StringValue, out var relativeDate)
-            && (overrideValue is DateTimeOffset overrideDateTimeOffset && relativeDate.IsDateBefore(overrideDateTimeOffset, now)
-            || (overrideValue is DateTime overrideDateTime && relativeDate.IsDateBefore(overrideDateTime, now)));
+        if (!RelativeDate.TryParseRelativeDate(StringValue, out var relativeDate))
+        {
+            throw new InconclusiveMatchException("The date set on the flag is not a valid format.");
+        }
+
+        if (overrideValue is string overrideValueString)
+        {
+            overrideValue = DateTimeOffset.TryParse(overrideValueString, out var dateTimeOffset)
+                ? dateTimeOffset
+                : DateTime.TryParse(overrideValueString, out var dateTime)
+                    ? dateTime
+                    : throw new InconclusiveMatchException("The date provided is not a valid format");
+        }
+
+        return overrideValue is DateTimeOffset overrideDateTimeOffset && relativeDate.IsDateBefore(overrideDateTimeOffset, now)
+               || (overrideValue is DateTime overrideDateTime && relativeDate.IsDateBefore(overrideDateTime, now));
     }
 
     public static bool operator >(FilterPropertyValue left, object? right) => NotNull(left).CompareTo(right) > 0;

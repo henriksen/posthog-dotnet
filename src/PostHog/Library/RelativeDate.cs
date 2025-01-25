@@ -26,30 +26,11 @@ public partial record RelativeDate
     public bool IsDateBefore(DateTimeOffset other, DateTimeOffset now) => other < _currentDateOffsetFunc?.Invoke(now);
 
     /// <summary>
-    /// Determines whether the specified date is after the date represented by this instance.
-    /// </summary>
-    /// <remarks>
-    /// The astute code reviewer will note that this method actually tests if the date is on or after the specified
-    /// date. In practice, this doesn't matter because the dates we use have sub-second precision and the likelihood of
-    /// the two dates being exactly the same is miniscule. Yet, here I am handling it.
-    /// </remarks>
-    /// <param name="other">The date to compare to this instance.</param>
-    /// <param name="now">The current date.</param>
-    public bool IsDateAfter(DateTimeOffset other, DateTimeOffset now) => !IsDateBefore(other, now);
-
-    /// <summary>
     /// Determines whether the specified date is before the date represented by this instance.
     /// </summary>
     /// <param name="other">The date to compare to this instance.</param>
     /// <param name="now">The current date.</param>
     public bool IsDateBefore(DateTime other, DateTimeOffset now) => other < _currentDateOffsetFunc?.Invoke(now);
-
-    /// <summary>
-    /// Determines whether the specified date is after the date represented by this instance.
-    /// </summary>
-    /// <param name="other">The date to compare to this instance.</param>
-    /// <param name="now">The current date.</param>
-    public bool IsDateAfter(DateTime other, DateTimeOffset now) => !IsDateBefore(other, now);
 
     /// <summary>
     /// Tries to parse a string into a <see cref="RelativeDate"/>. If parsing fails, returns <c>null</c>.

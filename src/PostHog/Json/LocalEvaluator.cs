@@ -12,7 +12,7 @@ public record LocalEvaluator(TimeProvider TimeProvider)
     /// <summary>
     /// A default constructor that uses <see cref="System.TimeProvider.System"/>.
     /// </summary>
-    public LocalEvaluator() : this(System.TimeProvider.System) { }
+    public LocalEvaluator() : this(TimeProvider.System) { }
 
     /// <summary>
     /// Evaluates a feature flag for a given set of properties.
@@ -62,7 +62,7 @@ public record LocalEvaluator(TimeProvider TimeProvider)
             ComparisonType.IsSet => true, // We already checked to see that the key exists.
             ComparisonType.IsDateBefore => value.IsDateBefore(overrideValue, TimeProvider.GetUtcNow()),
             ComparisonType.IsDateAfter => !value.IsDateBefore(overrideValue, TimeProvider.GetUtcNow()),
-            _ => throw new ArgumentException($"Unknown operator: {filterProperty.Operator}")
+            _ => throw new InconclusiveMatchException($"Unknown operator: {filterProperty.Operator}")
         };
     }
 }
