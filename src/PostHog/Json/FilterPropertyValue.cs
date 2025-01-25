@@ -197,6 +197,8 @@ public class FilterPropertyValue
 
         return this switch
         {
+            { StringValue: { } stringValue } when other is DateTime => string.Compare(stringValue, other.ToString(), StringComparison.OrdinalIgnoreCase),
+            { StringValue: { } stringValue } when other is DateTimeOffset => string.Compare(stringValue, other.ToString(), StringComparison.OrdinalIgnoreCase),
             { StringValue: { } stringValue } => string.Compare(stringValue, other.ToString(), StringComparison.OrdinalIgnoreCase),
             { DoubleValue: { } doubleValue } when other is double overrideDouble => doubleValue.CompareTo(overrideDouble),
             { DoubleValue: { } doubleValue } when other is int overrideInt => doubleValue.CompareTo(overrideInt),
@@ -206,6 +208,17 @@ public class FilterPropertyValue
         };
     }
 
+    public bool IsDateBefore(object? overrideValue, DateTimeOffset now)
+    {
+        if (overrideValue is not (DateTimeOffset or DateTime))
+        {
+            return false;
+        }
+
+        return RelativeDate.TryParseRelativeDate(StringValue, out var relativeDate)
+            && (overrideValue is DateTimeOffset overrideDateTimeOffset && relativeDate.IsDateBefore(overrideDateTimeOffset, now)
+            || (overrideValue is DateTime overrideDateTime && relativeDate.IsDateBefore(overrideDateTime, now)));
+    }
 
     public static bool operator >(FilterPropertyValue left, object? right) => NotNull(left).CompareTo(right) > 0;
     public static bool operator <(FilterPropertyValue? left, object? right) => NotNull(left).CompareTo(left) < 0;

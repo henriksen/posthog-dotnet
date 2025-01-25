@@ -37,7 +37,8 @@ internal static class PostHogApiClientExtensions
             properties["$set_once"] = userPropertiesToSetOnce;
         }
 
-        return await client.SendEventAsync(distinctId,
+        return await client.SendEventAsync(
+            distinctId,
             eventName: "$identify",
             properties,
             cancellationToken);

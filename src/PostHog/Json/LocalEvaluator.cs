@@ -1,4 +1,5 @@
 using PostHog.Api;
+using PostHog.Library;
 using static PostHog.Library.Ensure;
 
 namespace PostHog.Json;
@@ -6,19 +7,24 @@ namespace PostHog.Json;
 /// <summary>
 /// Class used to locally evaluate feature flags.
 /// </summary>
-public static class LocalEvaluator
+public record LocalEvaluator(TimeProvider TimeProvider)
 {
+    /// <summary>
+    /// A default constructor that uses <see cref="System.TimeProvider.System"/>.
+    /// </summary>
+    public LocalEvaluator() : this(System.TimeProvider.System) { }
+
     /// <summary>
     /// Evaluates a feature flag for a given set of properties.
     /// </summary>
     /// <remarks>
     /// Only looks for matches where the key exists in properties.
-    /// Dosn't support the operator <c>is_not_set</c>.
+    /// Doesn't support the operator <c>is_not_set</c>.
     /// </remarks>
     /// <param name="filterProperty">The <see cref="FilterProperty"/> to evaluate.</param>
     /// <param name="properties">The overriden values that describe the user/group.</param>
     /// <returns><c>true</c> if the current user/group matches the property. Otherwise <c>false</c>.</returns>
-    public static bool MatchProperty(FilterProperty filterProperty, Dictionary<string, object?> properties)
+    public bool MatchProperty(FilterProperty filterProperty, Dictionary<string, object?> properties)
     {
         var key = NotNull(filterProperty).Key;
         var value = FilterPropertyValue.Create(filterProperty.Value)
@@ -54,8 +60,8 @@ public static class LocalEvaluator
             ComparisonType.Regex => value.IsRegexMatch(overrideValue),
             ComparisonType.NotRegex => !value.IsRegexMatch(overrideValue),
             ComparisonType.IsSet => true, // We already checked to see that the key exists.
-            ComparisonType.IsDateBefore => throw new NotImplementedException(),
-            ComparisonType.IsDateAfter => throw new NotImplementedException(),
+            ComparisonType.IsDateBefore => value.IsDateBefore(overrideValue, TimeProvider.GetUtcNow()),
+            ComparisonType.IsDateAfter => !value.IsDateBefore(overrideValue, TimeProvider.GetUtcNow()),
             _ => throw new ArgumentException($"Unknown operator: {filterProperty.Operator}")
         };
     }
