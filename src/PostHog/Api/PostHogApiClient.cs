@@ -1,7 +1,9 @@
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PostHog.Config;
+using PostHog.Json;
 using PostHog.Library;
 using PostHog.Versioning;
 
@@ -14,7 +16,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
     readonly TimeProvider _timeProvider;
     readonly HttpClient _httpClient;
-    //readonly HttpClient? _authenticatedHttpClient;
+    readonly HttpClient? _authenticatedHttpClient;
     readonly IOptions<PostHogOptions> _options;
 
     /// <summary>
@@ -32,7 +34,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
         ILogger<PostHogApiClient> logger)
         : this(
             CreateHttpClient(options, logger, authenticated: false)!,
-            /*CreateHttpClient(options, logger, authenticated: true),*/
+            CreateHttpClient(options, logger, authenticated: true),
             options,
             timeProvider,
             logger)
@@ -49,7 +51,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
     /// <param name="logger">The logger.</param>
     public PostHogApiClient(
         HttpClient httpClient,
-        //HttpClient? authenticatedHttpClient,
+        HttpClient? authenticatedHttpClient,
         IOptions<PostHogOptions> options,
         TimeProvider timeProvider,
         ILogger<PostHogApiClient> logger)
@@ -59,7 +61,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
         _timeProvider = timeProvider;
 
         _httpClient = httpClient;
-        //_authenticatedHttpClient = authenticatedHttpClient;
+        _authenticatedHttpClient = authenticatedHttpClient;
 
         logger.LogTraceApiClientCreated(HostUrl);
     }
@@ -154,15 +156,18 @@ public sealed class PostHogApiClient : IPostHogApiClient
                    cancellationToken);
     }
 
-    /*async Task<object?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken)
+    public async Task<LocalEvaluationApiResult?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken)
     {
         var httpClient = _authenticatedHttpClient ?? throw new InvalidOperationException("This API requires that a Personal API Key is set.");
         var options = _options.Value ?? throw new InvalidOperationException(nameof(_options));
 
         var endpointUrl = new Uri(HostUrl, $"/api/feature_flag/local_evaluation/?token={options.ProjectApiKey}?send_cohorts");
 
-        return await httpClient.GetFromJsonAsync<object>(endpointUrl, JsonSerializerHelper.Options, cancellationToken);
-    }*/
+        return await httpClient.GetFromJsonAsync<LocalEvaluationApiResult>(
+            endpointUrl,
+            JsonSerializerHelper.Options,
+            cancellationToken);
+    }
 
     /// <inheritdoc/>
     public Version Version => new(VersionConstants.Version);

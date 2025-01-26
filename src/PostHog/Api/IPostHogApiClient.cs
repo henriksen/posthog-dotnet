@@ -1,3 +1,5 @@
+using PostHog.Config;
+
 namespace PostHog.Api;
 
 /// <summary>
@@ -33,6 +35,15 @@ public interface IPostHogApiClient : IDisposable
         Dictionary<string, object>? personProperties,
         GroupCollection? groupProperties,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Retrieves all the feature flags for the project by making a request to the
+    /// <c>/api/feature_flag/local_evaluation</c> endpoint. This requires that a Personal API Key is set in
+    /// <see cref="PostHogOptions"/>.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A <see cref="LocalEvaluationApiResult"/> containing all the feature flags.</returns>
+    Task<LocalEvaluationApiResult?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// The version of the client.

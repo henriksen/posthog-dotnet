@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using PostHog.Json;
@@ -16,7 +17,7 @@ public record LocalFeatureFlag(
     int TeamId,
     string Name,
     string Key,
-    FeatureFlagFilters Filters,
+    FeatureFlagFilters? Filters,
     bool Deleted,
     bool Active,
     [property: JsonPropertyName("ensure_experience_continuity")]
@@ -36,9 +37,15 @@ public record LocalFeatureFlag(
 public record FeatureFlagFilters(
     IReadOnlyList<FeatureFlagGroup> Groups,
     IReadOnlyDictionary<string, string> Payloads,
-    Multivariate? Multivariate,
+    Multivariate? Multivariate = null,
     [property: JsonPropertyName("aggregation_group_type_index")]
-    int? AggregationGroupTypeIndex);
+    int? AggregationGroupTypeIndex = null)
+{
+    public FeatureFlagFilters() : this(Array.Empty<FeatureFlagGroup>(),
+        new ReadOnlyDictionary<string, string>(new Dictionary<string, string>()))
+    {
+    }
+}
 
 /// <summary>
 /// Set of conditions that determine who sees the feature flag. If any group matches, the flag is active for that user.

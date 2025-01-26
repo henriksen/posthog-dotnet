@@ -34,17 +34,18 @@ public class FakeContainer : IServiceProvider
 
         // Add the PostHogClient and PostHogApiClient services
         AddService<IPostHogApiClient, PostHogApiClient>(sp => new PostHogApiClient(
-            sp.GetRequiredService<HttpClient>(),
-            sp.GetRequiredService<IOptions<PostHogOptions>>().Value,
-            sp.GetRequiredService<TimeProvider>(),
-            sp.GetRequiredService<ILogger<PostHogApiClient>>()));
+            httpClient: sp.GetRequiredService<HttpClient>(),
+            authenticatedHttpClient: sp.GetRequiredService<HttpClient>(),
+            options: sp.GetRequiredService<IOptions<PostHogOptions>>().Value,
+            timeProvider: sp.GetRequiredService<TimeProvider>(),
+            logger: sp.GetRequiredService<ILogger<PostHogApiClient>>()));
         AddService<IPostHogClient, PostHogClient>(sp => new PostHogClient(
-            sp.GetRequiredService<IPostHogApiClient>(),
-            sp.GetRequiredService<IFeatureFlagCache>(),
-            sp.GetRequiredService<IOptions<PostHogOptions>>().Value,
-            sp.GetRequiredService<ITaskScheduler>(),
-            sp.GetRequiredService<TimeProvider>(),
-            sp.GetRequiredService<ILogger<PostHogClient>>()));
+            postHogApiClient: sp.GetRequiredService<IPostHogApiClient>(),
+            featureFlagsCache: sp.GetRequiredService<IFeatureFlagCache>(),
+            options: sp.GetRequiredService<IOptions<PostHogOptions>>().Value,
+            taskScheduler: sp.GetRequiredService<ITaskScheduler>(),
+            timeProvider: sp.GetRequiredService<TimeProvider>(),
+            logger: sp.GetRequiredService<ILogger<PostHogClient>>()));
     }
 
     public void AddService<TInterface>(object service) => AddService(_ => service, typeof(TInterface), service.GetType());

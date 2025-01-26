@@ -108,6 +108,7 @@ public class TheDeserializeFromCamelCaseJsonMethod
         Assert.Equal(110510, firstFlag.TeamId);
         Assert.Equal("A multivariate feature flag that tells you what character you are", firstFlag.Name);
         Assert.Equal("hogtied_got_character", firstFlag.Key);
+        Assert.NotNull(firstFlag.Filters);
         var firstFlagGroup = Assert.Single(firstFlag.Filters.Groups);
         Assert.Null(firstFlagGroup.Variant);
 
@@ -161,6 +162,7 @@ public class TheDeserializeFromCamelCaseJsonMethod
         Assert.Equal(110510, secondFlag.TeamId);
         Assert.Equal("Testing a PostHog client", secondFlag.Name);
         Assert.Equal("hogtied-homepage-user", secondFlag.Key);
+        Assert.NotNull(secondFlag.Filters);
         var secondFlagGroup = Assert.Single(secondFlag.Filters.Groups);
         Assert.Null(secondFlagGroup.Variant);
         Assert.Equal(80, secondFlagGroup.RolloutPercentage);
@@ -187,7 +189,7 @@ public class TheDeserializeFromCamelCaseJsonMethod
         Assert.Equal(42, thirdFlag.TeamId);
         Assert.Equal("File previews", thirdFlag.Name);
         Assert.Equal("file-previews", thirdFlag.Key);
-
+        Assert.NotNull(thirdFlag.Filters);
         Assert.Equal([
             new FilterProperty(
                 Key: "email",
