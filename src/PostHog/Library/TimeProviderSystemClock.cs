@@ -8,5 +8,8 @@ namespace PostHog.Library;
 /// </summary>
 public class TimeProviderSystemClock(TimeProvider timeProvider) : ISystemClock
 {
+    /// <summary>
+    /// Retrieve's the current system's time in UTC.
+    /// </summary>
     public DateTimeOffset UtcNow => timeProvider.GetUtcNow();
 }
