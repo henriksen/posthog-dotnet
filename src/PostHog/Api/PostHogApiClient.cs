@@ -66,7 +66,10 @@ public sealed class PostHogApiClient : IPostHogApiClient
         logger.LogTraceApiClientCreated(HostUrl);
     }
 
-    static HttpClient? CreateHttpClient(IOptions<PostHogOptions>? options, ILogger<PostHogApiClient> logger, bool authenticated)
+    static HttpClient? CreateHttpClient(
+        IOptions<PostHogOptions>? options,
+        ILogger<PostHogApiClient> logger,
+        bool authenticated)
     {
         if (authenticated && options?.Value.PersonalApiKey is null)
         {

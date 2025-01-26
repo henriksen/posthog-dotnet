@@ -10,15 +10,15 @@ public class TheCaptureBatchAsyncMethod
     [Fact]
     public async Task SendsBatchToCaptureEndpoint()
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var timeProvider = container.GetRequiredService<FakeTimeProvider>();
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
+        var timeProvider = container.FakeTimeProvider;
         timeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
         var requestHandler = messageHandler.AddResponse(
             new Uri("https://us.i.posthog.com/batch"),
             HttpMethod.Post,
             responseBody: new { status = 1 });
-        var client = container.GetRequiredService<PostHogApiClient>();
+        var client = container.Activate<PostHogApiClient>();
 
         await client.CaptureBatchAsync([
             new CapturedEvent("some_event", "some-distinct-id", new Dictionary<string, object>(), timeProvider.GetUtcNow())

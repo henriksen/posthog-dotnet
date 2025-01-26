@@ -20,9 +20,8 @@ public class TheIsFeatureFlagEnabledAsyncMethod
     [Fact]
     public async Task CapturesFeatureFlagCalledEventOnlyOncePerDistinctIdAndFlagKey()
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddRepeatedResponses(4,
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -37,6 +36,7 @@ public class TheIsFeatureFlagEnabledAsyncMethod
             new Uri("https://us.i.posthog.com/batch"),
             HttpMethod.Post,
             responseBody: new { status = 1 });
+        var client = container.Activate<PostHogClient>();
 
         await client.IsFeatureEnabledAsync("a-distinct-id", "flag-key");
         await client.IsFeatureEnabledAsync("a-distinct-id", "flag-key"); // Cache hit, not captured.
@@ -85,9 +85,8 @@ public class TheIsFeatureFlagEnabledAsyncMethod
     [Fact]
     public async Task DoesNotCaptureFeatureFlagCalledEventWhenSendFeatureFlagsFalse()
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddRepeatedResponses(4,
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -102,6 +101,7 @@ public class TheIsFeatureFlagEnabledAsyncMethod
             new Uri("https://us.i.posthog.com/batch"),
             HttpMethod.Post,
             responseBody: new { status = 1 });
+        var client = container.Activate<PostHogClient>();
 
         await client.IsFeatureEnabledAsync(
             distinctId: "a-distinct-id",
@@ -118,9 +118,8 @@ public class TheGetFeatureFlagAsyncMethod
     [Fact]
     public async Task ReturnsUndefinedWhenFlagDoesNotExist()
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddResponse(
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -131,6 +130,7 @@ public class TheGetFeatureFlagAsyncMethod
                     ["flag-key"] = true
                 }.AsReadOnly()
             });
+        var client = container.Activate<PostHogClient>();
 
         var result = await client.GetFeatureFlagAsync("distinctId", "unknown-flag-key");
 
@@ -143,9 +143,8 @@ public class TheGetFeatureFlagAsyncMethod
     [InlineData(false)]
     public async Task ReturnsFlag(bool enabled)
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddResponse(
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -156,6 +155,7 @@ public class TheGetFeatureFlagAsyncMethod
                     ["flag-key"] = enabled
                 }.AsReadOnly()
             });
+        var client = container.Activate<PostHogClient>();
 
         var result = await client.GetFeatureFlagAsync("distinct-id", "flag-key");
 
@@ -166,9 +166,8 @@ public class TheGetFeatureFlagAsyncMethod
     [Fact]
     public async Task ReturnsStringFlag()
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddResponse(
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -179,6 +178,7 @@ public class TheGetFeatureFlagAsyncMethod
                     ["flag-key"] = "premium-experience"
                 }.AsReadOnly()
             });
+        var client = container.Activate<PostHogClient>();
 
         var result = await client.GetFeatureFlagAsync("distinct-id", "flag-key");
 
@@ -189,9 +189,8 @@ public class TheGetFeatureFlagAsyncMethod
     [Fact]
     public async Task CapturesFeatureFlagCalledEvent()
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddResponse(
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -206,6 +205,7 @@ public class TheGetFeatureFlagAsyncMethod
             new Uri("https://us.i.posthog.com/batch"),
             HttpMethod.Post,
             responseBody: new { status = 1 });
+        var client = container.Activate<PostHogClient>();
 
         var result = await client.GetFeatureFlagAsync("a-distinct-id", "flag-key");
 
@@ -240,16 +240,17 @@ public class TheGetFeatureFlagAsyncMethod
     [Fact]
     public async Task CapturesFeatureFlagCalledEventAgainIfCacheLimitExceededAndIsCompacted()
     {
-        var container = new FakeContainer();
-        var timeProvider = container.GetRequiredService<FakeTimeProvider>();
-        container.AddService<IOptions<PostHogOptions>>(new PostHogOptions
+        var container = new TestContainer(sp =>
         {
-            ProjectApiKey = "test-api-key",
-            FeatureFlagSentCacheSizeLimit = 2,
-            FeatureFlagSentCacheCompactionPercentage = .5 // 50%, or 1 item.
+            sp.AddSingleton<IOptions<PostHogOptions>>(new PostHogOptions
+            {
+                ProjectApiKey = "test-api-key",
+                FeatureFlagSentCacheSizeLimit = 2,
+                FeatureFlagSentCacheCompactionPercentage = .5 // 50%, or 1 item.
+            });
         });
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var timeProvider = container.FakeTimeProvider;
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddRepeatedResponses(6,
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -265,6 +266,7 @@ public class TheGetFeatureFlagAsyncMethod
             new Uri("https://us.i.posthog.com/batch"),
             HttpMethod.Post,
             responseBody: new { status = 1 });
+        var client = container.Activate<PostHogClient>();
 
         // This is captured and the cache entry will be compacted when the size limit exceeded.
         await client.GetFeatureFlagAsync("a-distinct-id", "flag-key"); // Captured
@@ -348,16 +350,14 @@ public class TheGetFeatureFlagAsyncMethod
     [Fact]
     public async Task CapturesFeatureFlagCalledEventAgainIfCacheSlidingWindowExpirationOccurs()
     {
-        var container = new FakeContainer();
-        var timeProvider = container.GetRequiredService<FakeTimeProvider>();
-        container.AddService<IOptions<PostHogOptions>>(new PostHogOptions
+        var container = new TestContainer(sp => sp.AddSingleton<IOptions<PostHogOptions>>(new PostHogOptions
         {
             ProjectApiKey = "test-api-key",
             FeatureFlagSentCacheSizeLimit = 20,
             FeatureFlagSentCacheSlidingExpiration = TimeSpan.FromSeconds(3)
-        });
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        }));
+        var timeProvider = container.FakeTimeProvider;
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddRepeatedResponses(6,
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -373,6 +373,7 @@ public class TheGetFeatureFlagAsyncMethod
             new Uri("https://us.i.posthog.com/batch"),
             HttpMethod.Post,
             responseBody: new { status = 1 });
+        var client = container.Activate<PostHogClient>();
 
         await client.GetFeatureFlagAsync("a-distinct-id", "flag-key"); // Captured.
         timeProvider.Advance(TimeSpan.FromSeconds(1));
@@ -455,9 +456,8 @@ public class TheGetFeatureFlagAsyncMethod
     [Fact]
     public async Task DoesNotCaptureFeatureFlagCalledEventWhenSendFeatureFlagsFalse()
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddRepeatedResponses(4,
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -472,6 +472,7 @@ public class TheGetFeatureFlagAsyncMethod
             new Uri("https://us.i.posthog.com/batch"),
             HttpMethod.Post,
             responseBody: new { status = 1 });
+        var client = container.Activate<PostHogClient>();
 
         await client.GetFeatureFlagAsync(
             distinctId: "a-distinct-id",

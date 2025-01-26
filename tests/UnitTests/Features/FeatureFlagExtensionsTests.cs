@@ -17,9 +17,8 @@ public class TheIsFeatureEnabledAsyncMethod
     [InlineData(false)]
     public async Task ReturnsFlagResult(bool enabled)
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var container = new TestContainer();;
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddResponse(
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -30,6 +29,7 @@ public class TheIsFeatureEnabledAsyncMethod
                     ["flag-key"] = enabled
                 }.AsReadOnly()
             });
+        var client = container.Activate<PostHogClient>();
 
         var result = await client.IsFeatureEnabledAsync(
             "distinctId",
@@ -43,9 +43,8 @@ public class TheIsFeatureEnabledAsyncMethod
     [Fact]
     public async Task ReturnsTrueWhenFlagReturnsString()
     {
-        var container = new FakeContainer();
-        var messageHandler = container.GetRequiredService<FakeHttpMessageHandler>();
-        var client = container.GetRequiredService<PostHogClient>();
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddResponse(
             new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
@@ -56,6 +55,7 @@ public class TheIsFeatureEnabledAsyncMethod
                     ["flag-key"] = "premium-experience"
                 }.AsReadOnly()
             });
+        var client = container.Activate<PostHogClient>();
 
         var result = await client.IsFeatureEnabledAsync(
             "distinctId",

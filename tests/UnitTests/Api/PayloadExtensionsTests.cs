@@ -9,9 +9,11 @@ public class TheAddToPayloadMethod
     [Fact]
     public void AddsToGroups()
     {
-        var groups = new GroupCollection();
-        groups.Add("company", "acme");
-        groups.Add("project", "123");
+        var groups = new GroupCollection
+        {
+            { "company", "acme" },
+            { "project", "123" }
+        };
         var properties = new Dictionary<string, object>();
 
         groups.AddToPayload(properties);
