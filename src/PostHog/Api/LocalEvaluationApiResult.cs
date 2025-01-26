@@ -8,8 +8,8 @@ namespace PostHog.Api;
 public record LocalEvaluationApiResult(
     IReadOnlyList<LocalFeatureFlag> Flags,
     [property: JsonPropertyName("group_type_mapping")]
-    IReadOnlyDictionary<string, string> GroupTypeMapping,
-    IReadOnlyDictionary<string, ConditionContainer> Cohorts);
+    IReadOnlyDictionary<string, string>? GroupTypeMapping = null,
+    IReadOnlyDictionary<string, ConditionContainer>? Cohorts = null);
 
 public record LocalFeatureFlag(
     int Id,
@@ -18,10 +18,10 @@ public record LocalFeatureFlag(
     string Name,
     string Key,
     FeatureFlagFilters? Filters,
-    bool Deleted,
-    bool Active,
+    bool Deleted = false,
+    bool Active = true,
     [property: JsonPropertyName("ensure_experience_continuity")]
-    bool EnsureExperienceContinuity);
+    bool EnsureExperienceContinuity = false);
 
 /// <summary>
 /// Defines the targeting rules for a feature flag - essentially determining who sees what variant of the feature.
