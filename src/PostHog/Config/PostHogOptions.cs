@@ -19,7 +19,6 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     /// Optional personal API key for local feature flag evaluation.
     /// </summary>
     /// <remarks>
-    ///
     /// You can find this https://us.posthog.com/project/{YOUR_PROJECT_ID}/settings/user-api-keys
     /// When developing an ASP.NET Core project locally, we recommend setting this in your user secrets.
     /// <c>
@@ -27,12 +26,18 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     /// </c>
     /// In other cases, use an appropriate secrets manager, configuration provider, or environment variable.
     /// </remarks>
-    public string? PersonalApiKey { get; set; }
+    public string? PersonalApiKey { get; init; }
 
     /// <summary>
     /// PostHog API host, usually 'https://us.i.posthog.com' (default) or 'https://eu.i.posthog.com'
     /// </summary>
-    public Uri HostUrl { get; set; } = new("https://us.i.posthog.com");
+    public Uri HostUrl { get; init; } = new("https://us.i.posthog.com");
+
+    /// <summary>
+    /// When <see cref="PersonalApiKey"/> is set, this is the interval to poll for feature flags used in
+    /// local evaluation.
+    /// </summary>
+    public TimeSpan FeatureFlagPollInterval { get; init; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// The size limit of the $feature_flag_sent cache.
@@ -43,18 +48,18 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     /// feature flag/distinct_id combination. To do this, it caches the sent events. This property sets the
     /// the size limit of that cache.
     /// </remarks>
-    public long FeatureFlagSentCacheSizeLimit { get; set; } = 50_000;
+    public long FeatureFlagSentCacheSizeLimit { get; init; } = 50_000;
 
     /// <summary>
     /// Gets the amount (as a percentage) the cache should be compacted when it reaches its size limit.
     /// </summary>
-    public double FeatureFlagSentCacheCompactionPercentage { get; set; } = 0.2; // 20%
+    public double FeatureFlagSentCacheCompactionPercentage { get; init; } = 0.2; // 20%
 
     /// <summary>
     /// Sets a sliding expiration for the $feature_flag_sent cache. See <see cref="FeatureFlagSentCacheSizeLimit"/>
     /// for more about the cache.
     /// </summary>
-    public TimeSpan FeatureFlagSentCacheSlidingExpiration { get; set; } = TimeSpan.FromMinutes(10);
+    public TimeSpan FeatureFlagSentCacheSlidingExpiration { get; init; } = TimeSpan.FromMinutes(10);
 
     // Explicit implementation to hide this value from most users.
     // This is here to make it easier to instantiate the client with the options.
