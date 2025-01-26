@@ -13,7 +13,7 @@ public static class FeatureFlagExtensions
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>
     /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature does not
     /// exist.
@@ -107,7 +107,7 @@ public static class FeatureFlagExtensions
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
     public static async Task<FeatureFlag?> GetFeatureFlagAsync(
         this IPostHogClient client,

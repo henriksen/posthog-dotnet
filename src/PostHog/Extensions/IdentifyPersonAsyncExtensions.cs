@@ -10,7 +10,7 @@ public static class IdentifyPersonAsyncExtensions
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     public static Task<ApiResult> IdentifyPersonAsync(
         this IPostHogClient client,
         string distinctId,
@@ -30,7 +30,7 @@ public static class IdentifyPersonAsyncExtensions
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="email">An email to associate with the person.</param>
     /// <param name="name">The person's name.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     public static Task<ApiResult> IdentifyPersonAsync(
         this IPostHogClient client,
         string distinctId,
@@ -57,7 +57,7 @@ public static class IdentifyPersonAsyncExtensions
     /// Key value pairs to store as properties of the user in addition to the already specified "email" and "name".
     /// Any key value pairs in this dictionary that match existing property keys will overwrite those properties.
     /// </param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     public static async Task<ApiResult> IdentifyPersonAsync(
         this IPostHogClient client,
         string distinctId,
@@ -88,7 +88,7 @@ public static class IdentifyPersonAsyncExtensions
     /// <param name="userPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
     /// value in this dictionary is ignored.
     /// </param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     public static async Task<ApiResult> IdentifyPersonAsync(
         this IPostHogClient client,
         string distinctId,

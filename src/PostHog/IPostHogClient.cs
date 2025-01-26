@@ -29,7 +29,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <param name="userPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
     /// value in this dictionary is ignored.
     /// </param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
@@ -44,7 +44,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <param name="type">Type of group (ex: 'company'). Limited to 5 per project</param>
     /// <param name="key">Unique identifier for that type of group (ex: 'id:5')</param>
     /// <param name="properties">Additional information about the group.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     Task<ApiResult> IdentifyGroupAsync(
         string type,
@@ -71,7 +71,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
     /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>
     /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
     /// </returns>
@@ -87,7 +87,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
     /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
     Task<FeatureFlag?> GetFeatureFlagAsync(
         string distinctId,
@@ -101,7 +101,7 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
     /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>
     /// A dictionary containing all the feature flags. The key is the feature flag key and the value is the feature flag.
     /// </returns>

@@ -16,7 +16,7 @@ internal static class PostHogApiClientExtensions
     /// <param name="userPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
     /// value in this dictionary is ignored.
     /// </param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     public static async Task<ApiResult> IdentifyPersonAsync(
         this IPostHogApiClient client,
@@ -78,7 +78,7 @@ internal static class PostHogApiClientExtensions
     /// <param name="client">The <see cref="PostHogApiClient"/>.</param>
     /// <param name="distinctId">The anonymous or temporary identifier you were using for the user.</param>
     /// <param name="alias">The identifier for the known user. Typically a user id in your database.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     public static async Task<ApiResult> AliasAsync(
         this IPostHogApiClient client,

@@ -15,7 +15,7 @@ internal static class HttpClientExtensions
     /// <param name="httpClient">The client used to send the request.</param>
     /// <param name="requestUri">The Uri the request is sent to.</param>
     /// <param name="content">The value to serialize.</param>
-    /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <typeparam name="TBody">The type of the response body to deserialize to.</typeparam>
     /// <returns>The task representing the asynchronous operation.</returns>
     public static async Task<TBody?> PostJsonAsync<TBody>(
