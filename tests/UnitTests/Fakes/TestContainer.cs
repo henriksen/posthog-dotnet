@@ -43,7 +43,8 @@ public sealed class TestContainer : IServiceProvider
 
     void ConfigureServices(IServiceCollection services)
     {
-        services.Configure<PostHogOptions>(options => {
+        services.Configure<PostHogOptions>(options =>
+        {
             // Set a database name for this test.
             // This means all tests get their own in memory database, BUT all instances of FakeAbbotContext share the same database.
             options.ProjectApiKey = "fake-project-api-key";

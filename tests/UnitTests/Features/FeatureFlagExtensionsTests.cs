@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using PostHog;
 using PostHog.Api;
@@ -17,7 +16,7 @@ public class TheIsFeatureEnabledAsyncMethod
     [InlineData(false)]
     public async Task ReturnsFlagResult(bool enabled)
     {
-        var container = new TestContainer();;
+        var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddResponse(
             new Uri("https://us.i.posthog.com/decide?v=3"),

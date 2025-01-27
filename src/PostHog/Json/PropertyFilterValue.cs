@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using PostHog.Api;
 using PostHog.Library;
@@ -9,13 +10,14 @@ using static PostHog.Library.Ensure;
 namespace PostHog.Json;
 
 /// <summary>
-/// Represents a filter property value (<see cref="FilterProperty"/>). This is the value that is used to compare against
+/// Represents a filter property value (<see cref="PropertyFilter"/>). This is the value that is used to compare against
 /// the value of a property in a user or group, often called the "override value".
 /// </summary>
 /// <remarks>
 /// The supported types are limited to the types we store in filter property values.
 /// </remarks>
-public class FilterPropertyValue
+[JsonConverter(typeof(PropertyFilterValueJsonConverter))]
+public class PropertyFilterValue
 {
     /// <summary>
     /// If this value is a boolean, this property will be set.
@@ -30,7 +32,7 @@ public class FilterPropertyValue
     /// <summary>
     /// If this value is an integer, this property will be set.
     /// </summary>
-    public int? IntValue { get; }
+    public long? IntegerValue { get; }
 
     /// <summary>
     /// If this value is a string, this property will be set.
@@ -45,80 +47,73 @@ public class FilterPropertyValue
     /// <summary>
     /// If this value is an array of integers, this property will be set.
     /// </summary>
-    public IReadOnlyList<int>? ListOfInts { get; }
+    public IReadOnlyList<long>? ListOfIntegers { get; }
 
     /// <summary>
     /// If this value is an array of doubles (floats), this property will be set.
     /// </summary>
     public IReadOnlyList<double>? ListOfDoubles { get; }
 
-    readonly JsonElement _sourceJsonElement;
-
     /// <summary>
-    /// Creates a new instance of <see cref="FilterPropertyValue"/> from the specified <paramref name="jsonElement"/>.
+    /// Creates a new instance of <see cref="PropertyFilterValue"/> from the specified <paramref name="jsonElement"/>.
     /// </summary>
     /// <param name="jsonElement">A JsonElement</param>
-    /// <returns>A <see cref="FilterPropertyValue"/>.</returns>
-    public static FilterPropertyValue? Create(JsonElement jsonElement) =>
+    /// <returns>A <see cref="PropertyFilterValue"/>.</returns>
+    public static PropertyFilterValue? Create(JsonElement jsonElement) =>
         jsonElement.ValueKind switch
         {
-            JsonValueKind.String => jsonElement.GetString() is { } stringValue ? new FilterPropertyValue(stringValue, jsonElement) : null,
-            JsonValueKind.Array when TryParseIntArray(jsonElement, out var intArrayValue)
-                => new FilterPropertyValue(intArrayValue, jsonElement),
+            JsonValueKind.String => jsonElement.GetString() is { } stringValue ? new PropertyFilterValue(stringValue) : null,
+            JsonValueKind.Array when TryParseIntArray(jsonElement, out var integerArrayValue)
+                => new PropertyFilterValue(integerArrayValue),
             JsonValueKind.Array when TryParseDoubleArray(jsonElement, out var doubleArrayValue)
-                => new FilterPropertyValue(doubleArrayValue, jsonElement),
+                => new PropertyFilterValue(doubleArrayValue),
             JsonValueKind.Array when TryParseStringArray(jsonElement, out var stringArrayValue)
-                => new FilterPropertyValue(stringArrayValue, jsonElement),
-            JsonValueKind.Number => jsonElement.TryGetDouble(out var doubleValue)
-                ? new FilterPropertyValue(doubleValue, jsonElement)
-                : new FilterPropertyValue(jsonElement.GetInt32(), jsonElement),
-            JsonValueKind.True => new FilterPropertyValue(true, jsonElement),
-            JsonValueKind.False => new FilterPropertyValue(false, jsonElement),
+                => new PropertyFilterValue(stringArrayValue),
+            JsonValueKind.Number => jsonElement.TryGetInt64(out var integerValue)
+                ? new PropertyFilterValue(integerValue)
+                : jsonElement.TryGetDouble(out var doubleValue)
+                    ? new PropertyFilterValue(doubleValue)
+                    : new PropertyFilterValue(jsonElement.GetString() ?? string.Empty),
+            JsonValueKind.True => new PropertyFilterValue(true),
+            JsonValueKind.False => new PropertyFilterValue(false),
             JsonValueKind.Undefined => null,
             JsonValueKind.Null => null,
             _ => throw new ArgumentException($"JsonValueKind: {jsonElement.ValueKind} is not supported for filter property values.", nameof(jsonElement))
         };
 
-    FilterPropertyValue(bool? boolValue, JsonElement sourceJsonElement)
+    public PropertyFilterValue(bool? boolValue)
     {
         BoolValue = boolValue;
-        _sourceJsonElement = sourceJsonElement;
     }
 
-    FilterPropertyValue(IReadOnlyList<string> listOfStrings, JsonElement sourceJsonElement)
+    public PropertyFilterValue(IReadOnlyList<string> listOfStrings)
     {
         ListOfStrings = listOfStrings;
-        _sourceJsonElement = sourceJsonElement;
     }
 
-    FilterPropertyValue(IReadOnlyList<int> listOfInts, JsonElement sourceJsonElement)
+    public PropertyFilterValue(IReadOnlyList<long> listOfIntegers)
     {
-        ListOfInts = listOfInts;
-        _sourceJsonElement = sourceJsonElement;
+        ListOfIntegers = listOfIntegers;
     }
 
-    FilterPropertyValue(int intValue, JsonElement sourceJsonElement)
-    {
-        IntValue = intValue;
-        _sourceJsonElement = sourceJsonElement;
-    }
-
-    FilterPropertyValue(double doubleValue, JsonElement sourceJsonElement)
-    {
-        DoubleValue = doubleValue;
-        _sourceJsonElement = sourceJsonElement;
-    }
-
-    FilterPropertyValue(string stringValue, JsonElement sourceJsonElement)
-    {
-        StringValue = stringValue;
-        _sourceJsonElement = sourceJsonElement;
-    }
-
-    FilterPropertyValue(IReadOnlyList<double> listOfDoubles, JsonElement sourceJsonElement)
+    public PropertyFilterValue(IReadOnlyList<double> listOfDoubles)
     {
         ListOfDoubles = listOfDoubles;
-        _sourceJsonElement = sourceJsonElement;
+    }
+
+    public PropertyFilterValue(long integerValue)
+    {
+        IntegerValue = integerValue;
+    }
+
+    public PropertyFilterValue(double doubleValue)
+    {
+        DoubleValue = doubleValue;
+    }
+
+    public PropertyFilterValue(string stringValue)
+    {
+        StringValue = stringValue;
     }
 
     /// <summary>
@@ -160,16 +155,19 @@ public class FilterPropertyValue
     /// <returns><c>true</c> if the override value is an "exact" match for this value.</returns>
     public bool IsExactMatch(object? overrideValue)
     {
-        return this switch
+        return overrideValue switch
         {
-            { ListOfInts: { } intList } when overrideValue is int overrideIntValue => intList.Contains(overrideIntValue),
-            { ListOfInts: { } intList } when overrideValue is double overrideDoubleValue => intList.Select(i => (double)i).Contains(overrideDoubleValue),
-            { ListOfDoubles: { } doubleList } when overrideValue is double overrideDoubleValue => doubleList.Contains(overrideDoubleValue),
-            { ListOfDoubles: { } doubleList } when overrideValue is int overrideIntValue => doubleList.Contains(overrideIntValue),
-            { ListOfStrings: { } stringList } when overrideValue is string overrideStringValue => stringList.Contains(overrideStringValue, StringComparer.OrdinalIgnoreCase),
+            int overrideIntValue when ListOfIntegers is not null => ListOfIntegers.Contains(overrideIntValue),
+            long overrideLongValue when ListOfIntegers is not null => ListOfIntegers.Contains(overrideLongValue),
+            double overrideDoubleValue when ListOfIntegers is not null => ListOfIntegers.Select(i => (double)i).Contains(overrideDoubleValue),
+            double overrideDoubleValue when ListOfDoubles is not null => ListOfDoubles.Contains(overrideDoubleValue),
+            int overrideIntValue when ListOfDoubles is not null => ListOfDoubles.Contains(overrideIntValue),
+            long overrideLongValue when ListOfDoubles is not null => ListOfDoubles.Contains(overrideLongValue),
+            string overrideStringValue when ListOfStrings is not null => ListOfStrings.Contains(overrideStringValue, StringComparer.OrdinalIgnoreCase),
             _ => CompareTo(overrideValue) == 0 // Defer to CompareTo for all other types.
         };
     }
+
 
     /// <summary>
     /// Compares this instance with the specified <paramref name="other"/> instance and indicates whether this instance
@@ -181,7 +179,7 @@ public class FilterPropertyValue
     /// <remarks>
     /// For string values, does a case-insensitive comparison.
     /// </remarks>
-    /// <param name="other">The <see cref="FilterPropertyValue"/> to compare with.</param>
+    /// <param name="other">The <see cref="PropertyFilterValue"/> to compare with.</param>
     /// <returns>
     /// A value that indicates the relative order of the objects being compared. The return value has these meanings:
     /// 0: This instance and <paramref name="other"/> are equal.
@@ -201,8 +199,11 @@ public class FilterPropertyValue
             { StringValue: { } stringValue } when other is DateTimeOffset => string.Compare(stringValue, other.ToString(), StringComparison.OrdinalIgnoreCase),
             { StringValue: { } stringValue } => string.Compare(stringValue, other.ToString(), StringComparison.OrdinalIgnoreCase),
             { DoubleValue: { } doubleValue } when other is double overrideDouble => doubleValue.CompareTo(overrideDouble),
+            { DoubleValue: { } doubleValue } when other is long overrideLong => doubleValue.CompareTo(overrideLong),
             { DoubleValue: { } doubleValue } when other is int overrideInt => doubleValue.CompareTo(overrideInt),
-            { IntValue: { } intValue } => intValue.CompareTo(other),
+            { IntegerValue: { } longValue } when other is long => longValue.CompareTo(other),
+            { IntegerValue: { } longValue } when other is int otherInt32 => longValue.CompareTo(Convert.ToInt64(otherInt32)),
+            { IntegerValue: { } longValue } when other is double otherDouble => ((double)longValue).CompareTo(otherDouble),
             { BoolValue: { } boolValue } => boolValue.CompareTo(other),
             _ => 1
         };
@@ -241,32 +242,38 @@ public class FilterPropertyValue
                || (overrideValue is DateTime overrideDateTime && relativeDate.IsDateBefore(overrideDateTime, now));
     }
 
-    public static bool operator >(FilterPropertyValue left, object? right) => NotNull(left).CompareTo(right) > 0;
-    public static bool operator <(FilterPropertyValue? left, object? right) => NotNull(left).CompareTo(left) < 0;
-    public static bool operator >=(FilterPropertyValue left, object? right) => NotNull(left).CompareTo(right) >= 0;
-    public static bool operator <=(FilterPropertyValue left, object? right) => NotNull(left).CompareTo(right) <= 0;
+    public static bool operator >(PropertyFilterValue left, object? right) => NotNull(left).CompareTo(right) > 0;
+    public static bool operator <(PropertyFilterValue? left, object? right) => NotNull(left).CompareTo(left) < 0;
+    public static bool operator >=(PropertyFilterValue left, object? right) => NotNull(left).CompareTo(right) >= 0;
+    public static bool operator <=(PropertyFilterValue left, object? right) => NotNull(left).CompareTo(right) <= 0;
 
     public override string ToString()
     {
         return this switch
         {
             { StringValue: { } stringValue } => stringValue,
-            { ListOfInts: { } intArrayValue } => string.Join(", ", intArrayValue),
+            { ListOfIntegers: { } intArrayValue } => string.Join(", ", intArrayValue),
             { ListOfDoubles: { } doubleArrayValue } => string.Join(", ", doubleArrayValue),
             { DoubleValue: { } doubleValue } => doubleValue.ToString(CultureInfo.InvariantCulture),
-            { IntValue: { } intValue } => intValue.ToString(CultureInfo.InvariantCulture),
+            { IntegerValue: { } intValue } => intValue.ToString(CultureInfo.InvariantCulture),
             { BoolValue: { } boolValue } => boolValue.ToString(),
             _ => string.Empty
         };
     }
 
+    public override bool Equals(object? obj) =>
+        obj is PropertyFilterValue other
+        && Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(BoolValue, DoubleValue, IntegerValue, StringValue, ListOfStrings, ListOfIntegers, ListOfDoubles);
+
     /// <summary>
-    /// Determines if this instance is equal to the specified <paramref name="other"/> <see cref="FilterPropertyValue"/>
+    /// Determines if this instance is equal to the specified <paramref name="other"/> <see cref="PropertyFilterValue"/>
     /// instance. This should not be used when evaluating filter property conditions.
     /// </summary>
-    /// <param name="other">The <see cref="FilterPropertyValue"/> to compare to.</param>
+    /// <param name="other">The <see cref="PropertyFilterValue"/> to compare to.</param>
     /// <returns><c>true</c> if these represent the same filter property value.</returns>
-    public bool Equals(FilterPropertyValue? other)
+    public bool Equals(PropertyFilterValue? other)
     {
         if (ReferenceEquals(other, null))
         {
@@ -278,7 +285,14 @@ public class FilterPropertyValue
             return true;
         }
 
-        return JsonComparison.AreJsonElementsEqual(_sourceJsonElement, other._sourceJsonElement);
+        return ListOfStrings.ListsAreEqual(other.ListOfStrings)
+               && ListOfDoubles.ListsAreEqual(other.ListOfDoubles)
+               && ListOfIntegers.ListsAreEqual(other.ListOfIntegers)
+               && ListOfDoubles.ListsAreEqual(other.ListOfDoubles)
+               && StringValue == other.StringValue
+               && IntegerValue == other.IntegerValue
+               && DoubleValue == other.DoubleValue
+               && BoolValue == other.BoolValue;
     }
 
     static bool TryParseStringArray(
@@ -324,12 +338,12 @@ public class FilterPropertyValue
 
     static bool TryParseIntArray(
         JsonElement jsonElement,
-        [NotNullWhen(returnValue: true)] out IReadOnlyList<int>? value)
+        [NotNullWhen(returnValue: true)] out IReadOnlyList<long>? value)
     {
-        List<int> values = new();
+        List<long> values = new();
         foreach (var element in jsonElement.EnumerateArray())
         {
-            if (element.ValueKind is not JsonValueKind.Number || !element.TryGetInt32(out var intValue))
+            if (element.ValueKind is not JsonValueKind.Number || !element.TryGetInt64(out var intValue))
             {
                 value = null;
                 return false;

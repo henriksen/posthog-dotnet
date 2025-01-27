@@ -143,7 +143,7 @@ internal interface IStringOrObject
 }
 
 /// <summary>
-/// Value converter for <see cref="StringOrValue{T}"/>.
+/// Json converter for <see cref="StringOrValue{T}"/>.
 /// </summary>
 internal class StringOrValueConverter : JsonConverter<IStringOrObject>
 {

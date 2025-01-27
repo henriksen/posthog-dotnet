@@ -24,8 +24,8 @@ internal static class PayloadExtensions
             : new Dictionary<string, string>();
 
         var groupProperties = payload.TryGetValue("group_properties", out var groupPropertiesValue)
-            ? (Dictionary<string, Dictionary<string, object>>)groupPropertiesValue
-            : new Dictionary<string, Dictionary<string, object>>();
+            ? (Dictionary<string, Dictionary<string, object?>>)groupPropertiesValue
+            : new Dictionary<string, Dictionary<string, object?>>();
 
         foreach (var group in groupCollection)
         {
@@ -46,7 +46,7 @@ internal static class PayloadExtensions
     static void AddToPayload(
         this Group featureFlagGroup,
         ref Dictionary<string, string>? groups,
-        ref Dictionary<string, Dictionary<string, object>>? groupProperties)
+        ref Dictionary<string, Dictionary<string, object?>>? groupProperties)
     {
         groups ??= new Dictionary<string, string>();
         groups[featureFlagGroup.GroupType] = featureFlagGroup.GroupKey;
@@ -56,9 +56,9 @@ internal static class PayloadExtensions
             return;
         }
 
-        groupProperties ??= new Dictionary<string, Dictionary<string, object>>();
+        groupProperties ??= new Dictionary<string, Dictionary<string, object?>>();
 
-        groupProperties[featureFlagGroup.GroupType] = new Dictionary<string, object>(featureFlagGroup.Properties)
+        groupProperties[featureFlagGroup.GroupType] = new Dictionary<string, object?>(featureFlagGroup.Properties)
         {
             ["$group_key"] = featureFlagGroup.GroupKey
         };

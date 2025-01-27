@@ -1,8 +1,5 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 
 namespace PostHog.Library;
 
@@ -89,4 +86,19 @@ internal static class CollectionExtensions
         items = queue.DequeueBatch(batchSize);
         return items.Count > 0;
     }
+
+    internal static bool ListsAreEqual<T>(this IReadOnlyList<T>? list, IReadOnlyList<T>? otherList)
+        => list is null && otherList is null
+           || (list is not null
+               && otherList is not null
+               && list.SequenceEqual(otherList));
+
+    internal static bool DictionariesAreEqual<TKey, TValue>(
+        this IReadOnlyDictionary<TKey, TValue>? dictionary,
+        IReadOnlyDictionary<TKey, TValue>? otherDictionary)
+        => dictionary is null && otherDictionary is null
+           || (dictionary is not null
+               && otherDictionary is not null
+               && dictionary.Keys.SequenceEqual(otherDictionary.Keys)
+               && dictionary.Values.SequenceEqual(otherDictionary.Values));
 }

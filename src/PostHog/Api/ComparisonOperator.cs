@@ -5,8 +5,8 @@ namespace PostHog.Api;
 /// <summary>
 /// An enumeration representing the comparison types that can be used in a filter.
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ComparisonType>))]
-public enum ComparisonType
+[JsonConverter(typeof(JsonStringEnumConverter<ComparisonOperator>))]
+public enum ComparisonOperator
 {
     [JsonStringEnumMemberName("in")]
     In, // Only used for cohort filters

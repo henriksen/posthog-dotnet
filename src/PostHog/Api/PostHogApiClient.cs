@@ -6,6 +6,7 @@ using PostHog.Config;
 using PostHog.Json;
 using PostHog.Library;
 using PostHog.Versioning;
+using static PostHog.Library.Ensure;
 
 namespace PostHog.Api;
 
@@ -26,14 +27,14 @@ public sealed class PostHogApiClient : IPostHogApiClient
     /// This constructor is used for dependency injection.
     /// </remarks>
     /// <param name="options">The options used to configure this client.</param>
-    /// <param name="timeProvider"></param>
+    /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     public PostHogApiClient(
         IOptions<PostHogOptions> options,
         TimeProvider timeProvider,
         ILogger<PostHogApiClient> logger)
         : this(
-            CreateHttpClient(options, logger, authenticated: false)!,
+            CreateHttpClient(NotNull(options), logger, authenticated: false)!,
             CreateHttpClient(options, logger, authenticated: true),
             options,
             timeProvider,
@@ -47,7 +48,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
     /// <param name="httpClient">The <see cref="HttpClient"/> used to make requests.</param>
     /// <param name="authenticatedHttpClient">Optional: <see cref="HttpClient"/> used to make authenticated requests. This requires that <see cref="PostHogOptions.PersonalApiKey"/> is set.</param>
     /// <param name="options">The options used to configure this client.</param>
-    /// <param name="timeProvider"></param>
+    /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     public PostHogApiClient(
         HttpClient httpClient,
