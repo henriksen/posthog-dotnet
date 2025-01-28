@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -18,6 +17,7 @@ public sealed class LocalEvaluator
     readonly TimeProvider _timeProvider;
     readonly ILogger<LocalEvaluator> _logger;
     readonly IReadOnlyDictionary<string, FilterSet> _cohortFilters;
+    readonly Dictionary<int, string> _groupTypeMapping;
 
     /// <summary>
     /// Constructs a <see cref="LocalEvaluator"/> with the specified flags.
@@ -34,6 +34,10 @@ public sealed class LocalEvaluator
         _timeProvider = timeProvider;
         _logger = logger;
         _cohortFilters = _flags.Cohorts ?? new Dictionary<string, FilterSet>().AsReadOnly();
+        _groupTypeMapping = (_flags.GroupTypeMapping ?? new Dictionary<string, string>())
+            .Select(pair => (ConvertGroupTypeIdToInt32(pair.Key), pair.Value))
+            .Where(pair => pair.Item1.HasValue)
+            .ToDictionary(tuple => tuple.Item1.GetValueOrDefault(), tuple => tuple.Item2);
     }
 
     /// <summary>
@@ -102,13 +106,11 @@ public sealed class LocalEvaluator
 
         if (aggregationGroupIndex.HasValue)
         {
-            var groupTypeIndex = aggregationGroupIndex.GetValueOrDefault().ToString(CultureInfo.InvariantCulture);
-
-            if (!_flags.GroupTypeMapping.TryGetValue(groupTypeIndex, out var groupType))
+            if (!_groupTypeMapping.TryGetValue(aggregationGroupIndex.Value, out var groupType))
             {
                 // Weird: We have a group type index that doesn't point to an actual group.
                 _logger.LogWarnUnknownGroupType(aggregationGroupIndex.Value, flag.Key);
-                throw new InconclusiveMatchException($"Flag has unknown group type index: {groupTypeIndex}");
+                throw new InconclusiveMatchException($"Flag has unknown group type index: {aggregationGroupIndex}");
             }
 
             if (!groups.TryGetGroup(groupType, out var group))
@@ -447,6 +449,17 @@ public sealed class LocalEvaluator
         };
     }
 
+    int? ConvertGroupTypeIdToInt32(string id)
+    {
+        if (int.TryParse(id, out var intId))
+        {
+            return intId;
+        }
+
+        _logger.LogErrorInvalidGroupIdSkipped(id);
+        return null;
+    }
+
     // This function takes a distinct_id and a feature flag key and returns a float between 0 and 1.
     // Given the same distinct_id and key, it'll always return the same float. These floats are
     // uniformly distributed between 0 and 1, so if we want to show this feature to 20% of traffic
@@ -507,4 +520,12 @@ internal static partial class LocalEvaluatorLoggerExtensions
         this ILogger<LocalEvaluator> logger,
         Exception e,
         Filter property);
+
+    [LoggerMessage(
+        EventId = 5,
+        Level = LogLevel.Error,
+        Message = "Group Type mapping has an invalid group type id: {GroupTypeId}. Skipping it.")]
+    public static partial void LogErrorInvalidGroupIdSkipped(
+        this ILogger<LocalEvaluator> logger,
+        string groupTypeId);
 }
