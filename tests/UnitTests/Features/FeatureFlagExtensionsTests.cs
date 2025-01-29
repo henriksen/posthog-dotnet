@@ -68,10 +68,9 @@ public class TheIsFeatureEnabledAsyncMethod
     public async Task ReturnsNullWhenFlagDoesNotExist()
     {
         var client = Substitute.For<IPostHogClient>();
-        client.GetFeatureFlagsAsync(
+        client.GetAllFeatureFlagsAsync(
                 distinctId: "distinctId",
-                personProperties: null,
-                groupProperties: null,
+                options: null,
                 cancellationToken: Arg.Any<CancellationToken>())
             .Returns(new ReadOnlyDictionary<string, FeatureFlag>(new Dictionary<string, FeatureFlag>()));
 

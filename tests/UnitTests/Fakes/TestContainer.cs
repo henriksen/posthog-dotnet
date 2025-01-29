@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using PostHog;
@@ -45,12 +46,11 @@ public sealed class TestContainer : IServiceProvider
     {
         services.Configure<PostHogOptions>(options =>
         {
-            // Set a database name for this test.
-            // This means all tests get their own in memory database, BUT all instances of FakeAbbotContext share the same database.
             options.ProjectApiKey = "fake-project-api-key";
         });
         services.AddSingleton<FakeLoggerProvider>();
         services.AddLogging();
+        services.AddSingleton<ILogger>(s => NullLogger.Instance);
         services.AddSingleton<ILoggerFactory>(s => s.GetRequiredService<FakeLoggerProvider>());
         services.AddSingleton<ILoggerProvider>(s => s.GetRequiredService<FakeLoggerProvider>());
         services.AddSingleton<HttpMessageHandler>(FakeHttpMessageHandler);
@@ -62,7 +62,7 @@ public sealed class TestContainer : IServiceProvider
         services.AddSingleton<ITaskScheduler>(FakeTaskScheduler);
         services.AddSingleton<HttpClient>(_ => new HttpClient(FakeHttpMessageHandler));
         services.AddSingleton<IFeatureFlagCache>(NullFeatureFlagCache.Instance);
-        services.AddSingleton<IPostHogApiClient, PostHogApiClient>(sp => CreatePostHogApiClient());
+        services.AddSingleton<IPostHogApiClient, PostHogApiClient>(_ => CreatePostHogApiClient());
         services.AddSingleton<IPostHogClient, PostHogClient>();
     }
 

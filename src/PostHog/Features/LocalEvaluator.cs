@@ -13,9 +13,8 @@ namespace PostHog.Features;
 /// </summary>
 public sealed class LocalEvaluator
 {
-    readonly LocalEvaluationApiResult _flags;
     readonly TimeProvider _timeProvider;
-    readonly ILogger<LocalEvaluator> _logger;
+    readonly ILogger _logger;
     readonly IReadOnlyDictionary<string, FilterSet> _cohortFilters;
     readonly Dictionary<int, string> _groupTypeMapping;
 
@@ -28,17 +27,22 @@ public sealed class LocalEvaluator
     public LocalEvaluator(
         LocalEvaluationApiResult flags,
         TimeProvider timeProvider,
-        ILogger<LocalEvaluator> logger)
+        ILogger logger)
     {
-        _flags = NotNull(flags);
+        LocalEvaluationApiResult = NotNull(flags);
         _timeProvider = timeProvider;
         _logger = logger;
-        _cohortFilters = _flags.Cohorts ?? new Dictionary<string, FilterSet>().AsReadOnly();
-        _groupTypeMapping = (_flags.GroupTypeMapping ?? new Dictionary<string, string>())
+        _cohortFilters = LocalEvaluationApiResult.Cohorts ?? new Dictionary<string, FilterSet>().AsReadOnly();
+        _groupTypeMapping = (LocalEvaluationApiResult.GroupTypeMapping ?? new Dictionary<string, string>())
             .Select(pair => (ConvertGroupTypeIdToInt32(pair.Key), pair.Value))
             .Where(pair => pair.Item1.HasValue)
             .ToDictionary(tuple => tuple.Item1.GetValueOrDefault(), tuple => tuple.Item2);
     }
+
+    /// <summary>
+    /// The flags returned from the API.
+    /// </summary>
+    public LocalEvaluationApiResult LocalEvaluationApiResult { get; }
 
     /// <summary>
     /// Constructs a <see cref="LocalEvaluator"/> with the specified flags.
@@ -70,7 +74,7 @@ public sealed class LocalEvaluator
         Dictionary<string, object?>? personProperties = null,
         bool warnOnUnknownGroups = true)
     {
-        var flagToEvaluate = _flags.Flags.SingleOrDefault(f => f.Key == key);
+        var flagToEvaluate = LocalEvaluationApiResult.Flags.SingleOrDefault(f => f.Key == key);
         if (flagToEvaluate is null)
         {
             return null;
@@ -82,6 +86,45 @@ public sealed class LocalEvaluator
             groups: groups ?? [],
             personProperties ?? [],
             warnOnUnknownGroups);
+    }
+
+    public (IReadOnlyDictionary<string, FeatureFlag>, bool) EvaluateAllFlags(
+        string distinctId,
+        GroupCollection? groups = null,
+        Dictionary<string, object?>? personProperties = null,
+        bool warnOnUnknownGroups = true)
+    {
+        Dictionary<string, FeatureFlag> results = new();
+        bool fallbackToDecide = false;
+
+        foreach (var flag in LocalEvaluationApiResult.Flags)
+        {
+            try
+            {
+                var flagValue = ComputeFlagLocally(
+                    flag,
+                    distinctId,
+                    groups ?? [],
+                    personProperties ?? [],
+                    warnOnUnknownGroups);
+
+                var featureFlag = new FeatureFlag(flag.Key, flagValue, flag.Filters?.Payloads);
+                results[flag.Key] = featureFlag;
+            }
+            catch (InconclusiveMatchException)
+            {
+                // No need to log this, since it's just telling us to fall back to `/decide`
+                fallbackToDecide = true;
+            }
+#pragma warning disable CA1031
+            catch (Exception e)
+#pragma warning restore CA1031
+            {
+                _logger.LogErrorUnexpectedException(e);
+            }
+        }
+
+        return (results, fallbackToDecide);
     }
 
     StringOrValue<bool> ComputeFlagLocally(
@@ -491,41 +534,41 @@ internal static partial class LocalEvaluatorLoggerExtensions
         EventId = 1,
         Level = LogLevel.Warning,
         Message = "[FEATURE FLAGS] Unknown group type index {AggregationGroupIndex} for feature flag {FlagKey}")]
-    public static partial void LogWarnUnknownGroupType(
-        this ILogger<LocalEvaluator> logger,
-        int aggregationGroupIndex,
-        string flagKey);
+    public static partial void LogWarnUnknownGroupType(this ILogger logger, int aggregationGroupIndex, string flagKey);
 
     [LoggerMessage(
         EventId = 2,
         Level = LogLevel.Debug,
         Message = "[FEATURE FLAGS] Can't compute group feature flag: {FlagKey} without group types passed in")]
-    public static partial void LogDebugGroupTypeNotPassedIn(
-        this ILogger<LocalEvaluator> logger,
-        string flagKey);
+    public static partial void LogDebugGroupTypeNotPassedIn(this ILogger logger, string flagKey);
 
     [LoggerMessage(
         EventId = 3,
         Level = LogLevel.Warning,
         Message = "[FEATURE FLAGS] Can't compute group feature flag: {FlagKey} without group types passed in")]
-    public static partial void LogWarnGroupTypeNotPassedIn(
-        this ILogger<LocalEvaluator> logger,
-        string flagKey);
+    public static partial void LogWarnGroupTypeNotPassedIn(this ILogger logger, string flagKey);
 
     [LoggerMessage(
         EventId = 4,
         Level = LogLevel.Debug,
         Message = "Failed to compute property {Property} locally")]
-    public static partial void LogDebugFailedToComputeProperty(
-        this ILogger<LocalEvaluator> logger,
-        Exception e,
-        Filter property);
+    public static partial void LogDebugFailedToComputeProperty(this ILogger logger, Exception e, Filter property);
 
     [LoggerMessage(
         EventId = 5,
         Level = LogLevel.Error,
         Message = "Group Type mapping has an invalid group type id: {GroupTypeId}. Skipping it.")]
-    public static partial void LogErrorInvalidGroupIdSkipped(
-        this ILogger<LocalEvaluator> logger,
-        string groupTypeId);
+    public static partial void LogErrorInvalidGroupIdSkipped(this ILogger logger, string groupTypeId);
+
+    [LoggerMessage(
+        EventId = 6,
+        Level = LogLevel.Error,
+        Message = "Unexpected exception occurred.")]
+    public static partial void LogErrorUnexpectedException(this ILogger logger, Exception exception);
+
+    [LoggerMessage(
+        EventId = 7,
+        Level = LogLevel.Error,
+        Message = "[FEATURE FLAGS] Unable to get feature flags and payloads")]
+    public static partial void LogErrorUnableToGetFeatureFlagsAndPayloads(this ILogger logger, Exception exception);
 }

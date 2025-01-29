@@ -15,12 +15,14 @@ public sealed class PostHogClient : IPostHogClient
 {
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
     readonly IPostHogApiClient _apiClient;
+    readonly LocalFeatureFlagsLoader _featureFlagsLoader;
     readonly IFeatureFlagCache _featureFlagsCache;
     readonly MemoryCache _featureFlagSentCache;
     readonly TimeProvider _timeProvider;
     readonly IOptions<PostHogOptions> _options;
     readonly ITaskScheduler _taskScheduler;
     readonly ILogger<PostHogClient> _logger;
+
 
     /// <summary>
     /// Constructs a <see cref="PostHogClient"/> with the specified <paramref name="options"/>,
@@ -52,6 +54,12 @@ public sealed class PostHogClient : IPostHogClient
             timeProvider,
             logger);
 
+        _featureFlagsLoader = new LocalFeatureFlagsLoader(
+            postHogApiClient,
+            options,
+            taskScheduler,
+            timeProvider,
+            NullLogger.Instance);
         _featureFlagsCache = featureFlagsCache;
         _featureFlagSentCache = new MemoryCache(new MemoryCacheOptions
         {
@@ -148,10 +156,9 @@ public sealed class PostHogClient : IPostHogClient
         FeatureFlagOptions? options,
         CancellationToken cancellationToken)
     {
-        var flags = await GetFeatureFlagsAsync(
+        var flags = await GetAllFeatureFlagsAsync(
             distinctId,
-            options?.PersonProperties,
-            options?.GroupProperties,
+            options ?? new FeatureFlagOptions(),
             cancellationToken);
 
         var flag = flags.GetValueOrDefault(featureKey);
@@ -201,36 +208,64 @@ public sealed class PostHogClient : IPostHogClient
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
+    public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetAllFeatureFlagsAsync(
         string distinctId,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties,
+        AllFeatureFlagsOptions? options,
         CancellationToken cancellationToken)
         => await _featureFlagsCache.GetAndCacheFeatureFlagsAsync(
             distinctId,
             fetcher: ct => FetchFeatureFlagsAsync(
                 distinctId,
-                personProperties,
-                groupProperties,
+                options,
                 ct), cancellationToken);
 
     async Task<IReadOnlyDictionary<string, FeatureFlag>> FetchFeatureFlagsAsync(
         string distinctId,
-        Dictionary<string, object>? userProperties,
-        GroupCollection? groupProperties,
+        AllFeatureFlagsOptions? options,
         CancellationToken cancellationToken)
     {
-        var results = await _apiClient.GetFeatureFlagsFromDecideAsync(
-            distinctId,
-            userProperties,
-            groupProperties,
-            cancellationToken);
+        if (_options.Value.PersonalApiKey is not null)
+        {
+            // Attempt to load local feature flags.
+            var localEvaluator = await _featureFlagsLoader.GetFeatureFlagsForLocalEvaluationAsync(cancellationToken);
+            if (localEvaluator is not null)
+            {
+                var (localEvaluationResults, fallbackToDecide) = localEvaluator.EvaluateAllFlags(
+                    distinctId,
+                    options?.GroupProperties,
+                    options?.PersonProperties,
+                    warnOnUnknownGroups: false);
 
-        return results?.FeatureFlags is not null
-            ? results.FeatureFlags.ToReadOnlyDictionary(
-                kvp => kvp.Key,
-                kvp => new FeatureFlag(kvp, results.FeatureFlagPayloads))
-            : new Dictionary<string, FeatureFlag>();
+                if (!fallbackToDecide || options is { OnlyEvaluateLocally: true })
+                {
+                    return localEvaluationResults;
+                }
+            }
+        }
+
+        try
+        {
+            var results = await _apiClient.GetAllFeatureFlagsFromDecideAsync(
+                distinctId,
+                options?.PersonProperties,
+                options?.GroupProperties,
+                cancellationToken);
+
+            return results?.FeatureFlags is not null
+                ? results.FeatureFlags.ToReadOnlyDictionary(
+                    kvp => kvp.Key,
+                    kvp => new FeatureFlag(kvp, results.FeatureFlagPayloads))
+                : new Dictionary<string, FeatureFlag>();
+        }
+#pragma warning disable CA1031
+        catch (Exception e)
+#pragma warning restore CA1031
+        {
+            _logger.LogErrorUnableToGetFeatureFlagsAndPayloads(e);
+        }
+
+        // If we got here, something went wrong. Just return an empty response.
+        return new Dictionary<string, FeatureFlag>();
     }
 
     /// <inheritdoc/>
@@ -249,6 +284,7 @@ public sealed class PostHogClient : IPostHogClient
         await _asyncBatchHandler.DisposeAsync();
         _apiClient.Dispose();
         _featureFlagSentCache.Dispose();
+        _featureFlagsLoader.Dispose();
     }
 }
 

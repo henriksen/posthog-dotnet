@@ -74,18 +74,16 @@ public static class FeatureFlagExtensions
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
-    /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
+    /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
     /// <returns>
     /// A dictionary containing all the feature flags. The key is the feature flag key and the value is the feature flag.
     /// </returns>
-    public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
+    public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetAllFeatureFlagsAsync(
         this IPostHogClient client,
         string distinctId,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties)
+        AllFeatureFlagsOptions options)
         => await (client ?? throw new ArgumentNullException(nameof(client)))
-            .GetFeatureFlagsAsync(distinctId, personProperties, groupProperties, CancellationToken.None);
+            .GetAllFeatureFlagsAsync(distinctId, options, CancellationToken.None);
 
     /// <summary>
     /// Retrieves all the feature flags.
@@ -95,11 +93,11 @@ public static class FeatureFlagExtensions
     /// <returns>
     /// A dictionary containing all the feature flags. The key is the feature flag key and the value is the feature flag.
     /// </returns>
-    public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
+    public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetAllFeatureFlagsAsync(
         this IPostHogClient client,
         string distinctId)
         => await (client ?? throw new ArgumentNullException(nameof(client)))
-            .GetFeatureFlagsAsync(distinctId, personProperties: null, groupProperties: null, CancellationToken.None);
+            .GetAllFeatureFlagsAsync(distinctId, options: new AllFeatureFlagsOptions(), CancellationToken.None);
 
     /// <summary>
     /// Retrieves a feature flag.

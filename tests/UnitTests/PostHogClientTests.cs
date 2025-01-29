@@ -484,8 +484,76 @@ public class TheGetFeatureFlagAsyncMethod
     }
 }
 
-public class TheGetFeatureFlagsAsyncMethod
+public class TheGetAllFeatureFlagsAsyncMethod
 {
+    [Fact] // Ported from test_get_all_flags_with_no_fallback
+    public async Task RetrievesAllFlagsWithNoFallback()
+    {
+        var json = """
+                   {
+                     "flags":[
+                        {
+                           "id":1,
+                           "name":"Beta Feature",
+                           "key":"beta-feature",
+                           "is_simple_flag":false,
+                           "active":true,
+                           "rollout_percentage":100,
+                           "filters":{
+                              "groups":[
+                                 {
+                                    "properties":[
+                                       
+                                    ],
+                                    "rollout_percentage":100
+                                 }
+                              ]
+                           }
+                        },
+                        {
+                           "id":2,
+                           "name":"Beta Feature",
+                           "key":"disabled-feature",
+                           "is_simple_flag":false,
+                           "active":true,
+                           "filters":{
+                              "groups":[
+                                 {
+                                    "properties":[
+                                       
+                                    ],
+                                    "rollout_percentage":0
+                                 }
+                              ]
+                           }
+                        }
+                     ]
+                   }
+                   """;
+        var container = new TestContainer(services =>
+        {
+            services.Configure<PostHogOptions>(options =>
+            {
+                // Set a database name for this test.
+                // This means all tests get their own in memory database, BUT all instances of FakeAbbotContext share the same database.
+                options.ProjectApiKey = "fake-project-api-key";
+                options.PersonalApiKey = "fake-personal-api-key";
+            });
+        });
+        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key?send_cohorts"),
+            HttpMethod.Get,
+            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(json));
+        var client = container.Activate<PostHogClient>();
+
+        var results = await client.GetAllFeatureFlagsAsync("some-distinct-id");
+
+        Assert.Equal(new Dictionary<string, FeatureFlag>
+        {
+            ["beta-feature"] = new("beta-feature", true),
+            ["disabled-feature"] = new("disabled-feature", false)
+        }, results);
+    }
+
     [Fact]
     public async Task RetrievesFlagFromHttpContextCacheOnSecondCall()
     {
@@ -496,7 +564,7 @@ public class TheGetFeatureFlagsAsyncMethod
         var options = new FakeOptions<PostHogOptions>(new PostHogOptions());
         var apiClient = Substitute.For<IPostHogApiClient>();
         // Set up a call to the API client that returns all feature flags
-        apiClient.GetFeatureFlagsFromDecideAsync(
+        apiClient.GetAllFeatureFlagsFromDecideAsync(
                 distinctUserId: "1234",
                 personProperties: null,
                 groupProperties: null,
@@ -521,11 +589,8 @@ public class TheGetFeatureFlagsAsyncMethod
             new FakeTimeProvider(),
             NullLogger<PostHogClient>.Instance);
 
-        var flags = await client.GetFeatureFlagsAsync(distinctId: "1234");
-        var flagsAgain = await client.GetFeatureFlagsAsync(
-            distinctId: "1234",
-            personProperties: null,
-            groupProperties: null);
+        var flags = await client.GetAllFeatureFlagsAsync(distinctId: "1234");
+        var flagsAgain = await client.GetAllFeatureFlagsAsync(distinctId: "1234");
         var firstFlag = await client.GetFeatureFlagAsync("1234", "flag-key");
 
         Assert.NotEmpty(flags);

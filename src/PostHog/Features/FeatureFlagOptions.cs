@@ -5,7 +5,23 @@ namespace PostHog.Features;
 /// <summary>
 /// Options to control how feature flags are evaluated.
 /// </summary>
-public class FeatureFlagOptions
+public class FeatureFlagOptions : AllFeatureFlagsOptions
+{
+    /// <summary>
+    /// Whether to send the $feature_flag_called event when evaluating a feature flag.
+    /// Used for Experiments. Defaults to <c>true</c>.
+    /// </summary>
+    /// <remarks>
+    /// When <c>true</c>, the $feature_flag_called event is sent to PostHog when calling
+    /// <see cref="IPostHogClient.GetFeatureFlagAsync"/> or <see cref=""/>
+    /// </remarks>
+    public bool SendFeatureFlagEvents { get; init; } = true;
+}
+
+/// <summary>
+/// Options for retrieving all feature flags.
+/// </summary>
+public class AllFeatureFlagsOptions
 {
     /// <summary>
     /// Whether to only evaluate the flag locally. Defaults to <c>false</c>.
@@ -16,22 +32,12 @@ public class FeatureFlagOptions
     public bool OnlyEvaluateLocally { get; init; }
 
     /// <summary>
-    /// Whether to send the $feature_flag_called event when evaluating a feature flag.
-    /// Used for Experiments. Defaults to <c>true</c>.
-    /// </summary>
-    /// <remarks>
-    /// When <c>true</c>, the $feature_flag_called event is sent to PostHog when calling
-    /// <see cref="IPostHogClient.GetFeatureFlagAsync"/> or <see cref=""/>
-    /// </remarks>
-    public bool SendFeatureFlagEvents { get; init; } = true;
-
-    /// <summary>
     /// The set of person properties that are known. Used to compute flags locally, if
     /// <see cref="PostHogOptions.PersonalApiKey"/> is present and <see cref="OnlyEvaluateLocally"/> is <c>true</c>.
     /// If evaluating a feature flag remotely, this is not required. It can be used to override person properties
     /// on PostHog's servers when evaluating feature flags.
     /// </summary>
-    public Dictionary<string, object>? PersonProperties { get; init; }
+    public Dictionary<string, object?>? PersonProperties { get; init; }
 
     /// <summary>
     /// A list of the currently active groups. Required if the flag depends on groups. Each group can optionally

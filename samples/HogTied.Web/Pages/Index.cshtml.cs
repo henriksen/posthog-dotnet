@@ -73,17 +73,19 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                     HttpContext.RequestAborted);
             }
 
-            var flags = await postHogClient.GetFeatureFlagsAsync(
+            var flags = await postHogClient.GetAllFeatureFlagsAsync(
                 UserId,
-                personProperties: null,
-                groupProperties:
-                [
-                    new Group("organization","01943db3-83be-0000-e7ea-ecae4d9b5afb"),
-                    new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object?>
-                    {
-                        ["size"] = ProjectSize ?? "large"
-                    })
-                ],
+                options: new AllFeatureFlagsOptions
+                {
+                    GroupProperties =
+                    [
+                        new Group("organization","01943db3-83be-0000-e7ea-ecae4d9b5afb"),
+                        new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object?>
+                        {
+                            ["size"] = ProjectSize ?? "large"
+                        })
+                    ]
+                },
                 cancellationToken: HttpContext.RequestAborted);
 
             foreach (var (key, flag) in flags)

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PostHog.Api;
 using PostHog.Config;
@@ -13,18 +14,25 @@ namespace PostHog.Features;
 /// <param name="options">The options used to configure the client.</param>
 /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
 /// <param name="taskScheduler">Used to run tasks on the background.</param>
-public sealed class LocalFeatureFlagsLoader(
+internal sealed class LocalFeatureFlagsLoader(
     IPostHogApiClient postHogApiClient,
     IOptions<PostHogOptions> options,
     ITaskScheduler taskScheduler,
-    TimeProvider timeProvider) : IDisposable
+    TimeProvider timeProvider,
+    ILogger logger) : IDisposable
 {
-    volatile LocalEvaluationApiResult? _localEvaluationApiResult;
+    volatile int _started;
+    LocalEvaluator? _localEvaluator;
     readonly CancellationTokenSource _cancellationTokenSource = new();
     readonly PeriodicTimer _timer = new(options.Value.FeatureFlagPollInterval, timeProvider);
 
-    public void Start()
+    void StartPollingIfNotStarted()
     {
+        // If we've started polling, don't start another poll.
+        if (Interlocked.CompareExchange(ref _started, 1, 0) == 1)
+        {
+            return;
+        }
         taskScheduler.Run(() => PollForFeatureFlagsAsync(_cancellationTokenSource.Token));
     }
 
@@ -33,40 +41,67 @@ public sealed class LocalFeatureFlagsLoader(
     /// </summary>
     /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>All the feature flags.</returns>
-    public async ValueTask<LocalEvaluationApiResult?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken)
+    public async ValueTask<LocalEvaluator?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken)
     {
-        if (_localEvaluationApiResult is { } result)
+        if (_localEvaluator is { } localEvaluator)
         {
-            return result;
+            return localEvaluator;
         }
-        return await LoadEvaluationResultAsync(cancellationToken);
+        return await LoadLocalEvaluatorAsync(cancellationToken);
     }
 
-    async Task<LocalEvaluationApiResult?> LoadEvaluationResultAsync(CancellationToken cancellationToken)
+    async Task<LocalEvaluator?> LoadLocalEvaluatorAsync(CancellationToken cancellationToken)
     {
+        StartPollingIfNotStarted();
         var newApiResult = await postHogApiClient.GetFeatureFlagsForLocalEvaluationAsync(cancellationToken);
         if (newApiResult is null)
         {
-            return _localEvaluationApiResult;
+            return _localEvaluator;
         }
-        Interlocked.Exchange(ref _localEvaluationApiResult, newApiResult);
-        return _localEvaluationApiResult;
+
+        var localEvaluator = new LocalEvaluator(newApiResult, timeProvider, logger);
+        Interlocked.Exchange(ref _localEvaluator, localEvaluator);
+        return localEvaluator;
     }
 
     async Task PollForFeatureFlagsAsync(CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            await LoadEvaluationResultAsync(cancellationToken);
-            await _timer.WaitForNextTickAsync(cancellationToken);
+            while (await _timer.WaitForNextTickAsync(cancellationToken))
+            {
+                try
+                {
+                    await LoadLocalEvaluatorAsync(cancellationToken);
+                }
+#pragma warning disable CA1031 // We don't want exceptions to bring down the polling.
+                catch (Exception e)
+#pragma warning restore CA1031
+                {
+                    logger.LogErrorUnexpectedException(e);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogTraceOperationCancelled(nameof(PollForFeatureFlagsAsync));
         }
     }
 
-    internal LocalEvaluationApiResult? CachedValue => _localEvaluationApiResult;
+    internal LocalEvaluator? CachedEvaluator => _localEvaluator;
 
     public void Dispose()
     {
         _cancellationTokenSource.Dispose();
         _timer.Dispose();
     }
+}
+
+internal static partial class LocalFeatureFlagsLoaderLoggerExtensions
+{
+    [LoggerMessage(
+        EventId = 1000,
+        Level = LogLevel.Error,
+        Message = "Unexpected exception while polling for local feature flags.")]
+    public static partial void LogTraceApiClientCreated(this ILogger<PostHogApiClient> logger, Exception exception);
 }

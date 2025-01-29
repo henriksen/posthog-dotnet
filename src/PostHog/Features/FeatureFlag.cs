@@ -12,8 +12,8 @@ namespace PostHog.Features;
 public record FeatureFlag(
     string Key,
     bool IsEnabled,
-    string? VariantKey,
-    string? Payload)
+    string? VariantKey = null,
+    string? Payload = null)
 {
     /// <summary>
     /// Constructs a new instance of <see cref="FeatureFlag"/>.
@@ -25,7 +25,7 @@ public record FeatureFlag(
     {
     }
 
-    FeatureFlag(string key, StringOrValue<bool> value, IReadOnlyDictionary<string, string>? payloads)
+    internal FeatureFlag(string key, StringOrValue<bool> value, IReadOnlyDictionary<string, string>? payloads)
         : this(
             key,
             value.IsString ? value.StringValue is not null : value.Value,

@@ -27,8 +27,8 @@ public class TheGetFeatureFlagsForLocalEvaluationAsyncMethod
 
         var result = await loader.GetFeatureFlagsForLocalEvaluationAsync(CancellationToken.None);
 
-        Assert.NotNull(result);
-        var flag = Assert.Single(result.Flags);
+        Assert.NotNull(result?.LocalEvaluationApiResult.Flags);
+        var flag = Assert.Single(result.LocalEvaluationApiResult.Flags);
         Assert.Equal(new LocalFeatureFlag(
             Id: 123,
             TeamId: 456,
