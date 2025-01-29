@@ -486,6 +486,200 @@ public class TheGetFeatureFlagAsyncMethod
 
 public class TheGetAllFeatureFlagsAsyncMethod
 {
+    [Fact] // Ported from test_get_all_flags_with_fallback
+    public async Task RetrievesAllFlagsWithFallback()
+    {
+        var decideJson = """
+                         {
+                            "featureFlags":{
+                               "beta-feature":"variant-1",
+                               "beta-feature2":"variant-2",
+                               "disabled-feature":false
+                            }
+                         }
+                         """;
+        var localJson = """
+                   {
+                      "flags":[
+                         {
+                            "id":1,
+                            "name":"Beta Feature",
+                            "key":"beta-feature",
+                            "is_simple_flag":false,
+                            "active":true,
+                            "rollout_percentage":100,
+                            "filters":{
+                               "groups":[
+                                  {
+                                     "properties":[],
+                                     "rollout_percentage":100
+                                  }
+                               ]
+                            }
+                         },
+                         {
+                            "id":2,
+                            "name":"Beta Feature",
+                            "key":"disabled-feature",
+                            "is_simple_flag":false,
+                            "active":true,
+                            "filters":{
+                               "groups":[
+                                  {
+                                     "properties":[],
+                                     "rollout_percentage":0
+                                  }
+                               ]
+                            }
+                         },
+                         {
+                            "id":3,
+                            "name":"Beta Feature",
+                            "key":"beta-feature2",
+                            "is_simple_flag":false,
+                            "active":true,
+                            "filters":{
+                               "groups":[
+                                  {
+                                     "properties":[
+                                        {
+                                           "key":"country",
+                                           "value":"US"
+                                        }
+                                     ],
+                                     "rollout_percentage":0
+                                  }
+                               ]
+                            }
+                         }
+                      ]
+                   }
+                   """;
+        var container = new TestContainer(services =>
+        {
+            services.Configure<PostHogOptions>(options =>
+            {
+                options.ProjectApiKey = "fake-project-api-key";
+                options.PersonalApiKey = "fake-personal-api-key";
+            });
+        });
+        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/decide?v=3"),
+            HttpMethod.Post,
+            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(decideJson));
+        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key?send_cohorts"),
+            HttpMethod.Get,
+            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(localJson));
+        var client = container.Activate<PostHogClient>();
+
+        // We expect a fallback because no properties were supplied.
+        var results = await client.GetAllFeatureFlagsAsync(distinctId: "some-distinct-id");
+
+        // beta-feature value overridden by /decide
+        Assert.Equal(new Dictionary<string, FeatureFlag>
+        {
+            ["beta-feature"] = new(Key: "beta-feature", IsEnabled: true, VariantKey: "variant-1"),
+            ["beta-feature2"] = new(Key: "beta-feature2", IsEnabled: true, VariantKey: "variant-2"),
+            ["disabled-feature"] = new(Key: "disabled-feature", IsEnabled: false)
+        }, results);
+    }
+
+    [Fact] // Ported from test_get_all_flags_with_fallback
+    public async Task RetrievesAllFlagsWithFallbackButOnlyLocalEvaluationSet()
+    {
+        var decideJson = """
+                         {
+                            "featureFlags":{
+                               "beta-feature":"variant-1",
+                               "beta-feature2":"variant-2"
+                            }
+                         }
+                         """;
+        var localJson = """
+                   {
+                      "flags":[
+                         {
+                            "id":1,
+                            "name":"Beta Feature",
+                            "key":"beta-feature",
+                            "is_simple_flag":false,
+                            "active":true,
+                            "rollout_percentage":100,
+                            "filters":{
+                               "groups":[
+                                  {
+                                     "properties":[],
+                                     "rollout_percentage":100
+                                  }
+                               ]
+                            }
+                         },
+                         {
+                            "id":2,
+                            "name":"Beta Feature",
+                            "key":"disabled-feature",
+                            "is_simple_flag":false,
+                            "active":true,
+                            "filters":{
+                               "groups":[
+                                  {
+                                     "properties":[],
+                                     "rollout_percentage":0
+                                  }
+                               ]
+                            }
+                         },
+                         {
+                            "id":3,
+                            "name":"Beta Feature",
+                            "key":"beta-feature2",
+                            "is_simple_flag":false,
+                            "active":true,
+                            "filters":{
+                               "groups":[
+                                  {
+                                     "properties":[
+                                        {
+                                           "key":"country",
+                                           "value":"US"
+                                        }
+                                     ],
+                                     "rollout_percentage":0
+                                  }
+                               ]
+                            }
+                         }
+                      ]
+                   }
+                   """;
+        var container = new TestContainer(services =>
+        {
+            services.Configure<PostHogOptions>(options =>
+            {
+                options.ProjectApiKey = "fake-project-api-key";
+                options.PersonalApiKey = "fake-personal-api-key";
+            });
+        });
+        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/decide?v=3"),
+            HttpMethod.Post,
+            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(decideJson));
+        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key?send_cohorts"),
+            HttpMethod.Get,
+            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(localJson));
+        var client = container.Activate<PostHogClient>();
+
+        // We expect a fallback because no properties were supplied.
+        var results = await client.GetAllFeatureFlagsAsync(
+            distinctId: "some-distinct-id",
+            options: new AllFeatureFlagsOptions { OnlyEvaluateLocally = true });
+
+        // beta-feature2 has no value
+        Assert.Equal(new Dictionary<string, FeatureFlag>
+        {
+            ["beta-feature"] = new(Key: "beta-feature", IsEnabled: true),
+            ["disabled-feature"] = new(Key: "disabled-feature", IsEnabled: false)
+        }, results);
+    }
+
     [Fact] // Ported from test_get_all_flags_with_no_fallback
     public async Task RetrievesAllFlagsWithNoFallback()
     {
@@ -502,9 +696,7 @@ public class TheGetAllFeatureFlagsAsyncMethod
                            "filters":{
                               "groups":[
                                  {
-                                    "properties":[
-                                       
-                                    ],
+                                    "properties":[],
                                     "rollout_percentage":100
                                  }
                               ]
@@ -519,9 +711,7 @@ public class TheGetAllFeatureFlagsAsyncMethod
                            "filters":{
                               "groups":[
                                  {
-                                    "properties":[
-                                       
-                                    ],
+                                    "properties":[],
                                     "rollout_percentage":0
                                  }
                               ]
@@ -534,8 +724,6 @@ public class TheGetAllFeatureFlagsAsyncMethod
         {
             services.Configure<PostHogOptions>(options =>
             {
-                // Set a database name for this test.
-                // This means all tests get their own in memory database, BUT all instances of FakeAbbotContext share the same database.
                 options.ProjectApiKey = "fake-project-api-key";
                 options.PersonalApiKey = "fake-personal-api-key";
             });

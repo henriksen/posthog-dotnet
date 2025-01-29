@@ -120,6 +120,7 @@ public sealed class LocalEvaluator
             catch (Exception e)
 #pragma warning restore CA1031
             {
+                fallbackToDecide = true;
                 _logger.LogErrorUnexpectedException(e);
             }
         }
@@ -238,23 +239,20 @@ public sealed class LocalEvaluator
         Dictionary<string, object?>? properties)
     {
         var rolloutPercentage = condition.RolloutPercentage;
-        if (properties is { Count: > 0 })
+        foreach (var property in condition.Properties)
         {
-            foreach (var property in condition.Properties)
+            var isMatch = property.Type is FilterType.Cohort
+                ? MatchCohort(property, properties)
+                : MatchProperty(property, properties);
+            if (!isMatch)
             {
-                var isMatch = property.Type is FilterType.Cohort
-                    ? MatchCohort(property, properties)
-                    : MatchProperty(property, properties);
-                if (!isMatch)
-                {
-                    return false;
-                }
+                return false;
             }
+        }
 
-            if (rolloutPercentage is 100)
-            {
-                return true;
-            }
+        if (rolloutPercentage is 100)
+        {
+            return true;
         }
 
         var hashValue = Hash(flag.Key, distinctId);
@@ -293,7 +291,7 @@ public sealed class LocalEvaluator
 
     bool MatchCohort(
         PropertyFilter filter,
-        Dictionary<string, object?> propertyValues)
+        Dictionary<string, object?>? propertyValues)
     {
         // Cohort properties are in the form of property groups like this:
         // {
@@ -315,7 +313,7 @@ public sealed class LocalEvaluator
 
     bool MatchPropertyGroup(
         FilterSet? filterSet,
-        Dictionary<string, object?> propertyValues)
+        Dictionary<string, object?>? propertyValues)
     {
         if (filterSet is null)
         {
@@ -447,7 +445,7 @@ public sealed class LocalEvaluator
     /// <param name="propertyFilter">The <see cref="PropertyFilter"/> to evaluate.</param>
     /// <param name="properties">The overriden values that describe the user/group.</param>
     /// <returns><c>true</c> if the current user/group matches the property. Otherwise <c>false</c>.</returns>
-    bool MatchProperty(PropertyFilter propertyFilter, Dictionary<string, object?> properties)
+    bool MatchProperty(PropertyFilter propertyFilter, Dictionary<string, object?>? properties)
     {
         var key = NotNull(propertyFilter.Key);
         if (propertyFilter.Value is not { } propertyValue)
