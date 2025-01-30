@@ -14,7 +14,7 @@ namespace PostHog.Api;
 public record LocalEvaluationApiResult(
     IReadOnlyList<LocalFeatureFlag> Flags,
     [property: JsonPropertyName("group_type_mapping")]
-    IReadOnlyDictionary<string, string>? GroupTypeMapping,
+    IReadOnlyDictionary<string, string>? GroupTypeMapping = null,
     IReadOnlyDictionary<string, FilterSet>? Cohorts = null)
 {
     public virtual bool Equals(LocalEvaluationApiResult? other)

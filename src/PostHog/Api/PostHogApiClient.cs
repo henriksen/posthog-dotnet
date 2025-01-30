@@ -6,7 +6,6 @@ using PostHog.Config;
 using PostHog.Json;
 using PostHog.Library;
 using PostHog.Versioning;
-using static PostHog.Library.Ensure;
 
 namespace PostHog.Api;
 
@@ -17,7 +16,6 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
     readonly TimeProvider _timeProvider;
     readonly HttpClient _httpClient;
-    readonly HttpClient? _authenticatedHttpClient;
     readonly IOptions<PostHogOptions> _options;
 
     /// <summary>
@@ -34,8 +32,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
         TimeProvider timeProvider,
         ILogger<PostHogApiClient> logger)
         : this(
-            CreateHttpClient(NotNull(options), logger, authenticated: false)!,
-            CreateHttpClient(options, logger, authenticated: true),
+            CreateHttpClient(logger),
             options,
             timeProvider,
             logger)
@@ -46,13 +43,11 @@ public sealed class PostHogApiClient : IPostHogApiClient
     /// Initialize a new PostHog client
     /// </summary>
     /// <param name="httpClient">The <see cref="HttpClient"/> used to make requests.</param>
-    /// <param name="authenticatedHttpClient">Optional: <see cref="HttpClient"/> used to make authenticated requests. This requires that <see cref="PostHogOptions.PersonalApiKey"/> is set.</param>
     /// <param name="options">The options used to configure this client.</param>
     /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     public PostHogApiClient(
         HttpClient httpClient,
-        HttpClient? authenticatedHttpClient,
         IOptions<PostHogOptions> options,
         TimeProvider timeProvider,
         ILogger<PostHogApiClient> logger)
@@ -62,36 +57,18 @@ public sealed class PostHogApiClient : IPostHogApiClient
         _timeProvider = timeProvider;
 
         _httpClient = httpClient;
-        _authenticatedHttpClient = authenticatedHttpClient;
 
         logger.LogTraceApiClientCreated(HostUrl);
     }
 
-    static HttpClient? CreateHttpClient(
-        IOptions<PostHogOptions>? options,
-        ILogger<PostHogApiClient> logger,
-        bool authenticated)
-    {
-        if (authenticated && options?.Value.PersonalApiKey is null)
-        {
-            return null;
-        }
-
-        var httpClient = new HttpClient(
+    static HttpClient CreateHttpClient(ILogger<PostHogApiClient> logger) =>
+        new(
 #pragma warning disable CA2000
             new LoggingHttpMessageHandler(logger)
 #pragma warning restore CA2000
             {
                 InnerHandler = new HttpClientHandler()
             });
-
-        if (authenticated && options?.Value.PersonalApiKey is { } personalApiKey)
-        {
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", personalApiKey);
-        }
-
-        return httpClient;
-    }
 
     Uri HostUrl => _options.Value.HostUrl;
 
@@ -162,13 +139,18 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
     public async Task<LocalEvaluationApiResult?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken)
     {
-        var httpClient = _authenticatedHttpClient ?? throw new InvalidOperationException("This API requires that a Personal API Key is set.");
+        var personalApiKey = _options.Value.PersonalApiKey
+            ?? throw new InvalidOperationException("This API requires that a Personal API Key is set.");
         var options = _options.Value ?? throw new InvalidOperationException(nameof(_options));
 
-        var endpointUrl = new Uri(HostUrl, $"/api/feature_flag/local_evaluation/?token={options.ProjectApiKey}?send_cohorts");
+        var endpointUrl = new Uri(HostUrl, $"/api/feature_flag/local_evaluation/?token={options.ProjectApiKey}&send_cohorts");
 
-        return await httpClient.GetFromJsonAsync<LocalEvaluationApiResult>(
-            endpointUrl,
+        using var request = new HttpRequestMessage(HttpMethod.Get, endpointUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue(scheme: "Bearer", personalApiKey);
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        return await response.Content.ReadFromJsonAsync<LocalEvaluationApiResult>(
             JsonSerializerHelper.Options,
             cancellationToken);
     }

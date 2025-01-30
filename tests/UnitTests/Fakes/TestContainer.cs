@@ -72,7 +72,6 @@ public sealed class TestContainer : IServiceProvider
         var options = this.GetRequiredService<IOptions<PostHogOptions>>();
         return new PostHogApiClient(
             httpClient,
-            httpClient,
             options,
             FakeTimeProvider,
             logger: this.GetRequiredService<ILogger<PostHogApiClient>>());

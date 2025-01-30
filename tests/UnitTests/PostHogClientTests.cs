@@ -566,7 +566,7 @@ public class TheGetAllFeatureFlagsAsyncMethod
         container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
             responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(decideJson));
-        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key?send_cohorts"),
+        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
             HttpMethod.Get,
             responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(localJson));
         var client = container.Activate<PostHogClient>();
@@ -662,7 +662,7 @@ public class TheGetAllFeatureFlagsAsyncMethod
         container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/decide?v=3"),
             HttpMethod.Post,
             responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(decideJson));
-        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key?send_cohorts"),
+        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
             HttpMethod.Get,
             responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(localJson));
         var client = container.Activate<PostHogClient>();
@@ -728,7 +728,7 @@ public class TheGetAllFeatureFlagsAsyncMethod
                 options.PersonalApiKey = "fake-personal-api-key";
             });
         });
-        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key?send_cohorts"),
+        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
             HttpMethod.Get,
             responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(json));
         var client = container.Activate<PostHogClient>();

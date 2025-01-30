@@ -1,6 +1,7 @@
+using System.Net.Http.Headers;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Time.Testing;
 using PostHog.Api;
+using PostHog.Config;
 using UnitTests.Fakes;
 
 namespace PostHogApiClientTests;
@@ -43,5 +44,32 @@ public class TheCaptureBatchAsyncMethod
                        ]
                      }
                      """, received);
+    }
+
+    [Fact]
+    public async Task UsesAuthenticatedHttpClientForLocalEvaluationFlags()
+    {
+        var container = new TestContainer(services =>
+        {
+            services.Configure<PostHogOptions>(options =>
+            {
+                options.ProjectApiKey = "fake-project-api-key";
+                options.PersonalApiKey = "fake-personal-api-key";
+            });
+        });
+        var messageHandler = container.FakeHttpMessageHandler;
+        var timeProvider = container.FakeTimeProvider;
+        timeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        var requestHandler = messageHandler.AddResponse(
+            new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
+            HttpMethod.Get,
+            responseBody: new LocalEvaluationApiResult(Flags: []));
+        var client = container.Activate<PostHogApiClient>();
+
+        await client.GetFeatureFlagsForLocalEvaluationAsync(cancellationToken: CancellationToken.None);
+
+        var received = requestHandler.ReceivedRequest;
+        Assert.NotNull(received.Headers.Authorization);
+        Assert.Equal(new AuthenticationHeaderValue("Bearer", "fake-personal-api-key"), received.Headers.Authorization);
     }
 }
