@@ -15,10 +15,7 @@ public class TheCaptureBatchAsyncMethod
         var messageHandler = container.FakeHttpMessageHandler;
         var timeProvider = container.FakeTimeProvider;
         timeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
-        var requestHandler = messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/batch"),
-            HttpMethod.Post,
-            responseBody: new { status = 1 });
+        var requestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogApiClient>();
 
         await client.CaptureBatchAsync([
@@ -60,9 +57,7 @@ public class TheCaptureBatchAsyncMethod
         var messageHandler = container.FakeHttpMessageHandler;
         var timeProvider = container.FakeTimeProvider;
         timeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
-        var requestHandler = messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
-            HttpMethod.Get,
+        var requestHandler = messageHandler.AddLocalEvaluationResponse(
             responseBody: new LocalEvaluationApiResult(Flags: []));
         var client = container.Activate<PostHogApiClient>();
 

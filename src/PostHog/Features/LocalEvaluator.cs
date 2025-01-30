@@ -50,7 +50,7 @@ internal sealed class LocalEvaluator
     /// <param name="key">The feature flag key.</param>
     /// <param name="flag">The local feature flag to return if it exists.</param>
     /// <returns><c>true</c> if it exists, otherwise <c>false</c>.</returns>
-    public bool TryGetLocalFeatureFlag(string key, [NotNullWhen(returnValue: true)]out LocalFeatureFlag? flag)
+    public bool TryGetLocalFeatureFlag(string key, [NotNullWhen(returnValue: true)] out LocalFeatureFlag? flag)
         => _localFeatureFlags.TryGetValue(key, out flag);
 
     /// <summary>

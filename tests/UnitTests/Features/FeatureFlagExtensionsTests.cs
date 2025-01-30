@@ -18,9 +18,7 @@ public class TheIsFeatureEnabledAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddDecideResponse(
             responseBody: new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -42,9 +40,7 @@ public class TheIsFeatureEnabledAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddDecideResponse(
             responseBody: new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>

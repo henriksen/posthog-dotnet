@@ -22,9 +22,8 @@ public class TheIsFeatureFlagEnabledAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddRepeatedResponses(4,
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddRepeatedDecideResponse(
+            count: 4,
             count => new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -32,10 +31,7 @@ public class TheIsFeatureFlagEnabledAsyncMethod
                     ["flag-key"] = $"feature-value-{count}"
                 }.AsReadOnly()
             });
-        var captureRequestHandler = messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/batch"),
-            HttpMethod.Post,
-            responseBody: new { status = 1 });
+        var captureRequestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
         await client.IsFeatureEnabledAsync("flag-key", "a-distinct-id");
@@ -87,9 +83,8 @@ public class TheIsFeatureFlagEnabledAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddRepeatedResponses(4,
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddRepeatedDecideResponse(
+            count: 4,
             count => new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -97,10 +92,7 @@ public class TheIsFeatureFlagEnabledAsyncMethod
                     ["flag-key"] = $"feature-value-{count}"
                 }.AsReadOnly()
             });
-        var captureRequestHandler = messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/batch"),
-            HttpMethod.Post,
-            responseBody: new { status = 1 });
+        var captureRequestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
         await client.IsFeatureEnabledAsync(featureKey: "flag-key",
@@ -116,45 +108,37 @@ public class TheGetFeatureFlagAsyncMethod
     [Fact] // Ported from PostHog/posthog-node test_get_feature_flag
     public async Task DoesNotCallDecideWhenCanBeEvaluatedLocally()
     {
-        var json = """
-                   { 
-                     "flags": [
-                       {
-                           "id": 1,
-                           "name": "Beta Feature",
-                           "key": "beta-feature",
-                           "is_simple_flag": false,
-                           "active": true,
-                           "rollout_percentage": 100,
-                           "filters": {
-                               "groups": [
-                                   {
-                                       "properties": [],
-                                       "rollout_percentage": 100
-                                   }
-                               ],
-                               "multivariate": {
-                                   "variants": [
-                                       {"key": "variant-1", "rollout_percentage": 50},
-                                       {"key": "variant-2", "rollout_percentage": 50}
-                                   ]
-                               }
-                           }
-                       }
-                     ]
-                   } 
-                   """;
-        var container = new TestContainer(services =>
-        {
-            services.Configure<PostHogOptions>(options =>
-            {
-                options.ProjectApiKey = "fake-project-api-key";
-                options.PersonalApiKey = "fake-personal-api-key";
-            });
-        });
-        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
-            HttpMethod.Get,
-            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(json));
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            { 
+              "flags": [
+                {
+                    "id": 1,
+                    "name": "Beta Feature",
+                    "key": "beta-feature",
+                    "is_simple_flag": false,
+                    "active": true,
+                    "rollout_percentage": 100,
+                    "filters": {
+                        "groups": [
+                            {
+                                "properties": [],
+                                "rollout_percentage": 100
+                            }
+                        ],
+                        "multivariate": {
+                            "variants": [
+                                {"key": "variant-1", "rollout_percentage": 50},
+                                {"key": "variant-2", "rollout_percentage": 50}
+                            ]
+                        }
+                    }
+                }
+              ]
+            } 
+            """
+        );
         var client = container.Activate<PostHogClient>();
 
         var result = await client.GetFeatureFlagAsync("beta-feature", distinctId: "some-distinct-Id");
@@ -165,74 +149,65 @@ public class TheGetFeatureFlagAsyncMethod
     [Fact] // Ported from PostHog/posthog-node test_flag_with_complex_definition
     public async Task ReturnsCorrectValueForComplexFlags()
     {
-        var json = """
-                   {
-                     "flags": [
-                           {
-                               "id": 1,
-                               "name": "Beta Feature",
-                               "key": "complex-flag",
-                               "is_simple_flag": false,
-                               "active": true,
-                               "filters": {
-                                   "groups": [
-                                       {
-                                           "properties": [
-                                               {
-                                                   "key": "region",
-                                                   "operator": "exact",
-                                                   "value": ["USA"],
-                                                   "type": "person"
-                                               },
-                                               {
-                                                   "key": "name",
-                                                   "operator": "exact",
-                                                   "value": ["Aloha"],
-                                                   "type": "person"
-                                               }
-                                           ],
-                                           "rollout_percentage": 100
-                                       },
-                                       {
-                                           "properties": [
-                                               {
-                                                   "key": "email",
-                                                   "operator": "exact",
-                                                   "value": ["a@b.com", "b@c.com"],
-                                                   "type": "person"
-                                               }
-                                           ],
-                                           "rollout_percentage": 30
-                                       },
-                                       {
-                                           "properties": [
-                                               {
-                                                   "key": "doesnt_matter",
-                                                   "operator": "exact",
-                                                   "value": ["1", "2"],
-                                                   "type": "person"
-                                               }
-                                           ],
-                                           "rollout_percentage": 0
-                                       }
-                                   ]
-                               }
-                           }
-                       ]
-                   }
-                   """;
-        var container = new TestContainer(services =>
-        {
-            services.Configure<PostHogOptions>(options =>
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
             {
-                options.ProjectApiKey = "fake-project-api-key";
-                options.PersonalApiKey = "fake-personal-api-key";
-            });
-        });
-        container.FakeHttpMessageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
-            HttpMethod.Get,
-            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(json));
+             "flags": [
+                   {
+                       "id": 1,
+                       "name": "Beta Feature",
+                       "key": "complex-flag",
+                       "is_simple_flag": false,
+                       "active": true,
+                       "filters": {
+                           "groups": [
+                               {
+                                   "properties": [
+                                       {
+                                           "key": "region",
+                                           "operator": "exact",
+                                           "value": ["USA"],
+                                           "type": "person"
+                                       },
+                                       {
+                                           "key": "name",
+                                           "operator": "exact",
+                                           "value": ["Aloha"],
+                                           "type": "person"
+                                       }
+                                   ],
+                                   "rollout_percentage": 100
+                               },
+                               {
+                                   "properties": [
+                                       {
+                                           "key": "email",
+                                           "operator": "exact",
+                                           "value": ["a@b.com", "b@c.com"],
+                                           "type": "person"
+                                       }
+                                   ],
+                                   "rollout_percentage": 30
+                               },
+                               {
+                                   "properties": [
+                                       {
+                                           "key": "doesnt_matter",
+                                           "operator": "exact",
+                                           "value": ["1", "2"],
+                                           "type": "person"
+                                       }
+                                   ],
+                                   "rollout_percentage": 0
+                               }
+                           ]
+                       }
+                   }
+               ]
+            }
+            """
+        );
         var client = container.Activate<PostHogClient>();
 
         Assert.True(
@@ -241,7 +216,7 @@ public class TheGetFeatureFlagAsyncMethod
                 distinctId: "some-distinct-id",
                 options: new FeatureFlagOptions
                 {
-                    PersonProperties = new() {["region"] = "USA", ["name"] = "Aloha"}
+                    PersonProperties = new() { ["region"] = "USA", ["name"] = "Aloha" }
                 })
         );
 
@@ -257,15 +232,11 @@ public class TheGetFeatureFlagAsyncMethod
         );
 
         // will fall back on `/decide`, as all properties present for second group, but that group resolves to false
-        var decideJson = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(
+        container.FakeHttpMessageHandler.AddDecideResponse(
             """
             {"featureFlags": {"complex-flag": "decide-fallback-value"}}
             """
         );
-        container.FakeHttpMessageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
-            responseBody: decideJson);
         Assert.Equal(
             "decide-fallback-value",
             await client.GetFeatureFlagAsync(
@@ -275,15 +246,17 @@ public class TheGetFeatureFlagAsyncMethod
                 {
                     PersonProperties = new()
                     {
-                        ["region"] = "USA", ["email"] = "a@b.com"
+                        ["region"] = "USA",
+                        ["email"] = "a@b.com"
                     }
                 })
         );
         // Same as above
-        container.FakeHttpMessageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
-            responseBody: decideJson);
+        container.FakeHttpMessageHandler.AddDecideResponse(
+            """
+            {"featureFlags": {"complex-flag": "decide-fallback-value"}}
+            """
+        );
         Assert.Equal(
             "decide-fallback-value",
             await client.GetFeatureFlagAsync(
@@ -296,10 +269,11 @@ public class TheGetFeatureFlagAsyncMethod
         );
 
         // this one will need to fall back
-        container.FakeHttpMessageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
-            responseBody: decideJson);
+        container.FakeHttpMessageHandler.AddDecideResponse(
+            """
+            {"featureFlags": {"complex-flag": "decide-fallback-value"}}
+            """
+        );
         Assert.Equal(
             "decide-fallback-value",
             await client.GetFeatureFlagAsync(
@@ -320,7 +294,10 @@ public class TheGetFeatureFlagAsyncMethod
                 {
                     PersonProperties = new()
                     {
-                        ["region"] = "USA", ["email"] = "a@b.com", ["name"] = "x", ["doesnt_matter"] = "1"
+                        ["region"] = "USA",
+                        ["email"] = "a@b.com",
+                        ["name"] = "x",
+                        ["doesnt_matter"] = "1"
                     }
                 })
         );
@@ -331,9 +308,7 @@ public class TheGetFeatureFlagAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddDecideResponse(
             responseBody: new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -355,9 +330,7 @@ public class TheGetFeatureFlagAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddDecideResponse(
             responseBody: new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -378,9 +351,7 @@ public class TheGetFeatureFlagAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddDecideResponse(
             responseBody: new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -401,9 +372,8 @@ public class TheGetFeatureFlagAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddDecideResponse(
+
             responseBody: new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -411,13 +381,12 @@ public class TheGetFeatureFlagAsyncMethod
                     ["flag-key"] = true
                 }.AsReadOnly()
             });
-        var captureRequestHandler = messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/batch"),
-            HttpMethod.Post,
-            responseBody: new { status = 1 });
+        var captureRequestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
         var result = await client.GetFeatureFlagAsync("flag-key", "a-distinct-id");
+        // This call should not call capture because same key, distinct-id, and result.
+        await client.GetFeatureFlagAsync("flag-key", "a-distinct-id");
 
         Assert.NotNull(result);
         Assert.True(result.IsEnabled);
@@ -461,9 +430,8 @@ public class TheGetFeatureFlagAsyncMethod
         });
         var timeProvider = container.FakeTimeProvider;
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddRepeatedResponses(6,
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddRepeatedDecideResponse(
+            count: 6,
             count => new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -472,10 +440,7 @@ public class TheGetFeatureFlagAsyncMethod
                     ["another-flag-key"] = $"flag-variant-{count}"
                 }.AsReadOnly()
             });
-        var captureRequestHandler = messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/batch"),
-            HttpMethod.Post,
-            responseBody: new { status = 1 });
+        var captureRequestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
         // This is captured and the cache entry will be compacted when the size limit exceeded.
@@ -568,9 +533,8 @@ public class TheGetFeatureFlagAsyncMethod
         }));
         var timeProvider = container.FakeTimeProvider;
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddRepeatedResponses(6,
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddRepeatedDecideResponse(
+            count: 6,
             count => new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -579,10 +543,7 @@ public class TheGetFeatureFlagAsyncMethod
                     ["another-flag-key"] = $"flag-variant-{count}"
                 }.AsReadOnly()
             });
-        var captureRequestHandler = messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/batch"),
-            HttpMethod.Post,
-            responseBody: new { status = 1 });
+        var captureRequestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
         await client.GetFeatureFlagAsync("flag-key", "a-distinct-id"); // Captured.
@@ -668,9 +629,8 @@ public class TheGetFeatureFlagAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddRepeatedResponses(4,
-            new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
+        messageHandler.AddRepeatedDecideResponse(
+            count: 4,
             count => new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -678,10 +638,7 @@ public class TheGetFeatureFlagAsyncMethod
                     ["flag-key"] = $"feature-value-{count}"
                 }.AsReadOnly()
             });
-        var captureRequestHandler = messageHandler.AddResponse(
-            new Uri("https://us.i.posthog.com/batch"),
-            HttpMethod.Post,
-            responseBody: new { status = 1 });
+        var captureRequestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
         await client.GetFeatureFlagAsync(featureKey: "flag-key",
@@ -697,86 +654,77 @@ public class TheGetAllFeatureFlagsAsyncMethod
     [Fact] // Ported from test_get_all_flags_with_fallback
     public async Task RetrievesAllFlagsWithFallback()
     {
-        var decideJson = """
-                         {
-                            "featureFlags":{
-                               "beta-feature":"variant-1",
-                               "beta-feature2":"variant-2",
-                               "disabled-feature":false
-                            }
-                         }
-                         """;
-        var localJson = """
-                   {
-                      "flags":[
-                         {
-                            "id":1,
-                            "name":"Beta Feature",
-                            "key":"beta-feature",
-                            "is_simple_flag":false,
-                            "active":true,
-                            "rollout_percentage":100,
-                            "filters":{
-                               "groups":[
-                                  {
-                                     "properties":[],
-                                     "rollout_percentage":100
-                                  }
-                               ]
-                            }
-                         },
-                         {
-                            "id":2,
-                            "name":"Beta Feature",
-                            "key":"disabled-feature",
-                            "is_simple_flag":false,
-                            "active":true,
-                            "filters":{
-                               "groups":[
-                                  {
-                                     "properties":[],
-                                     "rollout_percentage":0
-                                  }
-                               ]
-                            }
-                         },
-                         {
-                            "id":3,
-                            "name":"Beta Feature",
-                            "key":"beta-feature2",
-                            "is_simple_flag":false,
-                            "active":true,
-                            "filters":{
-                               "groups":[
-                                  {
-                                     "properties":[
-                                        {
-                                           "key":"country",
-                                           "value":"US"
-                                        }
-                                     ],
-                                     "rollout_percentage":0
-                                  }
-                               ]
-                            }
-                         }
-                      ]
-                   }
-                   """;
-        var container = new TestContainer(services =>
-        {
-            services.Configure<PostHogOptions>(options =>
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddDecideResponse(
+            """
             {
-                options.ProjectApiKey = "fake-project-api-key";
-                options.PersonalApiKey = "fake-personal-api-key";
-            });
-        });
-        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
-            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(decideJson));
-        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
-            HttpMethod.Get,
-            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(localJson));
+               "featureFlags":{
+                  "beta-feature":"variant-1",
+                  "beta-feature2":"variant-2",
+                  "disabled-feature":false
+               }
+            }
+            """
+        );
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+              "flags":[
+                 {
+                    "id":1,
+                    "name":"Beta Feature",
+                    "key":"beta-feature",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "rollout_percentage":100,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[],
+                             "rollout_percentage":100
+                          }
+                       ]
+                    }
+                 },
+                 {
+                    "id":2,
+                    "name":"Beta Feature",
+                    "key":"disabled-feature",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[],
+                             "rollout_percentage":0
+                          }
+                       ]
+                    }
+                 },
+                 {
+                    "id":3,
+                    "name":"Beta Feature",
+                    "key":"beta-feature2",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[
+                                {
+                                   "key":"country",
+                                   "value":"US"
+                                }
+                             ],
+                             "rollout_percentage":0
+                          }
+                       ]
+                    }
+                 }
+              ]
+            }
+            """
+        );
         var client = container.Activate<PostHogClient>();
 
         // We expect a fallback because no properties were supplied.
@@ -794,85 +742,76 @@ public class TheGetAllFeatureFlagsAsyncMethod
     [Fact] // Ported from test_get_all_flags_with_fallback
     public async Task RetrievesAllFlagsWithFallbackButOnlyLocalEvaluationSet()
     {
-        var decideJson = """
-                         {
-                            "featureFlags":{
-                               "beta-feature":"variant-1",
-                               "beta-feature2":"variant-2"
-                            }
-                         }
-                         """;
-        var localJson = """
-                   {
-                      "flags":[
-                         {
-                            "id":1,
-                            "name":"Beta Feature",
-                            "key":"beta-feature",
-                            "is_simple_flag":false,
-                            "active":true,
-                            "rollout_percentage":100,
-                            "filters":{
-                               "groups":[
-                                  {
-                                     "properties":[],
-                                     "rollout_percentage":100
-                                  }
-                               ]
-                            }
-                         },
-                         {
-                            "id":2,
-                            "name":"Beta Feature",
-                            "key":"disabled-feature",
-                            "is_simple_flag":false,
-                            "active":true,
-                            "filters":{
-                               "groups":[
-                                  {
-                                     "properties":[],
-                                     "rollout_percentage":0
-                                  }
-                               ]
-                            }
-                         },
-                         {
-                            "id":3,
-                            "name":"Beta Feature",
-                            "key":"beta-feature2",
-                            "is_simple_flag":false,
-                            "active":true,
-                            "filters":{
-                               "groups":[
-                                  {
-                                     "properties":[
-                                        {
-                                           "key":"country",
-                                           "value":"US"
-                                        }
-                                     ],
-                                     "rollout_percentage":0
-                                  }
-                               ]
-                            }
-                         }
-                      ]
-                   }
-                   """;
-        var container = new TestContainer(services =>
-        {
-            services.Configure<PostHogOptions>(options =>
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddDecideResponse(
+            """
             {
-                options.ProjectApiKey = "fake-project-api-key";
-                options.PersonalApiKey = "fake-personal-api-key";
-            });
-        });
-        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/decide?v=3"),
-            HttpMethod.Post,
-            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(decideJson));
-        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
-            HttpMethod.Get,
-            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(localJson));
+               "featureFlags":{
+                  "beta-feature":"variant-1",
+                  "beta-feature2":"variant-2"
+               }
+            }
+            """
+        );
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+              "flags":[
+                 {
+                    "id":1,
+                    "name":"Beta Feature",
+                    "key":"beta-feature",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "rollout_percentage":100,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[],
+                             "rollout_percentage":100
+                          }
+                       ]
+                    }
+                 },
+                 {
+                    "id":2,
+                    "name":"Beta Feature",
+                    "key":"disabled-feature",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[],
+                             "rollout_percentage":0
+                          }
+                       ]
+                    }
+                 },
+                 {
+                    "id":3,
+                    "name":"Beta Feature",
+                    "key":"beta-feature2",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[
+                                {
+                                   "key":"country",
+                                   "value":"US"
+                                }
+                             ],
+                             "rollout_percentage":0
+                          }
+                       ]
+                    }
+                 }
+              ]
+            }
+            """
+        );
         var client = container.Activate<PostHogClient>();
 
         // We expect a fallback because no properties were supplied.
@@ -891,54 +830,46 @@ public class TheGetAllFeatureFlagsAsyncMethod
     [Fact] // Ported from test_get_all_flags_with_no_fallback
     public async Task RetrievesAllFlagsWithNoFallback()
     {
-        var json = """
-                   {
-                     "flags":[
-                        {
-                           "id":1,
-                           "name":"Beta Feature",
-                           "key":"beta-feature",
-                           "is_simple_flag":false,
-                           "active":true,
-                           "rollout_percentage":100,
-                           "filters":{
-                              "groups":[
-                                 {
-                                    "properties":[],
-                                    "rollout_percentage":100
-                                 }
-                              ]
-                           }
-                        },
-                        {
-                           "id":2,
-                           "name":"Beta Feature",
-                           "key":"disabled-feature",
-                           "is_simple_flag":false,
-                           "active":true,
-                           "filters":{
-                              "groups":[
-                                 {
-                                    "properties":[],
-                                    "rollout_percentage":0
-                                 }
-                              ]
-                           }
-                        }
-                     ]
-                   }
-                   """;
-        var container = new TestContainer(services =>
-        {
-            services.Configure<PostHogOptions>(options =>
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
             {
-                options.ProjectApiKey = "fake-project-api-key";
-                options.PersonalApiKey = "fake-personal-api-key";
-            });
-        });
-        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
-            HttpMethod.Get,
-            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(json));
+              "flags":[
+                 {
+                    "id":1,
+                    "name":"Beta Feature",
+                    "key":"beta-feature",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "rollout_percentage":100,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[],
+                             "rollout_percentage":100
+                          }
+                       ]
+                    }
+                 },
+                 {
+                    "id":2,
+                    "name":"Beta Feature",
+                    "key":"disabled-feature",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[],
+                             "rollout_percentage":0
+                          }
+                       ]
+                    }
+                 }
+              ]
+            }
+            """
+        );
         var client = container.Activate<PostHogClient>();
 
         var results = await client.GetAllFeatureFlagsAsync("some-distinct-id");

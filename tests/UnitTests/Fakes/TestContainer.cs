@@ -36,6 +36,18 @@ public sealed class TestContainer : IServiceProvider
         _serviceProvider = services.BuildServiceProvider();
     }
 
+    // Convenience constructor.
+    public TestContainer(string personalApiKey) : this(services =>
+    {
+        services.Configure<PostHogOptions>(options =>
+        {
+            options.ProjectApiKey = "fake-project-api-key";
+            options.PersonalApiKey = personalApiKey;
+        });
+    })
+    {
+    }
+
     public FakeHttpMessageHandler FakeHttpMessageHandler { get; } = new();
 
     public FakeTimeProvider FakeTimeProvider { get; } = new();
@@ -50,7 +62,7 @@ public sealed class TestContainer : IServiceProvider
         });
         services.AddSingleton<FakeLoggerProvider>();
         services.AddLogging();
-        services.AddSingleton<ILogger>(s => NullLogger.Instance);
+        services.AddSingleton<ILogger>(_ => NullLogger.Instance);
         services.AddSingleton<ILoggerFactory>(s => s.GetRequiredService<FakeLoggerProvider>());
         services.AddSingleton<ILoggerProvider>(s => s.GetRequiredService<FakeLoggerProvider>());
         services.AddSingleton<HttpMessageHandler>(FakeHttpMessageHandler);
