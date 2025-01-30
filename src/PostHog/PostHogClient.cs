@@ -135,40 +135,75 @@ public sealed class PostHogClient : IPostHogClient
 
     /// <inheritdoc/>
     public async Task<bool?> IsFeatureEnabledAsync(
-        string distinctId,
         string featureKey,
+        string distinctId,
         FeatureFlagOptions? options,
         CancellationToken cancellationToken)
     {
-        var result = await GetFeatureFlagAsync(
+        var result = await GetFeatureFlagAsync(featureKey,
             distinctId,
-            featureKey,
-            options,
-            cancellationToken);
+            options, cancellationToken);
 
         return result?.IsEnabled;
     }
 
     /// <inheritdoc/>
     public async Task<FeatureFlag?> GetFeatureFlagAsync(
-        string distinctId,
         string featureKey,
+        string distinctId,
         FeatureFlagOptions? options,
         CancellationToken cancellationToken)
     {
-        var flags = await GetAllFeatureFlagsAsync(
-            distinctId,
-            options ?? new FeatureFlagOptions(),
-            cancellationToken);
+        var localEvaluator = await _featureFlagsLoader.GetFeatureFlagsForLocalEvaluationAsync(cancellationToken);
+        FeatureFlag? response = null;
+        if (localEvaluator is not null && localEvaluator.TryGetLocalFeatureFlag(featureKey, out var localFeatureFlag))
+        {
+            try
+            {
+                response = new FeatureFlag(
+                    featureKey,
+                    localEvaluator.ComputeFlagLocally(
+                        localFeatureFlag,
+                        distinctId,
+                        options?.GroupProperties ?? [],
+                        options?.PersonProperties ?? []),
+                    localFeatureFlag.Filters?.Payloads);
+                _logger.LogDebugSuccessLocally(featureKey, response);
+            }
+            catch (InconclusiveMatchException e)
+            {
+                _logger.LogDebugFailedToComputeFlag(e, featureKey);
+            }
+#pragma warning disable CA1031
+            catch (Exception e)
+#pragma warning restore CA1031
+            {
+                _logger.LogErrorFailedToComputeFlag(e, featureKey);
+            }
+        }
 
-        var flag = flags.GetValueOrDefault(featureKey);
+        var flagWasLocallyEvaluated = response is not null;
+        if (!flagWasLocallyEvaluated && options is not { OnlyEvaluateLocally: true })
+        {
+            // Fallback to Decide
+            var flags = await DecideAsync(
+                distinctId,
+                options ?? new FeatureFlagOptions(),
+                cancellationToken);
+
+            response = flags.GetValueOrDefault(featureKey) ?? new FeatureFlag(featureKey, IsEnabled: false);
+            _logger.LogDebugSuccessRemotely(featureKey, response);
+        }
 
         options ??= new FeatureFlagOptions(); // We need the defaults if options is null.
 
-        var returnValue = options.SendFeatureFlagEvents
-            ? _featureFlagSentCache.GetOrCreate((distinctId, featureKey),
-                cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, flag))
-            : flag;
+        if (options.SendFeatureFlagEvents)
+        {
+            _featureFlagSentCache.GetOrCreate(
+                key: (distinctId, featureKey),
+                // This is only called if the key doesn't exist in the cache.
+                factory: cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, response));
+        }
 
         if (_featureFlagSentCache.Count >= _options.Value.FeatureFlagSentCacheSizeLimit)
         {
@@ -178,10 +213,10 @@ public sealed class PostHogClient : IPostHogClient
                 cancellationToken);
         }
 
-        return returnValue;
+        return response;
     }
 
-    FeatureFlag? CaptureFeatureFlagSentEvent(
+    bool CaptureFeatureFlagSentEvent(
         string distinctId,
         string featureKey,
         ICacheEntry cacheEntry,
@@ -204,22 +239,11 @@ public sealed class PostHogClient : IPostHogClient
             // TODO: transform groupProperties into what we expect here.
             groups: new Dictionary<string, object>());
 
-        return flag;
+        return true;
     }
 
     /// <inheritdoc/>
     public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetAllFeatureFlagsAsync(
-        string distinctId,
-        AllFeatureFlagsOptions? options,
-        CancellationToken cancellationToken)
-        => await _featureFlagsCache.GetAndCacheFeatureFlagsAsync(
-            distinctId,
-            fetcher: ct => FetchFeatureFlagsAsync(
-                distinctId,
-                options,
-                ct), cancellationToken);
-
-    async Task<IReadOnlyDictionary<string, FeatureFlag>> FetchFeatureFlagsAsync(
         string distinctId,
         AllFeatureFlagsOptions? options,
         CancellationToken cancellationToken)
@@ -243,7 +267,33 @@ public sealed class PostHogClient : IPostHogClient
             }
         }
 
+        return await DecideAsync(distinctId, options: options, cancellationToken);
+    }
+
+    // Retrieves all the evaluated feature flags from the /decide endpoint.
+    async Task<IReadOnlyDictionary<string, FeatureFlag>> DecideAsync(
+        string distinctId,
+        AllFeatureFlagsOptions? options,
+        CancellationToken cancellationToken)
+    {
         try
+        {
+            return await _featureFlagsCache.GetAndCacheFeatureFlagsAsync(
+                distinctId,
+                fetcher: _ => FetchDecideAsync(),
+                cancellationToken: cancellationToken);
+        }
+#pragma warning disable CA1031
+        catch (Exception e)
+#pragma warning restore CA1031
+        {
+            _logger.LogErrorUnableToGetFeatureFlagsAndPayloads(e);
+        }
+
+        // If we got here, something went wrong. Just return an empty response.
+        return new Dictionary<string, FeatureFlag>();
+
+        async Task<IReadOnlyDictionary<string, FeatureFlag>> FetchDecideAsync()
         {
             var results = await _apiClient.GetAllFeatureFlagsFromDecideAsync(
                 distinctId,
@@ -257,15 +307,6 @@ public sealed class PostHogClient : IPostHogClient
                     kvp => new FeatureFlag(kvp, results.FeatureFlagPayloads))
                 : new Dictionary<string, FeatureFlag>();
         }
-#pragma warning disable CA1031
-        catch (Exception e)
-#pragma warning restore CA1031
-        {
-            _logger.LogErrorUnableToGetFeatureFlagsAndPayloads(e);
-        }
-
-        // If we got here, something went wrong. Just return an empty response.
-        return new Dictionary<string, FeatureFlag>();
     }
 
     /// <inheritdoc/>
@@ -309,4 +350,34 @@ internal static partial class PostHogClientLoggerExtensions
         string eventName,
         int propertiesCount,
         int count);
+
+    [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Debug,
+        Message = "Failed to compute flag {Key} locally.")]
+    public static partial void LogDebugFailedToComputeFlag(this ILogger<PostHogClient> logger, Exception e, string key);
+
+    [LoggerMessage(
+        EventId = 4,
+        Level = LogLevel.Error,
+        Message = "[FEATURE FLAGS] Error while computing variant locally for flag {Key}.")]
+    public static partial void LogErrorFailedToComputeFlag(this ILogger<PostHogClient> logger, Exception e, string key);
+
+    [LoggerMessage(
+        EventId = 5,
+        Level = LogLevel.Error,
+        Message = "[FEATURE FLAGS] Unable to get flag {Key} remotely")]
+    public static partial void LogErrorUnableToGetRemotely(this ILogger<PostHogClient> logger, Exception e, string key);
+
+    [LoggerMessage(
+        EventId = 6,
+        Level = LogLevel.Debug,
+        Message = "Successfully computed flag locally: {Key} -> {Result}.")]
+    public static partial void LogDebugSuccessLocally(this ILogger<PostHogClient> logger, string key, FeatureFlag? result);
+
+    [LoggerMessage(
+        EventId = 7,
+        Level = LogLevel.Debug,
+        Message = "Successfully computed flag remotely: {Key} -> {Result}.")]
+    public static partial void LogDebugSuccessRemotely(this ILogger<PostHogClient> logger, string key, FeatureFlag? result);
 }

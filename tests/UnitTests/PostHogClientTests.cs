@@ -38,9 +38,9 @@ public class TheIsFeatureFlagEnabledAsyncMethod
             responseBody: new { status = 1 });
         var client = container.Activate<PostHogClient>();
 
-        await client.IsFeatureEnabledAsync("a-distinct-id", "flag-key");
-        await client.IsFeatureEnabledAsync("a-distinct-id", "flag-key"); // Cache hit, not captured.
-        await client.IsFeatureEnabledAsync("another-distinct-id", "flag-key");
+        await client.IsFeatureEnabledAsync("flag-key", "a-distinct-id");
+        await client.IsFeatureEnabledAsync("flag-key", "a-distinct-id"); // Cache hit, not captured.
+        await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id");
 
         await client.FlushAsync();
         var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
@@ -103,10 +103,8 @@ public class TheIsFeatureFlagEnabledAsyncMethod
             responseBody: new { status = 1 });
         var client = container.Activate<PostHogClient>();
 
-        await client.IsFeatureEnabledAsync(
-            distinctId: "a-distinct-id",
-            featureKey: "flag-key",
-            options: new FeatureFlagOptions { SendFeatureFlagEvents = false });
+        await client.IsFeatureEnabledAsync(featureKey: "flag-key",
+            distinctId: "a-distinct-id", options: new FeatureFlagOptions { SendFeatureFlagEvents = false });
 
         await client.FlushAsync();
         Assert.Empty(captureRequestHandler.ReceivedRequests);
@@ -115,8 +113,221 @@ public class TheIsFeatureFlagEnabledAsyncMethod
 
 public class TheGetFeatureFlagAsyncMethod
 {
+    [Fact] // Ported from PostHog/posthog-node test_get_feature_flag
+    public async Task DoesNotCallDecideWhenCanBeEvaluatedLocally()
+    {
+        var json = """
+                   { 
+                     "flags": [
+                       {
+                           "id": 1,
+                           "name": "Beta Feature",
+                           "key": "beta-feature",
+                           "is_simple_flag": false,
+                           "active": true,
+                           "rollout_percentage": 100,
+                           "filters": {
+                               "groups": [
+                                   {
+                                       "properties": [],
+                                       "rollout_percentage": 100
+                                   }
+                               ],
+                               "multivariate": {
+                                   "variants": [
+                                       {"key": "variant-1", "rollout_percentage": 50},
+                                       {"key": "variant-2", "rollout_percentage": 50}
+                                   ]
+                               }
+                           }
+                       }
+                     ]
+                   } 
+                   """;
+        var container = new TestContainer(services =>
+        {
+            services.Configure<PostHogOptions>(options =>
+            {
+                options.ProjectApiKey = "fake-project-api-key";
+                options.PersonalApiKey = "fake-personal-api-key";
+            });
+        });
+        container.FakeHttpMessageHandler.AddResponse(new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
+            HttpMethod.Get,
+            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(json));
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.GetFeatureFlagAsync("beta-feature", distinctId: "some-distinct-Id");
+
+        Assert.Equal(new FeatureFlag(Key: "beta-feature", IsEnabled: true, VariantKey: "variant-1"), result);
+    }
+
+    [Fact] // Ported from PostHog/posthog-node test_flag_with_complex_definition
+    public async Task ReturnsCorrectValueForComplexFlags()
+    {
+        var json = """
+                   {
+                     "flags": [
+                           {
+                               "id": 1,
+                               "name": "Beta Feature",
+                               "key": "complex-flag",
+                               "is_simple_flag": false,
+                               "active": true,
+                               "filters": {
+                                   "groups": [
+                                       {
+                                           "properties": [
+                                               {
+                                                   "key": "region",
+                                                   "operator": "exact",
+                                                   "value": ["USA"],
+                                                   "type": "person"
+                                               },
+                                               {
+                                                   "key": "name",
+                                                   "operator": "exact",
+                                                   "value": ["Aloha"],
+                                                   "type": "person"
+                                               }
+                                           ],
+                                           "rollout_percentage": 100
+                                       },
+                                       {
+                                           "properties": [
+                                               {
+                                                   "key": "email",
+                                                   "operator": "exact",
+                                                   "value": ["a@b.com", "b@c.com"],
+                                                   "type": "person"
+                                               }
+                                           ],
+                                           "rollout_percentage": 30
+                                       },
+                                       {
+                                           "properties": [
+                                               {
+                                                   "key": "doesnt_matter",
+                                                   "operator": "exact",
+                                                   "value": ["1", "2"],
+                                                   "type": "person"
+                                               }
+                                           ],
+                                           "rollout_percentage": 0
+                                       }
+                                   ]
+                               }
+                           }
+                       ]
+                   }
+                   """;
+        var container = new TestContainer(services =>
+        {
+            services.Configure<PostHogOptions>(options =>
+            {
+                options.ProjectApiKey = "fake-project-api-key";
+                options.PersonalApiKey = "fake-personal-api-key";
+            });
+        });
+        container.FakeHttpMessageHandler.AddResponse(
+            new Uri("https://us.i.posthog.com/api/feature_flag/local_evaluation/?token=fake-project-api-key&send_cohorts"),
+            HttpMethod.Get,
+            responseBody: await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<LocalEvaluationApiResult>(json));
+        var client = container.Activate<PostHogClient>();
+
+        Assert.True(
+            await client.GetFeatureFlagAsync(
+                featureKey: "complex-flag",
+                distinctId: "some-distinct-id",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() {["region"] = "USA", ["name"] = "Aloha"}
+                })
+        );
+
+        // this distinctIDs hash is < rollout %
+        Assert.True(
+            await client.GetFeatureFlagAsync(
+                featureKey: "complex-flag",
+                distinctId: "some-distinct-id_within_rollout?",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["region"] = "USA", ["email"] = "a@b.com" }
+                })
+        );
+
+        // will fall back on `/decide`, as all properties present for second group, but that group resolves to false
+        var decideJson = await JsonSerializerHelper.DeserializeFromCamelCaseJsonStringAsync<DecideApiResult>(
+            """
+            {"featureFlags": {"complex-flag": "decide-fallback-value"}}
+            """
+        );
+        container.FakeHttpMessageHandler.AddResponse(
+            new Uri("https://us.i.posthog.com/decide?v=3"),
+            HttpMethod.Post,
+            responseBody: decideJson);
+        Assert.Equal(
+            "decide-fallback-value",
+            await client.GetFeatureFlagAsync(
+                featureKey: "complex-flag",
+                distinctId: "some-distinct-id_outside_rollout?",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new()
+                    {
+                        ["region"] = "USA", ["email"] = "a@b.com"
+                    }
+                })
+        );
+        // Same as above
+        container.FakeHttpMessageHandler.AddResponse(
+            new Uri("https://us.i.posthog.com/decide?v=3"),
+            HttpMethod.Post,
+            responseBody: decideJson);
+        Assert.Equal(
+            "decide-fallback-value",
+            await client.GetFeatureFlagAsync(
+                featureKey: "complex-flag",
+                distinctId: "some-distinct-id",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["doesnt_matter"] = "1" }
+                })
+        );
+
+        // this one will need to fall back
+        container.FakeHttpMessageHandler.AddResponse(
+            new Uri("https://us.i.posthog.com/decide?v=3"),
+            HttpMethod.Post,
+            responseBody: decideJson);
+        Assert.Equal(
+            "decide-fallback-value",
+            await client.GetFeatureFlagAsync(
+                featureKey: "complex-flag",
+                distinctId: "some-distinct-id",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["region"] = "USA" }
+                })
+        );
+
+        // Won't need to fallback
+        Assert.False(
+            await client.GetFeatureFlagAsync(
+                featureKey: "complex-flag",
+                distinctId: "some-distinct-id_outside_rollout?",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new()
+                    {
+                        ["region"] = "USA", ["email"] = "a@b.com", ["name"] = "x", ["doesnt_matter"] = "1"
+                    }
+                })
+        );
+    }
+
     [Fact]
-    public async Task ReturnsUndefinedWhenFlagDoesNotExist()
+    public async Task ReturnsFalseWhenFlagDoesNotExist()
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
@@ -132,10 +343,9 @@ public class TheGetFeatureFlagAsyncMethod
             });
         var client = container.Activate<PostHogClient>();
 
-        var result = await client.GetFeatureFlagAsync("distinctId", "unknown-flag-key");
+        var result = await client.GetFeatureFlagAsync("unknown-flag-key", "distinctId");
 
-        Assert.Null(result);
-        Assert.Equal("undefined", result.ToResponseObject());
+        Assert.False(result);
     }
 
     [Theory]
@@ -157,7 +367,7 @@ public class TheGetFeatureFlagAsyncMethod
             });
         var client = container.Activate<PostHogClient>();
 
-        var result = await client.GetFeatureFlagAsync("distinct-id", "flag-key");
+        var result = await client.GetFeatureFlagAsync("flag-key", "distinct-id");
 
         Assert.NotNull(result);
         Assert.Equal(enabled, result.IsEnabled);
@@ -180,7 +390,7 @@ public class TheGetFeatureFlagAsyncMethod
             });
         var client = container.Activate<PostHogClient>();
 
-        var result = await client.GetFeatureFlagAsync("distinct-id", "flag-key");
+        var result = await client.GetFeatureFlagAsync("flag-key", "distinct-id");
 
         Assert.NotNull(result);
         Assert.Equal("premium-experience", result.VariantKey);
@@ -207,7 +417,7 @@ public class TheGetFeatureFlagAsyncMethod
             responseBody: new { status = 1 });
         var client = container.Activate<PostHogClient>();
 
-        var result = await client.GetFeatureFlagAsync("a-distinct-id", "flag-key");
+        var result = await client.GetFeatureFlagAsync("flag-key", "a-distinct-id");
 
         Assert.NotNull(result);
         Assert.True(result.IsEnabled);
@@ -269,15 +479,15 @@ public class TheGetFeatureFlagAsyncMethod
         var client = container.Activate<PostHogClient>();
 
         // This is captured and the cache entry will be compacted when the size limit exceeded.
-        await client.GetFeatureFlagAsync("a-distinct-id", "flag-key"); // Captured
+        await client.GetFeatureFlagAsync("flag-key", "a-distinct-id"); // Captured
         timeProvider.Advance(TimeSpan.FromSeconds(1));
-        await client.GetFeatureFlagAsync("another-distinct-id", "flag-key"); // Captured
+        await client.GetFeatureFlagAsync("flag-key", "another-distinct-id"); // Captured
         timeProvider.Advance(TimeSpan.FromSeconds(1));
-        await client.GetFeatureFlagAsync("another-distinct-id", "another-flag-key"); // Captured, cache compaction will occur after this.
+        await client.GetFeatureFlagAsync("another-flag-key", "another-distinct-id"); // Captured, cache compaction will occur after this.
         timeProvider.Advance(TimeSpan.FromSeconds(1));
-        await client.GetFeatureFlagAsync("another-distinct-id", "another-flag-key"); // Cache hit, not captured.
+        await client.GetFeatureFlagAsync("another-flag-key", "another-distinct-id"); // Cache hit, not captured.
         timeProvider.Advance(TimeSpan.FromSeconds(1));
-        await client.GetFeatureFlagAsync("a-distinct-id", "flag-key"); // Captured because cache limit exceeded.
+        await client.GetFeatureFlagAsync("flag-key", "a-distinct-id"); // Captured because cache limit exceeded.
 
         await client.FlushAsync();
         var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
@@ -375,15 +585,15 @@ public class TheGetFeatureFlagAsyncMethod
             responseBody: new { status = 1 });
         var client = container.Activate<PostHogClient>();
 
-        await client.GetFeatureFlagAsync("a-distinct-id", "flag-key"); // Captured.
+        await client.GetFeatureFlagAsync("flag-key", "a-distinct-id"); // Captured.
         timeProvider.Advance(TimeSpan.FromSeconds(1));
-        await client.GetFeatureFlagAsync("another-distinct-id", "flag-key"); // Captured
+        await client.GetFeatureFlagAsync("flag-key", "another-distinct-id"); // Captured
         timeProvider.Advance(TimeSpan.FromSeconds(1));
-        await client.GetFeatureFlagAsync("another-distinct-id", "another-flag-key"); // Captured
+        await client.GetFeatureFlagAsync("another-flag-key", "another-distinct-id"); // Captured
         timeProvider.Advance(TimeSpan.FromSeconds(1)); // Sliding time window expires for first entry.
-        await client.GetFeatureFlagAsync("another-distinct-id", "another-flag-key"); // Cache hit, not captured.
+        await client.GetFeatureFlagAsync("another-flag-key", "another-distinct-id"); // Cache hit, not captured.
         timeProvider.Advance(TimeSpan.FromSeconds(1));
-        await client.GetFeatureFlagAsync("a-distinct-id", "flag-key"); // Captured.
+        await client.GetFeatureFlagAsync("flag-key", "a-distinct-id"); // Captured.
 
         await client.FlushAsync();
         var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
@@ -474,10 +684,8 @@ public class TheGetFeatureFlagAsyncMethod
             responseBody: new { status = 1 });
         var client = container.Activate<PostHogClient>();
 
-        await client.GetFeatureFlagAsync(
-            distinctId: "a-distinct-id",
-            featureKey: "flag-key",
-            options: new FeatureFlagOptions { SendFeatureFlagEvents = false });
+        await client.GetFeatureFlagAsync(featureKey: "flag-key",
+            distinctId: "a-distinct-id", options: new FeatureFlagOptions { SendFeatureFlagEvents = false });
 
         await client.FlushAsync();
         Assert.Empty(captureRequestHandler.ReceivedRequests);
@@ -779,7 +987,7 @@ public class TheGetAllFeatureFlagsAsyncMethod
 
         var flags = await client.GetAllFeatureFlagsAsync(distinctId: "1234");
         var flagsAgain = await client.GetAllFeatureFlagsAsync(distinctId: "1234");
-        var firstFlag = await client.GetFeatureFlagAsync("1234", "flag-key");
+        var firstFlag = await client.GetFeatureFlagAsync("flag-key", "1234");
 
         Assert.NotEmpty(flags);
         Assert.Same(flags, flagsAgain);

@@ -1,4 +1,5 @@
 using PostHog.Json;
+using static PostHog.Library.Ensure;
 
 namespace PostHog.Features;
 
@@ -25,13 +26,28 @@ public record FeatureFlag(
     {
     }
 
-    internal FeatureFlag(string key, StringOrValue<bool> value, IReadOnlyDictionary<string, string>? payloads)
+    internal FeatureFlag(string key, StringOrValue<bool> value, IReadOnlyDictionary<string, string>? payloads = null)
         : this(
             key,
             value.IsString ? value.StringValue is not null : value.Value,
             VariantKey: value.StringValue,
             Payload: payloads?.GetValueOrDefault(key))
     {
-
     }
+
+    /// <summary>
+    /// Implicit cast to nullable boolean.
+    /// </summary>
+    /// <param name="flag">The <see cref="FeatureFlag"/>.</param>
+    /// <returns><c>true</c> if this feature flag is enabled, <c>false</c> if it is not, and <c>null</c> if it can't be determined.</returns>
+#pragma warning disable CA2225
+    public static implicit operator bool(FeatureFlag? flag) => flag is { IsEnabled: true };
+#pragma warning restore CA2225
+
+    /// <summary>
+    /// Implicit cast to string. This returns the variant key.
+    /// </summary>
+    /// <param name="flag">The <see cref="FeatureFlag"/>.</param>
+    /// <returns>The variant key, if this flag is enabled and has a variant key, otherwise the IsEnabled value as a string.</returns>
+    public static implicit operator string(FeatureFlag? flag) => flag?.VariantKey ?? ((bool)flag).ToString();
 }

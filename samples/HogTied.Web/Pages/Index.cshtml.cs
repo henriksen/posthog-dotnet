@@ -64,7 +64,8 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                     name: User.FindFirst(ClaimTypes.Name)?.Value,
                     additionalUserPropertiesToSet: new Dictionary<string, object>
                     {
-                        ["site"] = "sample website"
+                        ["site"] = "sample website",
+                        ["rate"] = 2.99
                     },
                     userPropertiesToSetOnce: new Dictionary<string, object>
                     {
@@ -90,10 +91,10 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
 
             foreach (var (key, flag) in flags)
             {
-                FeatureFlags[key] = (flag, await postHogClient.IsFeatureEnabledAsync(UserId, key));
+                FeatureFlags[key] = (flag, await postHogClient.IsFeatureEnabledAsync(key, UserId));
             }
 
-            NonExistentFlag = await postHogClient.IsFeatureEnabledAsync(UserId, "non-existent-flag");
+            NonExistentFlag = await postHogClient.IsFeatureEnabledAsync("non-existent-flag", UserId);
         }
     }
 

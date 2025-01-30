@@ -43,6 +43,11 @@ internal sealed class LocalFeatureFlagsLoader(
     /// <returns>All the feature flags.</returns>
     public async ValueTask<LocalEvaluator?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken)
     {
+        if (options.Value.PersonalApiKey is null)
+        {
+            // Local evaluation is not enabled since it requires a personal api key.
+            return null;
+        }
         if (_localEvaluator is { } localEvaluator)
         {
             return localEvaluator;

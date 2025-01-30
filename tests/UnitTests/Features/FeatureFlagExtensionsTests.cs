@@ -30,10 +30,8 @@ public class TheIsFeatureEnabledAsyncMethod
             });
         var client = container.Activate<PostHogClient>();
 
-        var result = await client.IsFeatureEnabledAsync(
-            "distinctId",
-            "flag-key",
-            CancellationToken.None);
+        var result = await client.IsFeatureEnabledAsync("flag-key",
+            "distinctId", CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(enabled, result.Value);
@@ -56,10 +54,8 @@ public class TheIsFeatureEnabledAsyncMethod
             });
         var client = container.Activate<PostHogClient>();
 
-        var result = await client.IsFeatureEnabledAsync(
-            "distinctId",
-            "flag-key",
-            CancellationToken.None);
+        var result = await client.IsFeatureEnabledAsync("flag-key",
+            "distinctId", CancellationToken.None);
 
         Assert.True(result);
     }
@@ -74,10 +70,8 @@ public class TheIsFeatureEnabledAsyncMethod
                 cancellationToken: Arg.Any<CancellationToken>())
             .Returns(new ReadOnlyDictionary<string, FeatureFlag>(new Dictionary<string, FeatureFlag>()));
 
-        var result = await client.IsFeatureEnabledAsync(
-            "distinctId",
-            "missing-flag-key",
-            CancellationToken.None);
+        var result = await client.IsFeatureEnabledAsync("missing-flag-key",
+            "distinctId", CancellationToken.None);
 
         Assert.Null(result);
     }

@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -11,10 +13,11 @@ namespace PostHog.Features;
 /// <summary>
 /// Class used to locally evaluate feature flags.
 /// </summary>
-public sealed class LocalEvaluator
+internal sealed class LocalEvaluator
 {
     readonly TimeProvider _timeProvider;
     readonly ILogger _logger;
+    readonly ReadOnlyDictionary<string, LocalFeatureFlag> _localFeatureFlags;
     readonly IReadOnlyDictionary<string, FilterSet> _cohortFilters;
     readonly Dictionary<int, string> _groupTypeMapping;
 
@@ -33,11 +36,22 @@ public sealed class LocalEvaluator
         _timeProvider = timeProvider;
         _logger = logger;
         _cohortFilters = LocalEvaluationApiResult.Cohorts ?? new Dictionary<string, FilterSet>().AsReadOnly();
+
+        _localFeatureFlags = flags.Flags.ToDictionary(f => f.Key).AsReadOnly();
         _groupTypeMapping = (LocalEvaluationApiResult.GroupTypeMapping ?? new Dictionary<string, string>())
             .Select(pair => (ConvertGroupTypeIdToInt32(pair.Key), pair.Value))
             .Where(pair => pair.Item1.HasValue)
             .ToDictionary(tuple => tuple.Item1.GetValueOrDefault(), tuple => tuple.Item2);
     }
+
+    /// <summary>
+    /// Tries to retrieve a <see cref="LocalFeatureFlag"/> with the specified key.
+    /// </summary>
+    /// <param name="key">The feature flag key.</param>
+    /// <param name="flag">The local feature flag to return if it exists.</param>
+    /// <returns><c>true</c> if it exists, otherwise <c>false</c>.</returns>
+    public bool TryGetLocalFeatureFlag(string key, [NotNullWhen(returnValue: true)]out LocalFeatureFlag? flag)
+        => _localFeatureFlags.TryGetValue(key, out flag);
 
     /// <summary>
     /// The flags returned from the API.
@@ -67,7 +81,7 @@ public sealed class LocalEvaluator
     /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally.</param>
     /// <param name="warnOnUnknownGroups">Whether to log a warning if the feature flag relies on a group type that's not in the supplied groups.</param>
     /// <returns></returns>
-    public StringOrValue<bool>? EvaluateFeatureFlag(
+    public StringOrValue<bool> EvaluateFeatureFlag(
         string key,
         string distinctId,
         GroupCollection? groups = null,
@@ -77,7 +91,7 @@ public sealed class LocalEvaluator
         var flagToEvaluate = LocalEvaluationApiResult.Flags.SingleOrDefault(f => f.Key == key);
         if (flagToEvaluate is null)
         {
-            return null;
+            throw new ArgumentException($"Flag {key} does not exist.", nameof(key));
         }
 
         return ComputeFlagLocally(
@@ -128,7 +142,7 @@ public sealed class LocalEvaluator
         return (results, fallbackToDecide);
     }
 
-    StringOrValue<bool> ComputeFlagLocally(
+    public StringOrValue<bool> ComputeFlagLocally(
         LocalFeatureFlag flag,
         string distinctId,
         GroupCollection groups,
@@ -311,9 +325,7 @@ public sealed class LocalEvaluator
         return MatchPropertyGroup(conditions, propertyValues);
     }
 
-    bool MatchPropertyGroup(
-        FilterSet? filterSet,
-        Dictionary<string, object?>? propertyValues)
+    bool MatchPropertyGroup(FilterSet? filterSet, Dictionary<string, object?>? propertyValues)
     {
         if (filterSet is null)
         {

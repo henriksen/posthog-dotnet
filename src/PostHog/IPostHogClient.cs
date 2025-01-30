@@ -68,30 +68,30 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <summary>
     /// Determines whether a feature is enabled for the specified user.
     /// </summary>
-    /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
     /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>
     /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
     /// </returns>
     Task<bool?> IsFeatureEnabledAsync(
-        string distinctId,
         string featureKey,
+        string distinctId,
         FeatureFlagOptions? options,
         CancellationToken cancellationToken);
 
     /// <summary>
     /// Retrieves a feature flag.
     /// </summary>
-    /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
     /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
     Task<FeatureFlag?> GetFeatureFlagAsync(
-        string distinctId,
         string featureKey,
+        string distinctId,
         FeatureFlagOptions? options,
         CancellationToken cancellationToken);
 
