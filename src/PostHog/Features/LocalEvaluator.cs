@@ -109,6 +109,12 @@ internal sealed class LocalEvaluator
         bool warnOnUnknownGroups = true)
     {
         Dictionary<string, FeatureFlag> results = new();
+
+        if (LocalEvaluationApiResult.Flags is [])
+        {
+            return (results, true);
+        }
+
         bool fallbackToDecide = false;
 
         foreach (var flag in LocalEvaluationApiResult.Flags)
