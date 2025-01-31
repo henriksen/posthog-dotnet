@@ -23,7 +23,6 @@ public sealed class PostHogClient : IPostHogClient
     readonly ITaskScheduler _taskScheduler;
     readonly ILogger<PostHogClient> _logger;
 
-
     /// <summary>
     /// Constructs a <see cref="PostHogClient"/> with the specified <paramref name="options"/>,
     /// <see cref="TimeProvider"/>, and <paramref name="logger"/>.
