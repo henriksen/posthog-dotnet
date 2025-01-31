@@ -158,48 +158,256 @@ public class TheIsFeatureFlagEnabledAsyncMethod
 
 public class TheGetFeatureFlagAsyncMethod
 {
-    [Fact] // Ported from PostHog/posthog-node test_get_feature_flag
-    public async Task DoesNotCallDecideWhenCanBeEvaluatedLocally()
+    [Fact] // Ported from PostHog/posthog-python test_flag_person_properties
+    public async Task MatchesOnPersonProperties()
     {
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            { 
-              "flags": [
-                {
-                    "id": 1,
-                    "name": "Beta Feature",
-                    "key": "beta-feature",
-                    "is_simple_flag": false,
-                    "active": true,
-                    "rollout_percentage": 100,
-                    "filters": {
-                        "groups": [
-                            {
-                                "properties": [],
-                                "rollout_percentage": 100
-                            }
-                        ],
-                        "multivariate": {
-                            "variants": [
-                                {"key": "variant-1", "rollout_percentage": 50},
-                                {"key": "variant-2", "rollout_percentage": 50}
-                            ]
-                        }
-                    }
-                }
-              ]
-            } 
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"person-flag",
+                     "is_simple_flag":true,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"region",
+                                    "operator":"exact",
+                                    "value":[
+                                       "USA"
+                                    ],
+                                    "type":"person"
+                                 }
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ]
+                     }
+                  }
+               ]
+            }
             """
         );
         var client = container.Activate<PostHogClient>();
 
-        var result = await client.GetFeatureFlagAsync("beta-feature", distinctId: "some-distinct-Id");
-
-        Assert.Equal(new FeatureFlag(Key: "beta-feature", IsEnabled: true, VariantKey: "variant-1"), result);
+        Assert.True(
+            await client.GetFeatureFlagAsync(
+                "person-flag",
+                distinctId: "some-distinct-id",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["region"] = "USA" }
+                })
+        );
+        Assert.False(
+            await client.GetFeatureFlagAsync(
+                "person-flag",
+                distinctId: "some-distinct-2",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["region"] = "Canada" }
+                })
+        );
     }
 
-    [Fact] // Ported from PostHog/posthog-node test_flag_with_complex_definition
+    [Fact] // Ported from PostHog/posthog-python test_flag_group_properties
+    public async Task MatchesOnGroupProperties()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+              "flags":[
+                 {
+                    "id":1,
+                    "name":"Beta Feature",
+                    "key":"group-flag",
+                    "is_simple_flag":true,
+                    "active":true,
+                    "filters":{
+                       "aggregation_group_type_index":0,
+                       "groups":[
+                          {
+                             "properties":[
+                                {
+                                   "group_type_index":0,
+                                   "key":"name",
+                                   "operator":"exact",
+                                   "value":[
+                                      "Project Name 1"
+                                   ],
+                                   "type":"group"
+                                }
+                             ],
+                             "rollout_percentage":35
+                          }
+                       ]
+                    }
+                 }
+              ],
+              "group_type_mapping": {"0": "company", "1": "project"}
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        var noMatchBecauseNoGroupNames = await client.GetFeatureFlagAsync(
+            featureKey: "group-flag",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                GroupProperties =
+                [
+                    new Group(
+                        GroupType: "company",
+                        GroupKey: "company",
+                        Properties: new Dictionary<string, object?>
+                        {
+                            ["name"] = "Project Name 1"
+                        })
+                ]
+            }
+        );
+        var noMatchBecauseCompanyNameDoesNotMatchFilter = await client.GetFeatureFlagAsync(
+            featureKey: "group-flag",
+            distinctId: "some-distinct-2",
+            options: new FeatureFlagOptions
+            {
+                GroupProperties =
+                [
+                    new Group(
+                        GroupType: "company",
+                        GroupKey: "company",
+                        Properties: new Dictionary<string, object?>
+                        {
+                            ["name"] = "Project Name 2"
+                        })
+                ]
+            });
+        var match = await client.GetFeatureFlagAsync(
+            featureKey: "group-flag",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                GroupProperties =
+                [
+                    new Group(
+                        GroupType: "company",
+                        GroupKey: "amazon_without_rollout",
+                        Properties: new Dictionary<string, object?>
+                        {
+                            ["name"] = "Project Name 1"
+                        })
+                ]
+            });
+        var notMatchBecauseRollout = await client.GetFeatureFlagAsync(
+            featureKey: "group-flag",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                GroupProperties =
+                [
+                    new Group(
+                        GroupType: "company",
+                        GroupKey: "amazon",
+                        Properties: new Dictionary<string, object?>
+                        {
+                            ["name"] = "Project Name 1"
+                        })
+                ]
+            });
+        var propertyMismatch = await client.GetFeatureFlagAsync(
+            featureKey: "group-flag",
+            distinctId: "some-distinct-2",
+            options: new FeatureFlagOptions
+            {
+                GroupProperties =
+                [
+                    new Group(
+                        GroupType: "company",
+                        GroupKey: "amazon_without_rollout",
+                        Properties: new Dictionary<string, object?>
+                        {
+                            ["name"] = "Project Name 2"
+                        })
+                ]
+            }
+        );
+
+        // Going to fallback to decide
+        container.FakeHttpMessageHandler.AddDecideResponse(
+            """
+            {"featureFlags": {"group-flag": "decide-fallback-value"}}
+            """
+        );
+        client.ClearLocalFlagsCache();
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+              "flags":[
+                 {
+                    "id":1,
+                    "name":"Beta Feature",
+                    "key":"group-flag",
+                    "is_simple_flag":true,
+                    "active":true,
+                    "filters":{
+                       "aggregation_group_type_index":0,
+                       "groups":[
+                          {
+                             "properties":[
+                                {
+                                   "group_type_index":0,
+                                   "key":"name",
+                                   "operator":"exact",
+                                   "value":[
+                                      "Project Name 1"
+                                   ],
+                                   "type":"group"
+                                }
+                             ],
+                             "rollout_percentage":35
+                          }
+                       ]
+                    }
+                 }
+              ],
+              "group_type_mapping": {}
+            }
+            """
+        );
+        var decideResult = await client.GetFeatureFlagAsync(
+            featureKey: "group-flag",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                GroupProperties =
+                [
+                    new Group(
+                        GroupType: "company",
+                        GroupKey: "amazon",
+                        Properties: new Dictionary<string, object?>
+                        {
+                            ["name"] = "Project Name 1"
+                        })
+                ]
+            }
+        );
+        Assert.False(noMatchBecauseNoGroupNames);
+        Assert.False(noMatchBecauseCompanyNameDoesNotMatchFilter);
+        Assert.True(match);
+        Assert.False(propertyMismatch);
+        Assert.False(notMatchBecauseRollout);
+        Assert.Equal("decide-fallback-value", decideResult);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_flag_with_complex_definition
     public async Task ReturnsCorrectValueForComplexFlags()
     {
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
@@ -354,6 +562,285 @@ public class TheGetFeatureFlagAsyncMethod
                     }
                 })
         );
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_feature_flags_fallback_to_decide
+    public async Task CanFallbackToDecide()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":true,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"id",
+                                    "value":98,
+                                    "operator": null,
+                                    "type":"cohort"
+                                 }
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ]
+                     }
+                  },
+                  {
+                     "id":2,
+                     "name":"Beta Feature",
+                     "key":"beta-feature2",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"region",
+                                    "operator":"exact",
+                                    "value":[
+                                       "USA"
+                                    ],
+                                    "type":"person"
+                                 }
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ]
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        container.FakeHttpMessageHandler.AddRepeatedDecideResponse(
+            count: 2,
+            """
+            {"featureFlags": {"beta-feature": "alakazam", "beta-feature2": "alakazam2"}}
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        // beta-feature fallbacks to decide because property type is unknown
+        Assert.Equal("alakazam", await client.GetFeatureFlagAsync("beta-feature", "some-distinct-id"));
+
+        // beta-feature2 fallbacks to decide because region property not given with call
+        Assert.Equal("alakazam2", await client.GetFeatureFlagAsync("beta-feature2", "some-distinct-id"));
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_feature_flags_dont_fallback_to_decide_when_only_local_evaluation_is_true
+    public async Task DoesNotFallbackToDecideWhenOnlyEvaluateLocallyIsTrue()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddRepeatedDecideResponse(
+            count: 2,
+            """
+            {"featureFlags": {"beta-feature": "alakazam", "beta-feature2": "alakazam2"}}
+            """
+        );
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":true,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"id",
+                                    "value":98,
+                                    "operator": null,
+                                    "type":"cohort"
+                                 }
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ]
+                     }
+                  },
+                  {
+                     "id":2,
+                     "name":"Beta Feature",
+                     "key":"beta-feature2",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"region",
+                                    "operator":"exact",
+                                    "value":[
+                                       "USA"
+                                    ],
+                                    "type":"person"
+                                 }
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ]
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        // beta-feature should fallback to decide because property type is unknown,
+        // but doesn't because only_evaluate_locally is true
+        Assert.Null(
+            await client.GetFeatureFlagAsync(
+                featureKey: "beta-feature",
+                distinctId: "some-distinct-id",
+                options: new FeatureFlagOptions {OnlyEvaluateLocally = true})
+        );
+        Assert.Null(
+            await client.IsFeatureEnabledAsync(
+                featureKey: "beta-feature",
+                distinctId: "some-distinct-id",
+                options: new FeatureFlagOptions {OnlyEvaluateLocally = true})
+        );
+
+        // beta-feature2 should fallback to decide because region property not given with call
+        // but doesn't because only_evaluate_locally is true
+        Assert.Null(
+            await client.GetFeatureFlagAsync(
+                featureKey: "beta-feature2",
+                distinctId: "some-distinct-id",
+                options: new FeatureFlagOptions {OnlyEvaluateLocally = true})
+        );
+        Assert.Null(
+            await client.IsFeatureEnabledAsync(
+                featureKey: "beta-feature2",
+                distinctId: "some-distinct-id",
+                options: new FeatureFlagOptions {OnlyEvaluateLocally = true})
+        );
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_get_feature_flag
+    public async Task DoesNotCallDecideWhenCanBeEvaluatedLocally()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            { 
+              "flags": [
+                {
+                    "id": 1,
+                    "name": "Beta Feature",
+                    "key": "beta-feature",
+                    "is_simple_flag": false,
+                    "active": true,
+                    "rollout_percentage": 100,
+                    "filters": {
+                        "groups": [
+                            {
+                                "properties": [],
+                                "rollout_percentage": 100
+                            }
+                        ],
+                        "multivariate": {
+                            "variants": [
+                                {"key": "variant-1", "rollout_percentage": 50},
+                                {"key": "variant-2", "rollout_percentage": 50}
+                            ]
+                        }
+                    }
+                }
+              ]
+            } 
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.GetFeatureFlagAsync("beta-feature", distinctId: "some-distinct-Id");
+
+        Assert.Equal(new FeatureFlag(Key: "beta-feature", IsEnabled: true, VariantKey: "variant-1"), result);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_feature_flag_never_returns_undefined_during_regular_evaluation
+    public async Task NeverReturnsNullDuringRegularEvaluation()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        var requestHandler = container.FakeHttpMessageHandler.AddDecideResponse(
+            """
+            {"featureFlags": {}}
+            """
+        );
+        var secondRequestHandler = container.FakeHttpMessageHandler.AddDecideResponse(
+            """
+            {"featureFlags": {}}
+            """
+        );
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            { 
+                "flags": [
+                {
+                    "id": 1,
+                    "name": "Beta Feature",
+                    "key": "beta-feature",
+                    "is_simple_flag": true,
+                    "active": true,
+                    "filters": {
+                        "groups": [
+                            {
+                                "properties": [],
+                                "rollout_percentage": 0
+                            }
+                        ]
+                    }
+                }]
+            } 
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        // beta-feature resolves to False, so no matter the default, stays False
+        Assert.False(await client.GetFeatureFlagAsync("beta-feature", "some-distinct-id"));
+        Assert.False(await client.IsFeatureEnabledAsync("beta-feature", "some-distinct-id"));
+        Assert.Empty(requestHandler.ReceivedRequests);
+
+        // beta-feature2 falls back to decide, and whatever decide returns is the value
+        Assert.False(await client.GetFeatureFlagAsync("beta-feature2", "some-distinct-id"));
+        Assert.False(await client.IsFeatureEnabledAsync("beta-feature2", "some-distinct-id"));
+        Assert.Single(requestHandler.ReceivedRequests);
+        Assert.Single(secondRequestHandler.ReceivedRequests);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_feature_flag_return_none_when_decide_errors_out
+    public async Task ReturnsNullWhenDecideThrowsException()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+#pragma warning disable CA2201
+        var firstRequestHandler = container.FakeHttpMessageHandler.AddDecideResponseException(new Exception("Unknown error occurred"));
+        var secondRequestHandler = container.FakeHttpMessageHandler.AddDecideResponseException(new Exception("Unknown error occurred"));
+#pragma warning restore CA2201
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse("""{"flags":[]}""");
+        var client = container.Activate<PostHogClient>();
+
+        // beta-feature2 falls back to decide, which on error returns None
+        Assert.Null(await client.GetFeatureFlagAsync("beta-feature2", "some-distinct-id"));
+        Assert.Null(await client.IsFeatureEnabledAsync("beta-feature2", "some-distinct-id"));
+        Assert.Single(firstRequestHandler.ReceivedRequests);
+        Assert.Single(secondRequestHandler.ReceivedRequests);
     }
 
     [Fact]

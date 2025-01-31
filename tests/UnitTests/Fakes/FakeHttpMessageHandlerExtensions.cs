@@ -15,6 +15,11 @@ public static class FakeHttpMessageHandlerExtensions
             HttpMethod.Post,
             responseBody: new { status = 1 });
 
+    public static FakeHttpMessageHandler.RequestHandler AddDecideResponseException(
+        this FakeHttpMessageHandler handler,
+        Exception exception)
+        => handler.AddResponseException(DecideUrl, HttpMethod.Post, exception);
+
     public static FakeHttpMessageHandler.RequestHandler AddDecideResponse(this FakeHttpMessageHandler handler, string responseBody)
         => handler.AddDecideResponse(Deserialize<DecideApiResult>(responseBody));
 
@@ -30,6 +35,9 @@ public static class FakeHttpMessageHandlerExtensions
             DecideUrl,
             HttpMethod.Post,
             responseBodyFunc: responseBodyFunc);
+
+    public static void AddRepeatedDecideResponse(this FakeHttpMessageHandler handler, int count, string responseBody)
+        => handler.AddRepeatedDecideResponse(count, _ => Deserialize<DecideApiResult>(responseBody));
 
     public static void AddRepeatedDecideResponse(this FakeHttpMessageHandler handler, int count, DecideApiResult responseBody)
         => handler.AddRepeatedDecideResponse(count, _ => responseBody);

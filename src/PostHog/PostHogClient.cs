@@ -185,14 +185,23 @@ public sealed class PostHogClient : IPostHogClient
         var flagWasLocallyEvaluated = response is not null;
         if (!flagWasLocallyEvaluated && options is not { OnlyEvaluateLocally: true })
         {
-            // Fallback to Decide
-            var flags = await DecideAsync(
-                distinctId,
-                options ?? new FeatureFlagOptions(),
-                cancellationToken);
+            try
+            {
+                // Fallback to Decide
+                var flags = await DecideAsync(
+                    distinctId,
+                    options ?? new FeatureFlagOptions(),
+                    cancellationToken);
 
-            response = flags.GetValueOrDefault(featureKey) ?? new FeatureFlag(featureKey, IsEnabled: false);
-            _logger.LogDebugSuccessRemotely(featureKey, response);
+                response = flags.GetValueOrDefault(featureKey) ?? new FeatureFlag(featureKey, IsEnabled: false);
+                _logger.LogDebugSuccessRemotely(featureKey, response);
+            }
+#pragma warning disable CA1031
+            catch (Exception e)
+#pragma warning restore CA1031
+            {
+                _logger.LogErrorUnableToGetRemotely(e, featureKey);
+            }
         }
 
         options ??= new FeatureFlagOptions(); // We need the defaults if options is null.
@@ -276,22 +285,10 @@ public sealed class PostHogClient : IPostHogClient
         AllFeatureFlagsOptions? options,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            return await _featureFlagsCache.GetAndCacheFeatureFlagsAsync(
-                distinctId,
-                fetcher: _ => FetchDecideAsync(),
-                cancellationToken: cancellationToken);
-        }
-#pragma warning disable CA1031
-        catch (Exception e)
-#pragma warning restore CA1031
-        {
-            _logger.LogErrorUnableToGetFeatureFlagsAndPayloads(e);
-        }
-
-        // If we got here, something went wrong. Just return an empty response.
-        return new Dictionary<string, FeatureFlag>();
+        return await _featureFlagsCache.GetAndCacheFeatureFlagsAsync(
+            distinctId,
+            fetcher: _ => FetchDecideAsync(),
+            cancellationToken: cancellationToken);
 
         async Task<IReadOnlyDictionary<string, FeatureFlag>> FetchDecideAsync()
         {
