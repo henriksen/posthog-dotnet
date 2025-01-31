@@ -18,64 +18,117 @@ namespace PostHogClientTests;
 public class TheIsFeatureFlagEnabledAsyncMethod
 {
     [Fact]
-    public async Task CapturesFeatureFlagCalledEventOnlyOncePerDistinctIdAndFlagKey()
+    public async Task CapturesFeatureFlagCalledEventOnlyOncePerDistinctIdFlagKeyAndResponse()
     {
-        var container = new TestContainer();
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddRepeatedDecideResponse(
-            count: 4,
-            count => new DecideApiResult
-            {
-                FeatureFlags = new Dictionary<string, StringOrValue<bool>>
+        messageHandler.AddLocalEvaluationResponse(
+            """
+            { 
+              "flags": [
                 {
-                    ["flag-key"] = $"feature-value-{count}"
-                }.AsReadOnly()
-            });
+                    "key": "flag-key",
+                    "active": true,
+                    "rollout_percentage": 100,
+                    "filters": {
+                        "groups": [
+                            {
+                                "properties": [],
+                                "rollout_percentage": 100
+                            }
+                        ]
+                    }
+                }
+              ]
+            } 
+            """
+        );
         var captureRequestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
-        await client.IsFeatureEnabledAsync("flag-key", "a-distinct-id");
+        Assert.True(await client.IsFeatureEnabledAsync("flag-key", "a-distinct-id"));
         await client.IsFeatureEnabledAsync("flag-key", "a-distinct-id"); // Cache hit, not captured.
-        await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id");
+        Assert.True(await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id"));
+        await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id"); // Cache hit
+
+        client.ClearLocalFlagsCache();
+        messageHandler.AddLocalEvaluationResponse(
+            """
+            { 
+              "flags": [
+                {
+                    "key": "flag-key",
+                    "active": true,
+                    "rollout_percentage": 0,
+                    "filters": {
+                        "groups": [
+                            {
+                                "properties": [],
+                                "rollout_percentage": 0
+                            }
+                        ]
+                    }
+                }
+              ]
+            } 
+            """
+        );
+        Assert.False(await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id")); // Not a cache-hit, new response
 
         await client.FlushAsync();
         var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
-        Assert.Equal($$"""
-                       {
-                         "api_key": "fake-project-api-key",
-                         "historical_migrations": false,
-                         "batch": [
-                           {
-                             "event": "$feature_flag_called",
-                             "properties": {
-                               "$feature_flag": "flag-key",
-                               "$feature_flag_response": "feature-value-0",
-                               "locally_evaluated": false,
-                               "$feature/flag-key": "feature-value-0",
-                               "distinct_id": "a-distinct-id",
-                               "$lib": "posthog-dotnet",
-                               "$lib_version": "{{client.Version}}",
-                               "$geoip_disable": true
-                             },
-                             "timestamp": "2024-01-21T19:08:23\u002B00:00"
-                           },
-                           {
-                             "event": "$feature_flag_called",
-                             "properties": {
-                               "$feature_flag": "flag-key",
-                               "$feature_flag_response": "feature-value-2",
-                               "locally_evaluated": false,
-                               "$feature/flag-key": "feature-value-2",
-                               "distinct_id": "another-distinct-id",
-                               "$lib": "posthog-dotnet",
-                               "$lib_version": "{{client.Version}}",
-                               "$geoip_disable": true
-                             },
-                             "timestamp": "2024-01-21T19:08:23\u002B00:00"
-                           }
-                         ]
-                       }
-                       """, received);
+        Assert.Equal(
+            $$"""
+            {
+              "api_key": "fake-project-api-key",
+              "historical_migrations": false,
+              "batch": [
+                {
+                  "event": "$feature_flag_called",
+                  "properties": {
+                    "$feature_flag": "flag-key",
+                    "$feature_flag_response": true,
+                    "locally_evaluated": false,
+                    "$feature/flag-key": true,
+                    "distinct_id": "a-distinct-id",
+                    "$lib": "posthog-dotnet",
+                    "$lib_version": "{{client.Version}}",
+                    "$geoip_disable": true
+                  },
+                  "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                },
+                {
+                  "event": "$feature_flag_called",
+                  "properties": {
+                    "$feature_flag": "flag-key",
+                    "$feature_flag_response": true,
+                    "locally_evaluated": false,
+                    "$feature/flag-key": true,
+                    "distinct_id": "another-distinct-id",
+                    "$lib": "posthog-dotnet",
+                    "$lib_version": "{{client.Version}}",
+                    "$geoip_disable": true
+                  },
+                  "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                },
+                {
+                  "event": "$feature_flag_called",
+                  "properties": {
+                    "$feature_flag": "flag-key",
+                    "$feature_flag_response": false,
+                    "locally_evaluated": false,
+                    "$feature/flag-key": false,
+                    "distinct_id": "another-distinct-id",
+                    "$lib": "posthog-dotnet",
+                    "$lib_version": "{{client.Version}}",
+                    "$geoip_disable": true
+                  },
+                  "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                }
+              ]
+            }
+            """
+        , received);
     }
 
     [Fact]
@@ -372,8 +425,8 @@ public class TheGetFeatureFlagAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddDecideResponse(
-
+        messageHandler.AddRepeatedDecideResponse(
+            count: 2,
             responseBody: new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
@@ -421,23 +474,23 @@ public class TheGetFeatureFlagAsyncMethod
     {
         var container = new TestContainer(sp =>
         {
-            sp.AddSingleton<IOptions<PostHogOptions>>(new PostHogOptions
+            sp.Configure<PostHogOptions>(options =>
             {
-                ProjectApiKey = "test-api-key",
-                FeatureFlagSentCacheSizeLimit = 2,
-                FeatureFlagSentCacheCompactionPercentage = .5 // 50%, or 1 item.
+                options.ProjectApiKey = "fake-project-api-key";
+                options.FeatureFlagSentCacheSizeLimit = 2;
+                options.FeatureFlagSentCacheCompactionPercentage = .5; // 50%, or 1 item.
             });
         });
         var timeProvider = container.FakeTimeProvider;
         var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddRepeatedDecideResponse(
             count: 6,
-            count => new DecideApiResult
+            new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                 {
-                    ["flag-key"] = $"flag-variant-{count}",
-                    ["another-flag-key"] = $"flag-variant-{count}"
+                    ["flag-key"] = $"flag-variant-1",
+                    ["another-flag-key"] = $"flag-variant-2"
                 }.AsReadOnly()
             });
         var captureRequestHandler = messageHandler.AddBatchResponse();
@@ -458,16 +511,16 @@ public class TheGetFeatureFlagAsyncMethod
         var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
         Assert.Equal($$"""
                        {
-                         "api_key": "test-api-key",
+                         "api_key": "fake-project-api-key",
                          "historical_migrations": false,
                          "batch": [
                            {
                              "event": "$feature_flag_called",
                              "properties": {
                                "$feature_flag": "flag-key",
-                               "$feature_flag_response": "flag-variant-0",
+                               "$feature_flag_response": "flag-variant-1",
                                "locally_evaluated": false,
-                               "$feature/flag-key": "flag-variant-0",
+                               "$feature/flag-key": "flag-variant-1",
                                "distinct_id": "a-distinct-id",
                                "$lib": "posthog-dotnet",
                                "$lib_version": "{{client.Version}}",
@@ -507,9 +560,9 @@ public class TheGetFeatureFlagAsyncMethod
                              "event": "$feature_flag_called",
                              "properties": {
                                "$feature_flag": "flag-key",
-                               "$feature_flag_response": "flag-variant-4",
+                               "$feature_flag_response": "flag-variant-1",
                                "locally_evaluated": false,
-                               "$feature/flag-key": "flag-variant-4",
+                               "$feature/flag-key": "flag-variant-1",
                                "distinct_id": "a-distinct-id",
                                "$lib": "posthog-dotnet",
                                "$lib_version": "{{client.Version}}",
@@ -535,12 +588,12 @@ public class TheGetFeatureFlagAsyncMethod
         var messageHandler = container.FakeHttpMessageHandler;
         messageHandler.AddRepeatedDecideResponse(
             count: 6,
-            count => new DecideApiResult
+            new DecideApiResult
             {
                 FeatureFlags = new Dictionary<string, StringOrValue<bool>>
                 {
-                    ["flag-key"] = $"flag-variant-{count}",
-                    ["another-flag-key"] = $"flag-variant-{count}"
+                    ["flag-key"] = $"flag-variant-1",
+                    ["another-flag-key"] = $"flag-variant-2"
                 }.AsReadOnly()
             });
         var captureRequestHandler = messageHandler.AddBatchResponse();
@@ -567,9 +620,9 @@ public class TheGetFeatureFlagAsyncMethod
                              "event": "$feature_flag_called",
                              "properties": {
                                "$feature_flag": "flag-key",
-                               "$feature_flag_response": "flag-variant-0",
+                               "$feature_flag_response": "flag-variant-1",
                                "locally_evaluated": false,
-                               "$feature/flag-key": "flag-variant-0",
+                               "$feature/flag-key": "flag-variant-1",
                                "distinct_id": "a-distinct-id",
                                "$lib": "posthog-dotnet",
                                "$lib_version": "{{client.Version}}",
@@ -609,9 +662,9 @@ public class TheGetFeatureFlagAsyncMethod
                              "event": "$feature_flag_called",
                              "properties": {
                                "$feature_flag": "flag-key",
-                               "$feature_flag_response": "flag-variant-4",
+                               "$feature_flag_response": "flag-variant-1",
                                "locally_evaluated": false,
-                               "$feature/flag-key": "flag-variant-4",
+                               "$feature/flag-key": "flag-variant-1",
                                "distinct_id": "a-distinct-id",
                                "$lib": "posthog-dotnet",
                                "$lib_version": "{{client.Version}}",

@@ -200,7 +200,7 @@ public sealed class PostHogClient : IPostHogClient
         if (options.SendFeatureFlagEvents)
         {
             _featureFlagSentCache.GetOrCreate(
-                key: (distinctId, featureKey),
+                key: (distinctId, featureKey, (string)response),
                 // This is only called if the key doesn't exist in the cache.
                 factory: cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, response));
         }
@@ -317,6 +317,11 @@ public sealed class PostHogClient : IPostHogClient
 
     /// <inheritdoc/>
     public void Dispose() => DisposeAsync().AsTask().Wait();
+
+    /// <summary>
+    /// Clears the local flags cache.
+    /// </summary>
+    public void ClearLocalFlagsCache() => _featureFlagsLoader.Clear();
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()

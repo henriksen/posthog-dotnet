@@ -100,6 +100,8 @@ internal sealed class LocalFeatureFlagsLoader(
         _cancellationTokenSource.Dispose();
         _timer.Dispose();
     }
+
+    public void Clear() => Interlocked.Exchange(ref _localEvaluator, null);
 }
 
 internal static partial class LocalFeatureFlagsLoaderLoggerExtensions
