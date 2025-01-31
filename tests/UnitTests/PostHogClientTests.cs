@@ -709,13 +709,13 @@ public class TheGetFeatureFlagAsyncMethod
             await client.GetFeatureFlagAsync(
                 featureKey: "beta-feature",
                 distinctId: "some-distinct-id",
-                options: new FeatureFlagOptions {OnlyEvaluateLocally = true})
+                options: new FeatureFlagOptions { OnlyEvaluateLocally = true })
         );
         Assert.Null(
             await client.IsFeatureEnabledAsync(
                 featureKey: "beta-feature",
                 distinctId: "some-distinct-id",
-                options: new FeatureFlagOptions {OnlyEvaluateLocally = true})
+                options: new FeatureFlagOptions { OnlyEvaluateLocally = true })
         );
 
         // beta-feature2 should fallback to decide because region property not given with call
@@ -724,13 +724,13 @@ public class TheGetFeatureFlagAsyncMethod
             await client.GetFeatureFlagAsync(
                 featureKey: "beta-feature2",
                 distinctId: "some-distinct-id",
-                options: new FeatureFlagOptions {OnlyEvaluateLocally = true})
+                options: new FeatureFlagOptions { OnlyEvaluateLocally = true })
         );
         Assert.Null(
             await client.IsFeatureEnabledAsync(
                 featureKey: "beta-feature2",
                 distinctId: "some-distinct-id",
-                options: new FeatureFlagOptions {OnlyEvaluateLocally = true})
+                options: new FeatureFlagOptions { OnlyEvaluateLocally = true })
         );
     }
 
@@ -1451,6 +1451,153 @@ public class TheGetAllFeatureFlagsAsyncMethod
         }, result);
     }
 
+    [Fact] // Ported from PostHog/posthog-python test_get_all_flags_and_payloads_with_fallback_empty_local_flags
+    public async Task RetrievesAllFlagsWithPayloadsWithFallbackAndEmptyLocalFlags()
+    {
+        var container = new TestContainer(personalApiKey: "fake-person");
+        container.FakeHttpMessageHandler.AddDecideResponse(
+            """
+            {
+                "featureFlags": {"beta-feature": "variant-1", "beta-feature2": "variant-2"},
+                "featureFlagPayloads": {"beta-feature": "100", "beta-feature2": "300"}
+            }
+            """
+        );
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {"flags": []}
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        // Beta feature overridden by /decide
+        var result = await client.GetAllFeatureFlagsAsync("some-distinct-id");
+
+        Assert.Equal(new Dictionary<string, FeatureFlag>
+        {
+            ["beta-feature"] = new(Key: "beta-feature", IsEnabled: true, VariantKey: "variant-1", Payload: "100"),
+            ["beta-feature2"] = new(Key: "beta-feature2", IsEnabled: true, VariantKey: "variant-2", Payload: "300")
+        }, result);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_get_all_flags_with_no_fallback
+    public async Task RetrievesAllFlagsWithNoFallback()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+              "flags":[
+                 {
+                    "id":1,
+                    "name":"Beta Feature",
+                    "key":"beta-feature",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "rollout_percentage":100,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[],
+                             "rollout_percentage":100
+                          }
+                       ]
+                    }
+                 },
+                 {
+                    "id":2,
+                    "name":"Beta Feature",
+                    "key":"disabled-feature",
+                    "is_simple_flag":false,
+                    "active":true,
+                    "filters":{
+                       "groups":[
+                          {
+                             "properties":[],
+                             "rollout_percentage":0
+                          }
+                       ]
+                    }
+                 }
+              ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        var results = await client.GetAllFeatureFlagsAsync("some-distinct-id");
+
+        Assert.Equal(new Dictionary<string, FeatureFlag>
+        {
+            ["beta-feature"] = new("beta-feature", true),
+            ["disabled-feature"] = new("disabled-feature", false)
+        }, results);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_get_all_flags_and_payloads_with_no_fallback
+    public async Task RetrievesAllFlagsWithPayloadsWithNoFallback()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "rollout_percentage":100,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ],
+                        "payloads":{
+                           "true":"new"
+                        }
+                     }
+                  },
+                  {
+                     "id":2,
+                     "name":"Beta Feature",
+                     "key":"disabled-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 
+                              ],
+                              "rollout_percentage":0
+                           }
+                        ],
+                        "payloads":{
+                           "true":"some-payload"
+                        }
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        var results = await client.GetAllFeatureFlagsAsync("some-distinct-id");
+
+        Assert.Equal(new Dictionary<string, FeatureFlag>
+        {
+            ["beta-feature"] = new("beta-feature", true, Payload: "new"),
+            ["disabled-feature"] = new("disabled-feature", false)
+        }, results);
+    }
+
     [Fact] // Ported from PostHog/posthog-python test_get_all_flags_with_fallback
     public async Task RetrievesAllFlagsWithFallbackButOnlyLocalEvaluationSet()
     {
@@ -1536,60 +1683,6 @@ public class TheGetAllFeatureFlagsAsyncMethod
         {
             ["beta-feature"] = new(Key: "beta-feature", IsEnabled: true),
             ["disabled-feature"] = new(Key: "disabled-feature", IsEnabled: false)
-        }, results);
-    }
-
-    [Fact] // Ported from PostHog/posthog-python test_get_all_flags_with_no_fallback
-    public async Task RetrievesAllFlagsWithNoFallback()
-    {
-        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
-        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
-            """
-            {
-              "flags":[
-                 {
-                    "id":1,
-                    "name":"Beta Feature",
-                    "key":"beta-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "rollout_percentage":100,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":100
-                          }
-                       ]
-                    }
-                 },
-                 {
-                    "id":2,
-                    "name":"Beta Feature",
-                    "key":"disabled-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":0
-                          }
-                       ]
-                    }
-                 }
-              ]
-            }
-            """
-        );
-        var client = container.Activate<PostHogClient>();
-
-        var results = await client.GetAllFeatureFlagsAsync("some-distinct-id");
-
-        Assert.Equal(new Dictionary<string, FeatureFlag>
-        {
-            ["beta-feature"] = new("beta-feature", true),
-            ["disabled-feature"] = new("disabled-feature", false)
         }, results);
     }
 

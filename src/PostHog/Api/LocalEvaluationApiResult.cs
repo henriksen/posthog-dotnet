@@ -62,6 +62,7 @@ public record LocalFeatureFlag(
 /// <param name="AggregationGroupTypeIndex"></param>
 public record FeatureFlagFilters(
     IReadOnlyList<FeatureFlagGroup>? Groups,
+    [property: JsonConverter(typeof(ReadonlyDictionaryJsonConverter<string, string>))]
     IReadOnlyDictionary<string, string>? Payloads = null,
     Multivariate? Multivariate = null,
     [property: JsonPropertyName("aggregation_group_type_index")]
