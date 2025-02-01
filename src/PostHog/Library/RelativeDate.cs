@@ -48,34 +48,37 @@ public partial record RelativeDate
         string? value,
         [NotNullWhen(returnValue: true)] out RelativeDate? relativeDate)
     {
+        relativeDate = null;
         if (value is null)
         {
-            relativeDate = null;
             return false;
         }
         var match = RelativeDateRegex.Match(value);
-        if (match.Success)
+        if (!match.Success)
         {
-            if (int.TryParse(match.Groups["number"].Value, out var number))
-            {
-                var unit = match.Groups["unit"].Value;
-
-                Func<DateTimeOffset, DateTimeOffset?> func = unit switch
-                {
-                    "h" => now => now.AddHours(-number),
-                    "d" => now => now.AddDays(-number),
-                    "w" => now => now.AddDays(-number * 7),
-                    "m" => now => now.AddMonths(-number),
-                    "y" => now => now.AddYears(-number),
-                    _ => _ => null
-                };
-                relativeDate = new RelativeDate(func);
-                return true;
-            }
+            return false;
         }
 
-        relativeDate = null;
-        return false;
+        if (!int.TryParse(match.Groups["number"].Value, out var number)
+            || number >= 10_000) // Guard against overflow, disallow numbers greater than 10_000
+        {
+            return false;
+        }
+
+        var unit = match.Groups["unit"].Value;
+
+        Func<DateTimeOffset, DateTimeOffset?> func = unit switch
+        {
+            "h" => now => now.AddHours(-number),
+            "d" => now => now.AddDays(-number),
+            "w" => now => now.AddDays(-number * 7),
+            "m" => now => now.AddMonths(-number),
+            "y" => now => now.AddYears(-number),
+            _ => _ => null
+        };
+        relativeDate = new RelativeDate(func);
+        return true;
+
     }
 
     [GeneratedRegex(pattern: @"^-(?<number>\d+)(?<unit>[hdwmy])$", options: RegexOptions.IgnoreCase | RegexOptions.Compiled)]

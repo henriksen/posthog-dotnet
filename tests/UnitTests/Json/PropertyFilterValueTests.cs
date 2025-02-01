@@ -9,10 +9,14 @@ public class TheIsExactMatchMethod
     [InlineData("scooby", "\"scooby\"", true)]
     [InlineData("SCOOBY", "\"scooby\"", true)]
     [InlineData("ScOoBy", "\"sCoObY\"", true)]
+    [InlineData("", "\"shaggy\"", false)]
+    [InlineData(null, "\"shaggy\"", false)]
     [InlineData("scooby", "\"shaggy\"", false)]
     [InlineData("SCOOBY", "\"shaggy\"", false)]
     [InlineData("ScOoBy", "\"shaggy\"", false)]
     [InlineData("scooby", """["SCOOBY", "SHAGGY"]""", true)]
+    [InlineData("", """["SCOOBY", "SHAGGY"]""", false)]
+    [InlineData(null, """["SCOOBY", "SHAGGY"]""", false)]
     [InlineData("scooby", """["SHAGGY", "FRED"]""", false)]
     [InlineData(42, """["1", "23", "42"]""", true)]
     [InlineData(45, """["1", "23", "42"]""", false)]
@@ -21,7 +25,7 @@ public class TheIsExactMatchMethod
     [InlineData("42.5", """["1", "23", "42.5"]""", true)]
     [InlineData(3.14, """["1", "3.14", "42"]""", true)]
     [InlineData(3.14, """["1", "1.618", "42"]""", false)]
-    public void ReturnsTrueWhenPropertyValueMatchesString(object overrideValue, string jsonValue, bool expected)
+    public void ReturnsTrueWhenPropertyValueMatchesString(object? overrideValue, string jsonValue, bool expected)
     {
         var filterPropertyValue = PropertyFilterValue.Create(JsonDocument.Parse(jsonValue).RootElement);
 

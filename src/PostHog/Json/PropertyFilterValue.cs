@@ -170,7 +170,7 @@ public class PropertyFilterValue
     }
 
     /// <summary>
-    /// Determines whether the override value represents a date greater than the date represented by this instance.
+    /// Determines whether the override value represents a date before the date represented by this instance.
     /// </summary>
     /// <param name="overrideValue">The supplied override value.</param>
     /// <param name="now">The current date.</param>
@@ -179,27 +179,36 @@ public class PropertyFilterValue
     public bool IsDateBefore(object? overrideValue, DateTimeOffset now)
     {
         // Question: Should we support DateOnly and TimeOnly?
-        if (overrideValue is not (string or DateTimeOffset or DateTime))
+        var overrideDate = ParseDate(overrideValue);
+
+        if (RelativeDate.TryParseRelativeDate(StringValue, out var relativeDate))
         {
-            throw new InconclusiveMatchException("The date provided must be a string, DateTime, or DateTimeOffset, object");
+            return overrideDate is DateTimeOffset overrideDateTimeOffset && relativeDate.IsDateBefore(overrideDateTimeOffset, now)
+                   || (overrideDate is DateTime overrideDateTime && relativeDate.IsDateBefore(overrideDateTime, now));
         }
 
-        if (!RelativeDate.TryParseRelativeDate(StringValue, out var relativeDate))
+        return ParseDate(StringValue) switch
         {
-            throw new InconclusiveMatchException("The date set on the flag is not a valid format.");
-        }
+            DateTimeOffset comparandDate => overrideDate is DateTimeOffset overrideDateTimeOffset && overrideDateTimeOffset < comparandDate,
+            DateTime comparandDate => overrideDate is DateTimeOffset overrideDateTimeOffset && overrideDateTimeOffset < comparandDate,
+            _ => throw new InconclusiveMatchException("The date provided is not a valid format")
+        };
 
-        if (overrideValue is string overrideValueString)
+        object? ParseDate(object? value)
         {
-            overrideValue = DateTimeOffset.TryParse(overrideValueString, out var dateTimeOffset)
-                ? dateTimeOffset
-                : DateTime.TryParse(overrideValueString, out var dateTime)
-                    ? dateTime
-                    : throw new InconclusiveMatchException("The date provided is not a valid format");
-        }
+            if (value is DateTime or DateTimeOffset or DateOnly)
+            {
+                return value;
+            }
 
-        return overrideValue is DateTimeOffset overrideDateTimeOffset && relativeDate.IsDateBefore(overrideDateTimeOffset, now)
-               || (overrideValue is DateTime overrideDateTime && relativeDate.IsDateBefore(overrideDateTime, now));
+            return value is string dateString
+                ? DateTimeOffset.TryParse(dateString, out var dto)
+                    ? dto
+                    : DateTime.TryParse(dateString, out var dt)
+                        ? dt
+                        : throw new InconclusiveMatchException("The date provided is not a valid format")
+                : throw new InconclusiveMatchException("The date provided must be a string, DateTime, or DateTimeOffset, object");
+        }
     }
 
     public static bool operator >(PropertyFilterValue left, object? right) => NotNull(left).CompareTo(right) > 0;
