@@ -971,6 +971,118 @@ public class TheGetFeatureFlagAsyncMethod
         Assert.True(anotherFlag);
     }
 
+    [Fact] // Ported from PostHog/posthog-python test_feature_flags_local_evaluation_for_cohorts
+    public async Task LocalEvaluationForCohorts()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":2,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"region",
+                                    "operator":"exact",
+                                    "value":[
+                                       "USA"
+                                    ],
+                                    "type":"person"
+                                 },
+                                 {
+                                    "key":"id",
+                                    "value":98,
+                                    "operator":null,
+                                    "type":"cohort"
+                                 }
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ]
+                     }
+                  }
+               ],
+               "cohorts":{
+                  "98":{
+                     "type":"OR",
+                     "values":[
+                        {
+                           "key":"id",
+                           "value":1,
+                           "type":"cohort"
+                        },
+                        {
+                           "key":"nation",
+                           "operator":"exact",
+                           "value":[
+                              "UK"
+                           ],
+                           "type":"person"
+                        }
+                     ]
+                  },
+                  "1":{
+                     "type":"AND",
+                     "values":[
+                        {
+                           "key":"other",
+                           "operator":"exact",
+                           "value":[
+                              "thing"
+                           ],
+                           "type":"person"
+                        }
+                     ]
+                  }
+               }
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+            Assert.False(await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new() { ["region"] = "UK" }
+            })
+        );
+        // even though 'other' property is not present, the cohort should still match since it's an OR condition
+        Assert.True(await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new()
+                {
+                    ["region"] = "USA",
+                    ["nation"] = "UK"
+                }
+            })
+        );
+        Assert.True(await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new()
+                {
+                    ["region"] = "USA",
+                    ["other"] = "thing"
+                }
+            })
+        );
+    }
+
     [Fact]
     public async Task ReturnsFalseWhenFlagDoesNotExist()
     {

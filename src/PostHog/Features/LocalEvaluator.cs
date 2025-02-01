@@ -18,8 +18,8 @@ internal sealed class LocalEvaluator
     readonly TimeProvider _timeProvider;
     readonly ILogger _logger;
     readonly ReadOnlyDictionary<string, LocalFeatureFlag> _localFeatureFlags;
-    readonly IReadOnlyDictionary<string, FilterSet> _cohortFilters;
-    readonly Dictionary<int, string> _groupTypeMapping;
+    readonly ReadOnlyDictionary<long, FilterSet> _cohortFilters;
+    readonly ReadOnlyDictionary<long, string> _groupTypeMapping;
 
     /// <summary>
     /// Constructs a <see cref="LocalEvaluator"/> with the specified flags.
@@ -35,13 +35,18 @@ internal sealed class LocalEvaluator
         LocalEvaluationApiResult = NotNull(flags);
         _timeProvider = timeProvider;
         _logger = logger;
-        _cohortFilters = LocalEvaluationApiResult.Cohorts ?? new Dictionary<string, FilterSet>().AsReadOnly();
+        _cohortFilters = (LocalEvaluationApiResult.Cohorts ?? new Dictionary<string, FilterSet>())
+            .Select(pair => (ConvertIdToInt64(pair.Key), pair.Value))
+            .Where(pair => pair.Item1.HasValue)
+            .ToDictionary(tuple => tuple.Item1.GetValueOrDefault(), tuple => tuple.Item2)
+            .AsReadOnly();
 
         _localFeatureFlags = flags.Flags.ToDictionary(f => f.Key).AsReadOnly();
         _groupTypeMapping = (LocalEvaluationApiResult.GroupTypeMapping ?? new Dictionary<string, string>())
-            .Select(pair => (ConvertGroupTypeIdToInt32(pair.Key), pair.Value))
+            .Select(pair => (ConvertIdToInt64(pair.Key), pair.Value))
             .Where(pair => pair.Item1.HasValue)
-            .ToDictionary(tuple => tuple.Item1.GetValueOrDefault(), tuple => tuple.Item2);
+            .ToDictionary(tuple => tuple.Item1.GetValueOrDefault(), tuple => tuple.Item2)
+            .AsReadOnly();
     }
 
     /// <summary>
@@ -334,10 +339,10 @@ internal sealed class LocalEvaluator
         //        }]
         //     }
         // }
-        var cohortId = filter.Value.StringValue;
-        if (cohortId is null || !_cohortFilters.TryGetValue(cohortId, out var conditions))
+        var cohortId = filter.Value.CohortId;
+        if (cohortId is null || !_cohortFilters.TryGetValue(cohortId.Value, out var conditions))
         {
-            throw new InconclusiveMatchException("can't match cohort without a given cohort property value");
+            throw new InconclusiveMatchException($"Can't match cohort {cohortId} without a given cohort property value");
         }
 
         return MatchPropertyGroup(conditions, propertyValues);
@@ -520,9 +525,9 @@ internal sealed class LocalEvaluator
         };
     }
 
-    int? ConvertGroupTypeIdToInt32(string id)
+    long? ConvertIdToInt64(string id)
     {
-        if (int.TryParse(id, out var intId))
+        if (long.TryParse(id, out var intId))
         {
             return intId;
         }
