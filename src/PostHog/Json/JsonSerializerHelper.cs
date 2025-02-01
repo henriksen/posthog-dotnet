@@ -12,11 +12,11 @@ internal static class JsonSerializerHelper
         Converters =
         {
             new ReadOnlyCollectionJsonConverterFactory(),
-            new ReadonlyDictionaryJsonConverterFactory()
+            new ReadOnlyDictionaryJsonConverterFactory()
         }
     };
 
-    internal static readonly JsonSerializerOptions IndentedOptions = new(Options)
+    static readonly JsonSerializerOptions IndentedOptions = new(Options)
     {
         WriteIndented = true
     };
