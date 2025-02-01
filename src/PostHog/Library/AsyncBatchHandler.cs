@@ -59,12 +59,14 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
             return;
         }
 
-        if (Count >= _options.Value.FlushAt)
+        if (Count < _options.Value.FlushAt)
         {
-            _logger.LogTraceFlushCalledOnCaptureFlushAt(_options.Value.FlushAt, Count);
-            // Signal that a flush is needed.
-            SignalFlush();
+            return;
         }
+
+        _logger.LogTraceFlushCalledOnCaptureFlushAt(_options.Value.FlushAt, Count);
+        // Signal that a flush is needed.
+        SignalFlush();
     }
 
     void SignalFlush()
@@ -102,12 +104,13 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         {
             while (await _timer.WaitForNextTickAsync(cancellationToken))
             {
-                if (Count > 0)
+                if (Count <= 0)
                 {
-                    _logger.LogTraceFlushCalledOnFlushInterval(_options.Value.FlushInterval, Count);
-                    // Signal that a flush is needed.
-                    SignalFlush();
+                    continue;
                 }
+                _logger.LogTraceFlushCalledOnFlushInterval(_options.Value.FlushInterval, Count);
+                // Signal that a flush is needed.
+                SignalFlush();
             }
         }
         catch (OperationCanceledException)
@@ -130,25 +133,11 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
             return;
         }
 
-        var batch = new List<TItem>();
         try
         {
-            while (_channel.Reader.TryRead(out var item))
+            while (_channel.Reader.TryReadBatch(_options.Value.MaxBatchSize, out var batch))
             {
-                batch.Add(item);
-                if (batch.Count >= _options.Value.MaxBatchSize)
-                {
-                    // Batch is full, send it.
-                    await SendBatch();
-                    // Clear the batch.
-                    batch.Clear();
-                }
-            }
-
-            // Send any remaining items in the batch.
-            if (batch.Count > 0)
-            {
-                await SendBatch();
+                await SendBatch(batch);
             }
         }
         finally
@@ -158,7 +147,7 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 
         return;
 
-        async Task SendBatch()
+        async Task SendBatch(IReadOnlyCollection<TItem> batch)
         {
             if (batch.Count is 0)
             {

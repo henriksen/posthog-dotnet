@@ -29,7 +29,7 @@ internal static class JsonSerializerHelper
         return Encoding.UTF8.GetString(memoryStream.ToArray());
     }
 
-    public static async Task<Stream> SerializeToCamelCaseJsonStreamAsync<T>(T obj, bool writeIndented = false)
+    static async Task<Stream> SerializeToCamelCaseJsonStreamAsync<T>(T obj, bool writeIndented = false)
     {
         var options = writeIndented ? IndentedOptions : Options;
         var stream = new MemoryStream();

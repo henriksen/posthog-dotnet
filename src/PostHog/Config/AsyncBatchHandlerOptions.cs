@@ -1,5 +1,3 @@
-using System;
-
 namespace PostHog.Config;
 
 public class AsyncBatchHandlerOptions

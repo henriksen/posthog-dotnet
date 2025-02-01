@@ -131,12 +131,7 @@ public record Multivariate(IReadOnlyCollection<Variant> Variants)
             return false;
         }
 
-        if (ReferenceEquals(this, other))
-        {
-            return true;
-        }
-
-        return Variants.SequenceEqual(other.Variants);
+        return ReferenceEquals(this, other) || Variants.SequenceEqual(other.Variants);
     }
 
     public override int GetHashCode() => Variants.GetHashCode();

@@ -46,7 +46,7 @@ public sealed class PostHogClient : IPostHogClient
         _taskScheduler = taskScheduler ?? throw new ArgumentNullException(nameof(taskScheduler));
         _apiClient = postHogApiClient;
         _featureFlagsCache = featureFlagsCache;
-        _asyncBatchHandler = new(
+        _asyncBatchHandler = new AsyncBatchHandler<CapturedEvent>(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
             taskScheduler,
@@ -64,7 +64,7 @@ public sealed class PostHogClient : IPostHogClient
         {
             SizeLimit = options.Value.FeatureFlagSentCacheSizeLimit,
             Clock = new TimeProviderSystemClock(timeProvider),
-            CompactionPercentage = options.Value.FeatureFlagSentCacheCompactionPercentage,
+            CompactionPercentage = options.Value.FeatureFlagSentCacheCompactionPercentage
         });
 
         _timeProvider = timeProvider;
@@ -252,23 +252,27 @@ public sealed class PostHogClient : IPostHogClient
         AllFeatureFlagsOptions? options,
         CancellationToken cancellationToken)
     {
-        if (_options.Value.PersonalApiKey is not null)
+        if (_options.Value.PersonalApiKey is null)
         {
-            // Attempt to load local feature flags.
-            var localEvaluator = await _featureFlagsLoader.GetFeatureFlagsForLocalEvaluationAsync(cancellationToken);
-            if (localEvaluator is not null)
-            {
-                var (localEvaluationResults, fallbackToDecide) = localEvaluator.EvaluateAllFlags(
-                    distinctId,
-                    options?.GroupProperties,
-                    options?.PersonProperties,
-                    warnOnUnknownGroups: false);
+            return await DecideAsync(distinctId, options: options, cancellationToken);
+        }
 
-                if (!fallbackToDecide || options is { OnlyEvaluateLocally: true })
-                {
-                    return localEvaluationResults;
-                }
-            }
+        // Attempt to load local feature flags.
+        var localEvaluator = await _featureFlagsLoader.GetFeatureFlagsForLocalEvaluationAsync(cancellationToken);
+        if (localEvaluator is null)
+        {
+            return await DecideAsync(distinctId, options: options, cancellationToken);
+        }
+
+        var (localEvaluationResults, fallbackToDecide) = localEvaluator.EvaluateAllFlags(
+            distinctId,
+            options?.GroupProperties,
+            options?.PersonProperties,
+            warnOnUnknownGroups: false);
+
+        if (!fallbackToDecide || options is { OnlyEvaluateLocally: true })
+        {
+            return localEvaluationResults;
         }
 
         return await DecideAsync(distinctId, options: options, cancellationToken);

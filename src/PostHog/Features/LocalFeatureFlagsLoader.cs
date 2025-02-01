@@ -91,8 +91,6 @@ internal sealed class LocalFeatureFlagsLoader(
         }
     }
 
-    internal LocalEvaluator? CachedEvaluator => _localEvaluator;
-
     public void Dispose()
     {
         _cancellationTokenSource.Dispose();
@@ -100,13 +98,4 @@ internal sealed class LocalFeatureFlagsLoader(
     }
 
     public void Clear() => Interlocked.Exchange(ref _localEvaluator, null);
-}
-
-internal static partial class LocalFeatureFlagsLoaderLoggerExtensions
-{
-    [LoggerMessage(
-        EventId = 1000,
-        Level = LogLevel.Error,
-        Message = "Unexpected exception while polling for local feature flags.")]
-    public static partial void LogTraceApiClientCreated(this ILogger<PostHogApiClient> logger, Exception exception);
 }

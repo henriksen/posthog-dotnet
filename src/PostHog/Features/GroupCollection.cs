@@ -31,7 +31,7 @@ public class GroupCollection : ICollection<Group>
         {
             return;
         }
-        ThrowArgumentExceptionIfGroupWithGroupTypeExists(groupType); ;
+        ThrowArgumentExceptionIfGroupWithGroupTypeExists(groupType);
     }
 
     /// <summary>

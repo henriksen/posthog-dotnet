@@ -9,12 +9,10 @@ namespace PostHog.Library;
 public partial record RelativeDate
 {
     static readonly Regex RelativeDateRegex = MyRegex();
-    readonly string _value;
     readonly Func<DateTimeOffset, DateTimeOffset?>? _currentDateOffsetFunc;
 
-    private RelativeDate(string value, Func<DateTimeOffset, DateTimeOffset?> currentDateOffsetFunc)
+    private RelativeDate(Func<DateTimeOffset, DateTimeOffset?> currentDateOffsetFunc)
     {
-        _value = value;
         _currentDateOffsetFunc = currentDateOffsetFunc;
     }
 
@@ -58,7 +56,7 @@ public partial record RelativeDate
         var match = RelativeDateRegex.Match(value);
         if (match.Success)
         {
-            if (int.TryParse(match.Groups["number"].Value, out int number))
+            if (int.TryParse(match.Groups["number"].Value, out var number))
             {
                 var unit = match.Groups["unit"].Value;
 
@@ -71,7 +69,7 @@ public partial record RelativeDate
                     "y" => now => now.AddYears(-number),
                     _ => _ => null
                 };
-                relativeDate = new RelativeDate(value, func);
+                relativeDate = new RelativeDate(func);
                 return true;
             }
         }

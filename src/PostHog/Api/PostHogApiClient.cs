@@ -119,7 +119,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
         var payload = new Dictionary<string, object>
         {
-            ["distinct_id"] = distinctUserId,
+            ["distinct_id"] = distinctUserId
         };
 
         if (personProperties is { Count: > 0 })
@@ -149,8 +149,6 @@ public sealed class PostHogApiClient : IPostHogApiClient
         request.Headers.Authorization = new AuthenticationHeaderValue(scheme: "Bearer", personalApiKey);
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
-
-        var stringContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
         return await response.Content.ReadFromJsonAsync<LocalEvaluationApiResult>(
             JsonSerializerHelper.Options,

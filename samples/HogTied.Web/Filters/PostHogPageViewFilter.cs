@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Options;
 using PostHog;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http.Extensions;
 using PostHog.Config;
 
 namespace HogTied.Web;

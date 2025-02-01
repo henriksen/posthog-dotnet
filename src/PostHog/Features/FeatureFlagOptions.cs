@@ -13,7 +13,7 @@ public class FeatureFlagOptions : AllFeatureFlagsOptions
     /// </summary>
     /// <remarks>
     /// When <c>true</c>, the $feature_flag_called event is sent to PostHog when calling
-    /// <see cref="IPostHogClient.GetFeatureFlagAsync"/> or <see cref=""/>
+    /// <see cref="IPostHogClient.GetFeatureFlagAsync"/>.
     /// </remarks>
     public bool SendFeatureFlagEvents { get; init; } = true;
 }

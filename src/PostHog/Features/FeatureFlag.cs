@@ -1,5 +1,4 @@
 using PostHog.Json;
-using static PostHog.Library.Ensure;
 
 namespace PostHog.Features;
 

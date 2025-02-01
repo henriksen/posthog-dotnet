@@ -48,5 +48,5 @@ public enum ComparisonOperator
     IsDateBefore,
 
     [JsonStringEnumMemberName("is_date_after")]
-    IsDateAfter,
+    IsDateAfter
 }

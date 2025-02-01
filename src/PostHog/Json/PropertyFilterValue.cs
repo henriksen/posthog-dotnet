@@ -64,7 +64,7 @@ public class PropertyFilterValue
     /// The cohort ID for this property filter.
     /// </summary>
     /// <remarks>As far as I can tell, this is the only place we have a numeric.</remarks>
-    public long? CohortId { get; set; }
+    public long? CohortId { get; }
 
     public PropertyFilterValue(string stringValue)
     {
@@ -251,7 +251,7 @@ public class PropertyFilterValue
         JsonElement jsonElement,
         [NotNullWhen(returnValue: true)] out IReadOnlyList<string>? value)
     {
-        List<string> values = new();
+        List<string> values = [];
         foreach (var element in jsonElement.EnumerateArray())
         {
             if (element.ValueKind is not JsonValueKind.String)

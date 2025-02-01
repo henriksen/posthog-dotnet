@@ -58,7 +58,7 @@ public sealed class FakeLoggerProvider : ILoggerProvider, ILoggerFactory, IExter
 
     public ILogger CreateLogger(string categoryName)
     {
-        return Loggers.GetOrAdd(categoryName, cat => new FakeLogger(categoryName, this));
+        return Loggers.GetOrAdd(categoryName, _ => new FakeLogger(categoryName, this));
     }
 
     internal void RecordEvent(LogEvent evt)

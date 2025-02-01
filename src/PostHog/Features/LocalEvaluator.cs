@@ -120,7 +120,7 @@ internal sealed class LocalEvaluator
             return (results, true);
         }
 
-        bool fallbackToDecide = false;
+        var fallbackToDecide = false;
 
         foreach (var flag in LocalEvaluationApiResult.Flags)
         {
@@ -183,40 +183,41 @@ internal sealed class LocalEvaluator
         var filters = flag.Filters;
         var aggregationGroupIndex = filters?.AggregationGroupTypeIndex;
 
-        if (aggregationGroupIndex.HasValue)
+        if (!aggregationGroupIndex.HasValue)
         {
-            if (!_groupTypeMapping.TryGetValue(aggregationGroupIndex.Value, out var groupType))
-            {
-                // Weird: We have a group type index that doesn't point to an actual group.
-                _logger.LogWarnUnknownGroupType(aggregationGroupIndex.Value, flag.Key);
-                throw new InconclusiveMatchException($"Flag has unknown group type index: {aggregationGroupIndex}");
-            }
+            return MatchFeatureFlagProperties(
+                flag,
+                distinctId,
+                personProperties);
+        }
 
-            if (!groups.TryGetGroup(groupType, out var group))
-            {
-                // Don't failover to `/decide/`, since response will be the same
-                if (warnOnUnknownGroups)
-                {
-                    _logger.LogWarnGroupTypeNotPassedIn(flag.Key);
-                }
-                else
-                {
-                    _logger.LogDebugGroupTypeNotPassedIn(flag.Key);
-                }
+        if (!_groupTypeMapping.TryGetValue(aggregationGroupIndex.Value, out var groupType))
+        {
+            // Weird: We have a group type index that doesn't point to an actual group.
+            _logger.LogWarnUnknownGroupType(aggregationGroupIndex.Value, flag.Key);
+            throw new InconclusiveMatchException($"Flag has unknown group type index: {aggregationGroupIndex}");
+        }
 
-                return false;
-            }
-
+        if (groups.TryGetGroup(groupType, out var group))
+        {
             return MatchFeatureFlagProperties(
                 flag,
                 group.GroupKey,
                 group.Properties);
         }
 
-        return MatchFeatureFlagProperties(
-            flag,
-            distinctId,
-            personProperties);
+        // Don't failover to `/decide/`, since response will be the same
+        if (warnOnUnknownGroups)
+        {
+            _logger.LogWarnGroupTypeNotPassedIn(flag.Key);
+        }
+        else
+        {
+            _logger.LogDebugGroupTypeNotPassedIn(flag.Key);
+        }
+
+        return false;
+
     }
 
     StringOrValue<bool> MatchFeatureFlagProperties(
@@ -226,7 +227,7 @@ internal sealed class LocalEvaluator
     {
         var filters = flag.Filters;
         var flagConditions = filters?.Groups ?? [];
-        bool isInconclusive = false;
+        var isInconclusive = false;
         var flagVariants = filters?.Multivariate?.Variants ?? [];
 
         // Stable sort conditions with variant overrides to the top. This ensures that if overrides are present,
@@ -239,18 +240,20 @@ internal sealed class LocalEvaluator
             {
                 // if any one condition resolves to True, we can short circuit and return
                 // the matching variant
-                if (IsConditionMatch(flag, distinctId, condition, properties))
+                if (!IsConditionMatch(flag, distinctId, condition, properties))
                 {
-                    var variantOverride = condition.Variant;
-                    var variant = variantOverride is not null
-                        && flagVariants.Select(v => v.Key).Contains(variantOverride)
-                        ? variantOverride
-                        : GetMatchingVariant(flag, distinctId);
-
-                    return variant is not null
-                        ? new StringOrValue<bool>(variant)
-                        : true;
+                    continue;
                 }
+
+                var variantOverride = condition.Variant;
+                var variant = variantOverride is not null
+                              && flagVariants.Select(v => v.Key).Contains(variantOverride)
+                    ? variantOverride
+                    : GetMatchingVariant(flag, distinctId);
+
+                return variant is not null
+                    ? new StringOrValue<bool>(variant)
+                    : true;
             }
             catch (InconclusiveMatchException)
             {
@@ -277,15 +280,11 @@ internal sealed class LocalEvaluator
         var rolloutPercentage = condition.RolloutPercentage;
         if (condition.Properties is not null)
         {
-            foreach (var property in condition.Properties)
-            {
-                var isMatch = property.Type is FilterType.Cohort
+            if (condition.Properties.Select(property => property.Type is FilterType.Cohort
                     ? MatchCohort(property, properties)
-                    : MatchProperty(property, properties);
-                if (!isMatch)
-                {
-                    return false;
-                }
+                    : MatchProperty(property, properties)).Any(isMatch => !isMatch))
+            {
+                return false;
             }
         }
 
@@ -310,7 +309,7 @@ internal sealed class LocalEvaluator
 
     static List<VariantRange> CreateVariantLookupTable(LocalFeatureFlag flag)
     {
-        List<VariantRange> results = new();
+        List<VariantRange> results = [];
         var multivariateVariants = flag.Filters?.Multivariate?.Variants;
         if (multivariateVariants is null)
         {
@@ -374,8 +373,7 @@ internal sealed class LocalEvaluator
             // We expect every filter to be a filter set. At least this is how the other client libraries work.
             foreach (var filter in filters)
             {
-                var childFilterSet = filter as FilterSet;
-                if (childFilterSet is null)
+                if (filter is not FilterSet childFilterSet)
                 {
                     continue;
                 }
@@ -417,8 +415,7 @@ internal sealed class LocalEvaluator
 
         foreach (var filter in filters)
         {
-            var propertyFilter = filter as PropertyFilter;
-            if (propertyFilter is null)
+            if (filter is not PropertyFilter propertyFilter)
             {
                 continue;
             }
@@ -428,29 +425,24 @@ internal sealed class LocalEvaluator
                     ? MatchCohort(propertyFilter, propertyValues)
                     : MatchProperty(propertyFilter, propertyValues);
                 var negation = propertyFilter.Negation;
+
                 if (filterSet.Type is FilterType.And)
                 {
-                    if (!isMatch && !negation)
+                    switch (isMatch)
                     {
-                        // If negated property, do the inverse
-                        return false;
-                    }
-
-                    if (isMatch && negation)
-                    {
-                        return false;
+                        case false when !negation:
+                        case true when negation:
+                            // If negated property, do the inverse
+                            return false;
                     }
                 }
                 else // OR Group
                 {
-                    if (isMatch && !negation)
+                    switch (isMatch)
                     {
-                        return true;
-                    }
-
-                    if (!isMatch && negation)
-                    {
-                        return true;
+                        case true when !negation:
+                        case false when negation:
+                            return true;
                     }
                 }
 
@@ -522,6 +514,7 @@ internal sealed class LocalEvaluator
             ComparisonOperator.IsSet => true, // We already checked to see that the key exists.
             ComparisonOperator.IsDateBefore => value.IsDateBefore(overrideValue, _timeProvider.GetUtcNow()),
             ComparisonOperator.IsDateAfter => !value.IsDateBefore(overrideValue, _timeProvider.GetUtcNow()),
+            null => true, // If no operator is specified, just return true.
             _ => throw new InconclusiveMatchException($"Unknown operator: {propertyFilter.Operator}")
         };
     }

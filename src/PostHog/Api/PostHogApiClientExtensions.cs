@@ -61,7 +61,7 @@ internal static class PostHogApiClientExtensions
             {
                 ["$group_type"] = type,
                 ["$group_key"] = key,
-                ["$group_set"] = properties ?? new()
+                ["$group_set"] = properties ?? new Dictionary<string, object>()
             },
             cancellationToken);
     }
