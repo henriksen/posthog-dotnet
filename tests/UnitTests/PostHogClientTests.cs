@@ -17,6 +17,69 @@ namespace PostHogClientTests;
 
 public class TheIsFeatureFlagEnabledAsyncMethod
 {
+    [Theory] // Ported from PostHog/posthog-python test_feature_enabled_simple
+             // and test_feature_enabled_simple_is_false
+             // and test_feature_enabled_simple_is_true_when_rollout_is_undefined
+    [InlineData(true, "100", true)]
+    [InlineData(true, "null", true)]
+    [InlineData(false, "100", false)]
+    [InlineData(true, "0", false)]
+    public async Task ReturnsTrueWhenFeatureFlagIsEnabled(bool active, string rolloutPercentage, bool expected)
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+#pragma warning disable CA1308
+            $$"""
+              {
+                 "flags":[
+                    {
+                       "id":1,
+                       "name":"Beta Feature",
+                       "key":"beta-feature",
+                       "is_simple_flag":true,
+                       "active":{{active.ToString().ToLowerInvariant()}},
+                       "rollout_percentage":100,
+                       "filters":{
+                          "groups":[
+                             {
+                                "properties":[
+                                   
+                                ],
+                                "rollout_percentage":{{rolloutPercentage}}
+                             }
+                          ]
+                       }
+                    }
+                 ]
+              }
+              """
+#pragma warning restore CA1308
+        );
+        var client = container.Activate<PostHogClient>();
+
+        Assert.Equal(expected, await client.IsFeatureEnabledAsync("beta-feature", "distinct-id"));
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_feature_enabled_doesnt_exist
+    public async Task ReturnsNullWhenFlagDoesNotExist()
+    {
+        var container = new TestContainer();
+        container.FakeHttpMessageHandler.AddDecideResponse("""{"featureFlags": {}}""");
+        var client = container.Activate<PostHogClient>();
+        Assert.False(await client.IsFeatureEnabledAsync("doesnt-exist", "distinct-id"));
+        container.FakeHttpMessageHandler.AddDecideResponseException(new HttpRequestException());
+        Assert.Null(await client.IsFeatureEnabledAsync("doesnt-exist", "distinct-id"));
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_personal_api_key_doesnt_exist
+    public async Task ReturnsDecideResultWhenNoPersonalApiKey()
+    {
+        var container = new TestContainer();
+        container.FakeHttpMessageHandler.AddDecideResponse("""{"featureFlags": {"feature-flag": true}}""");
+        var client = container.Activate<PostHogClient>();
+        Assert.True(await client.IsFeatureEnabledAsync("feature-flag", "distinct-id"));
+    }
+
     [Fact]
     public async Task CapturesFeatureFlagCalledEventOnlyOncePerDistinctIdFlagKeyAndResponse()
     {
@@ -829,10 +892,8 @@ public class TheGetFeatureFlagAsyncMethod
     public async Task ReturnsNullWhenDecideThrowsException()
     {
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
-#pragma warning disable CA2201
-        var firstRequestHandler = container.FakeHttpMessageHandler.AddDecideResponseException(new Exception("Unknown error occurred"));
-        var secondRequestHandler = container.FakeHttpMessageHandler.AddDecideResponseException(new Exception("Unknown error occurred"));
-#pragma warning restore CA2201
+        var firstRequestHandler = container.FakeHttpMessageHandler.AddDecideResponseException(new HttpRequestException());
+        var secondRequestHandler = container.FakeHttpMessageHandler.AddDecideResponseException(new HttpRequestException());
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse("""{"flags":[]}""");
         var client = container.Activate<PostHogClient>();
 
@@ -1048,14 +1109,14 @@ public class TheGetFeatureFlagAsyncMethod
         );
         var client = container.Activate<PostHogClient>();
 
-            Assert.False(await client.GetFeatureFlagAsync(
-            featureKey: "beta-feature",
-            distinctId: "some-distinct-id",
-            options: new FeatureFlagOptions
-            {
-                PersonProperties = new() { ["region"] = "UK" }
-            })
-        );
+        Assert.False(await client.GetFeatureFlagAsync(
+        featureKey: "beta-feature",
+        distinctId: "some-distinct-id",
+        options: new FeatureFlagOptions
+        {
+            PersonProperties = new() { ["region"] = "UK" }
+        })
+    );
         // even though 'other' property is not present, the cohort should still match since it's an OR condition
         Assert.True(await client.GetFeatureFlagAsync(
             featureKey: "beta-feature",
@@ -1083,6 +1144,258 @@ public class TheGetFeatureFlagAsyncMethod
         );
     }
 
+    [Fact] // Ported from PostHog/posthog-python test_feature_flags_local_evaluation_for_negated_cohorts
+    public async Task LocalEvaluationForNegatedCohorts()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":2,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"region",
+                                    "operator":"exact",
+                                    "value":[
+                                       "USA"
+                                    ],
+                                    "type":"person"
+                                 },
+                                 {
+                                    "key":"id",
+                                    "value":98,
+                                    "operator":null,
+                                    "type":"cohort"
+                                 }
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ]
+                     }
+                  }
+               ],
+               "cohorts":{
+                  "98":{
+                     "type":"OR",
+                     "values":[
+                        {
+                           "key":"id",
+                           "value":1,
+                           "type":"cohort"
+                        },
+                        {
+                           "key":"nation",
+                           "operator":"exact",
+                           "value":[
+                              "UK"
+                           ],
+                           "type":"person"
+                        }
+                     ]
+                  },
+                  "1":{
+                     "type":"AND",
+                     "values":[
+                        {
+                           "key":"other",
+                           "operator":"exact",
+                           "value":[
+                              "thing"
+                           ],
+                           "type":"person",
+                           "negation":true
+                        }
+                     ]
+                  }
+               }
+            }
+            """
+        );
+        var decideHandler = container.FakeHttpMessageHandler.AddDecideResponse("{}");
+        var client = container.Activate<PostHogClient>();
+
+        Assert.False(await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new() { ["region"] = "UK" }
+            })
+        );
+        Assert.Empty(decideHandler.ReceivedRequests);
+
+        // even though 'other' property is not present, the cohort should still match since it's an OR condition
+        Assert.True(await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new()
+                {
+                    ["region"] = "USA",
+                    ["nation"] = "UK"
+                }
+            })
+        );
+        Assert.Empty(decideHandler.ReceivedRequests);
+
+        // Since 'other' is negated, we return False. Since 'nation' is not present, we can't tell whether the
+        // flag should be true or false, so go to decide
+        Assert.False(await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new()
+                {
+                    ["region"] = "USA",
+                    ["other"] = "thing"
+                }
+            })
+        );
+        Assert.Single(decideHandler.ReceivedRequests);
+
+        Assert.True(await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new()
+                {
+                    ["region"] = "USA",
+                    ["other"] = "thing2"
+                }
+            })
+        );
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_get_feature_flag
+    public async Task ReturnsFlag()
+    {
+        var container = new TestContainer("fake-personal-api-key");
+        var messageHandler = container.FakeHttpMessageHandler;
+        messageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "rollout_percentage":100,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[],
+                              "rollout_percentage":100
+                           }
+                        ],
+                        "multivariate":{
+                           "variants":[
+                              {
+                                 "key":"variant-1",
+                                 "rollout_percentage":50
+                              },
+                              {
+                                 "key":"variant-2",
+                                 "rollout_percentage":50
+                              }
+                           ]
+                        }
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        Assert.Equal("variant-1", await client.GetFeatureFlagAsync("beta-feature", "distinct_id"));
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_get_feature_flag_with_variant_overrides
+    public async Task GetsFlagWithVariantOverrides()
+    {
+        var container = new TestContainer("fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "rollout_percentage":100,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"email",
+                                    "type":"person",
+                                    "value":"test@posthog.com",
+                                    "operator":"exact"
+                                 }
+                              ],
+                              "rollout_percentage":100,
+                              "variant":"second-variant"
+                           },
+                           {
+                              "rollout_percentage":50,
+                              "variant":"first-variant"
+                           }
+                        ],
+                        "multivariate":{
+                           "variants":[
+                              {
+                                 "key":"first-variant",
+                                 "name":"First Variant",
+                                 "rollout_percentage":50
+                              },
+                              {
+                                 "key":"second-variant",
+                                 "name":"Second Variant",
+                                 "rollout_percentage":25
+                              },
+                              {
+                                 "key":"third-variant",
+                                 "name":"Third Variant",
+                                 "rollout_percentage":25
+                              }
+                           ]
+                        }
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+        Assert.Equal(
+            "second-variant",
+            await client.GetFeatureFlagAsync("beta-feature", "test_id",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["email"] = "test@posthog.com" }
+                }));
+        Assert.Equal(
+            "first-variant",
+            await client.GetFeatureFlagAsync("beta-feature", "example_id"));
+    }
+
     [Fact]
     public async Task ReturnsFalseWhenFlagDoesNotExist()
     {
@@ -1101,29 +1414,6 @@ public class TheGetFeatureFlagAsyncMethod
         var result = await client.GetFeatureFlagAsync("unknown-flag-key", "distinctId");
 
         Assert.False(result);
-    }
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task ReturnsFlag(bool enabled)
-    {
-        var container = new TestContainer();
-        var messageHandler = container.FakeHttpMessageHandler;
-        messageHandler.AddDecideResponse(
-            responseBody: new DecideApiResult
-            {
-                FeatureFlags = new Dictionary<string, StringOrValue<bool>>
-                {
-                    ["flag-key"] = enabled
-                }.AsReadOnly()
-            });
-        var client = container.Activate<PostHogClient>();
-
-        var result = await client.GetFeatureFlagAsync("flag-key", "distinct-id");
-
-        Assert.NotNull(result);
-        Assert.Equal(enabled, result.IsEnabled);
     }
 
     [Fact]

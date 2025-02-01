@@ -281,7 +281,7 @@ public class TheDisposeAsyncMethod
             FlushInterval = TimeSpan.FromHours(3)
         });
         var items = new List<int>();
-        Func<IEnumerable<int>, Task> handlerFunc = batch => { throw new InvalidOperationException("Test exception"); };
+        Func<IEnumerable<int>, Task> handlerFunc = batch => throw new HttpRequestException("Test exception");
 
         await using (var batchHandler = new AsyncBatchHandler<int>(handlerFunc, new FakeTimeProvider(), options))
         {

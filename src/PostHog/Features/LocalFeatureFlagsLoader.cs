@@ -79,9 +79,7 @@ internal sealed class LocalFeatureFlagsLoader(
                 {
                     await LoadLocalEvaluatorAsync(cancellationToken);
                 }
-#pragma warning disable CA1031 // We don't want exceptions to bring down the polling.
-                catch (Exception e)
-#pragma warning restore CA1031
+                catch (HttpRequestException e)
                 {
                     logger.LogErrorUnexpectedException(e);
                 }

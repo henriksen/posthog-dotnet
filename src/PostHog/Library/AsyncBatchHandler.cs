@@ -89,9 +89,7 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         {
             _logger.LogTraceOperationCancelled(nameof(HandleFlushSignal));
         }
-#pragma warning disable CA1031
-        catch (Exception ex)
-#pragma warning restore CA1031
+        catch (HttpRequestException ex) // TODO: Catch the exceptions we might expect.
         {
             _logger.LogErrorUnexpectedException(ex, nameof(HandleFlushSignal));
         }
@@ -201,9 +199,11 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
             // Flush the last remaining items.
             await FlushBatchesAsync();
         }
-#pragma warning disable CA1031
-        catch (Exception e)
-#pragma warning restore CA1031
+        catch (HttpRequestException e)
+        {
+            _logger.LogErrorUnexpectedException(e, nameof(DisposeAsync));
+        }
+        catch (ObjectDisposedException e)
         {
             _logger.LogErrorUnexpectedException(e, nameof(DisposeAsync));
         }

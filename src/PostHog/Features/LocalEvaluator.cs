@@ -153,9 +153,7 @@ internal sealed class LocalEvaluator
                 // No need to log this, since it's just telling us to fall back to `/decide`
                 fallbackToDecide = true;
             }
-#pragma warning disable CA1031
-            catch (Exception e)
-#pragma warning restore CA1031
+            catch (HttpRequestException e)
             {
                 fallbackToDecide = true;
                 _logger.LogErrorUnexpectedException(e);
@@ -244,7 +242,8 @@ internal sealed class LocalEvaluator
                 if (IsConditionMatch(flag, distinctId, condition, properties))
                 {
                     var variantOverride = condition.Variant;
-                    var variant = variantOverride is not null && flagVariants.Select(v => v.Key).Contains(variantOverride)
+                    var variant = variantOverride is not null
+                        && flagVariants.Select(v => v.Key).Contains(variantOverride)
                         ? variantOverride
                         : GetMatchingVariant(flag, distinctId);
 
@@ -276,14 +275,17 @@ internal sealed class LocalEvaluator
         Dictionary<string, object?>? properties)
     {
         var rolloutPercentage = condition.RolloutPercentage;
-        foreach (var property in condition.Properties)
+        if (condition.Properties is not null)
         {
-            var isMatch = property.Type is FilterType.Cohort
-                ? MatchCohort(property, properties)
-                : MatchProperty(property, properties);
-            if (!isMatch)
+            foreach (var property in condition.Properties)
             {
-                return false;
+                var isMatch = property.Type is FilterType.Cohort
+                    ? MatchCohort(property, properties)
+                    : MatchProperty(property, properties);
+                if (!isMatch)
+                {
+                    return false;
+                }
             }
         }
 
@@ -299,24 +301,23 @@ internal sealed class LocalEvaluator
     static string? GetMatchingVariant(LocalFeatureFlag flag, string distinctId)
     {
         var hashValue = Hash(flag.Key, distinctId, salt: "variant");
-        return CreateVariaGetVariantLookupTable(flag)
+        return CreateVariantLookupTable(flag)
             .FirstOrDefault(variant => hashValue >= variant.MinValue && hashValue < variant.MaxValue)
             ?.Key;
     }
 
-
     record VariantRange(string Key, double MinValue, double MaxValue);
 
-    static List<VariantRange> CreateVariaGetVariantLookupTable(LocalFeatureFlag flag)
+    static List<VariantRange> CreateVariantLookupTable(LocalFeatureFlag flag)
     {
         List<VariantRange> results = new();
-        var multivariates = flag.Filters?.Multivariate?.Variants;
-        if (multivariates is null)
+        var multivariateVariants = flag.Filters?.Multivariate?.Variants;
+        if (multivariateVariants is null)
         {
             return results;
         }
         double minValue = 0;
-        foreach (var variant in multivariates)
+        foreach (var variant in multivariateVariants)
         {
             var maxValue = minValue + variant.RolloutPercentage / 100.0;
             results.Add(new VariantRange(variant.Key, minValue, maxValue));

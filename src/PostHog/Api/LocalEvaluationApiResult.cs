@@ -96,10 +96,10 @@ public record FeatureFlagFilters(
 /// <param name="Properties">Conditions about the user/group. (e.g. "user is in country X" or "user is in cohort Y")</param>
 /// <param name="RolloutPercentage">Optional percentage (0-100) for gradual rollouts. Defaults to 100.</param>
 public record FeatureFlagGroup(
-    IReadOnlyList<PropertyFilter> Properties,
+    IReadOnlyList<PropertyFilter>? Properties,
     string? Variant = null,
     [property: JsonPropertyName("rollout_percentage")]
-    int RolloutPercentage = 100)
+    int? RolloutPercentage = 100)
 {
     public virtual bool Equals(FeatureFlagGroup? other)
     {
@@ -113,7 +113,8 @@ public record FeatureFlagGroup(
             return true;
         }
 
-        return Properties.SequenceEqual(other.Properties)
+        return ((Properties is null && other.Properties is null)
+                || (Properties is not null && other.Properties is not null && Properties.SequenceEqual(other.Properties)))
                && Variant == other.Variant
                && RolloutPercentage == other.RolloutPercentage;
     }

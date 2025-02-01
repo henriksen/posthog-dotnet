@@ -173,9 +173,7 @@ public sealed class PostHogClient : IPostHogClient
             {
                 _logger.LogDebugFailedToComputeFlag(e, featureKey);
             }
-#pragma warning disable CA1031
-            catch (Exception e)
-#pragma warning restore CA1031
+            catch (HttpRequestException e)
             {
                 _logger.LogErrorFailedToComputeFlag(e, featureKey);
             }
@@ -195,9 +193,7 @@ public sealed class PostHogClient : IPostHogClient
                 response = flags.GetValueOrDefault(featureKey) ?? new FeatureFlag(featureKey, IsEnabled: false);
                 _logger.LogDebugSuccessRemotely(featureKey, response);
             }
-#pragma warning disable CA1031
-            catch (Exception e)
-#pragma warning restore CA1031
+            catch (HttpRequestException e)
             {
                 _logger.LogErrorUnableToGetRemotely(e, featureKey);
             }
