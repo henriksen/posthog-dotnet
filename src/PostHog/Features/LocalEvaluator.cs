@@ -505,12 +505,12 @@ internal sealed class LocalEvaluator
         {
             ComparisonOperator.Exact => value.IsExactMatch(overrideValue),
             ComparisonOperator.IsNot => !value.IsExactMatch(overrideValue),
-            ComparisonOperator.GreaterThan => value > overrideValue,
-            ComparisonOperator.LessThan => value < overrideValue,
-            ComparisonOperator.GreaterThanOrEquals => value >= overrideValue,
-            ComparisonOperator.LessThanOrEquals => value <= overrideValue,
-            ComparisonOperator.ContainsIgnoreCase => value.Contains(overrideValue, StringComparison.OrdinalIgnoreCase),
-            ComparisonOperator.DoesNotContainsIgnoreCase => !value.Contains(overrideValue, StringComparison.OrdinalIgnoreCase),
+            ComparisonOperator.GreaterThan => value < overrideValue,
+            ComparisonOperator.GreaterThanOrEquals => value <= overrideValue,
+            ComparisonOperator.LessThan => value > overrideValue,
+            ComparisonOperator.LessThanOrEquals => value >= overrideValue,
+            ComparisonOperator.ContainsIgnoreCase => value.IsContainedBy(overrideValue, StringComparison.OrdinalIgnoreCase),
+            ComparisonOperator.DoesNotContainsIgnoreCase => !value.IsContainedBy(overrideValue, StringComparison.OrdinalIgnoreCase),
             ComparisonOperator.Regex => value.IsRegexMatch(overrideValue),
             ComparisonOperator.NotRegex => !value.IsRegexMatch(overrideValue),
             ComparisonOperator.IsSet => true, // We already checked to see that the key exists.

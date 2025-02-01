@@ -884,6 +884,93 @@ public class TheGetFeatureFlagAsyncMethod
         Assert.Single(requestHandler.ReceivedRequests);
     }
 
+    [Fact] // Ported from PostHog/posthog-python test_feature_flags_local_evaluation_None_values
+    public async Task LocalEvaluationWithNullValues()
+    {
+        var container = new TestContainer(personalApiKey: "fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":true,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "variant":"None",
+                              "properties":[
+                                 {
+                                    "key":"latestBuildVersion",
+                                    "type":"person",
+                                    "value":".+",
+                                    "operator":"regex"
+                                 },
+                                 {
+                                    "key":"latestBuildVersionMajor",
+                                    "type":"person",
+                                    "value":"23",
+                                    "operator":"gt"
+                                 },
+                                 {
+                                    "key":"latestBuildVersionMinor",
+                                    "type":"person",
+                                    "value":"31",
+                                    "operator":"gt"
+                                 },
+                                 {
+                                    "key":"latestBuildVersionPatch",
+                                    "type":"person",
+                                    "value":"0",
+                                    "operator":"gt"
+                                 }
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ]
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        var flag = await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new()
+                {
+                    ["latestBuildVersion"] = null,
+                    ["latestBuildVersionMajor"] = null,
+                    ["latestBuildVersionMinor"] = null,
+                    ["latestBuildVersionPatch"] = null
+                }
+            });
+
+        Assert.False(flag);
+
+        var anotherFlag = await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new()
+                {
+                    ["latestBuildVersion"] = "24.32.1",
+                    ["latestBuildVersionMajor"] = "24",
+                    ["latestBuildVersionMinor"] = "32",
+                    ["latestBuildVersionPatch"] = "1"
+                }
+            });
+        Assert.True(anotherFlag);
+    }
+
     [Fact]
     public async Task ReturnsFalseWhenFlagDoesNotExist()
     {

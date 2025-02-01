@@ -26,8 +26,8 @@ public class PropertyFilterValueJsonConverter : JsonConverter<PropertyFilterValu
             case { StringValue: { } stringValue }:
                 writer.WriteStringValue(stringValue);
                 break;
-            case { IntegerValue: { } integerValue }:
-                writer.WriteNumberValue(integerValue);
+            case { CohortId: { } cohortId }:
+                writer.WriteNumberValue(cohortId);
                 break;
             case { ListOfStrings: { } stringArray }:
                 {
@@ -42,41 +42,6 @@ public class PropertyFilterValueJsonConverter : JsonConverter<PropertyFilterValu
 
                     // End the JSON array
                     writer.WriteEndArray();
-                    break;
-                }
-            case { ListOfIntegers: { } integerArray }:
-                {
-                    // Begin writing the JSON array
-                    writer.WriteStartArray();
-
-                    // Iterate through the list and write each string value
-                    foreach (var item in integerArray)
-                    {
-                        writer.WriteNumberValue(item);
-                    }
-
-                    // End the JSON array
-                    writer.WriteEndArray();
-                    break;
-                }
-            case { ListOfDoubles: { } doubleArray }:
-                {
-                    // Begin writing the JSON array
-                    writer.WriteStartArray();
-
-                    // Iterate through the list and write each string value
-                    foreach (var item in doubleArray)
-                    {
-                        writer.WriteNumberValue(item);
-                    }
-
-                    // End the JSON array
-                    writer.WriteEndArray();
-                    break;
-                }
-            case { BoolValue: { } boolValue }:
-                {
-                    writer.WriteBooleanValue(boolValue);
                     break;
                 }
             case null:

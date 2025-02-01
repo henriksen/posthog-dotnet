@@ -150,6 +150,8 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
 
+        var stringContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
         return await response.Content.ReadFromJsonAsync<LocalEvaluationApiResult>(
             JsonSerializerHelper.Options,
             cancellationToken);

@@ -1,7 +1,7 @@
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
-using PostHog;
 using PostHog.Api;
 using PostHog.Features;
 using PostHog.Json;
@@ -31,8 +31,17 @@ public class TheEvaluateFeatureFlagMethod
         );
     }
 
-    [Fact]
-    public void MatchesRegexUserProperty()
+    [Theory]
+    [InlineData("snuffleupagus@gmail.com", ComparisonOperator.Regex, "^.*?@gmail.com$", true)]
+    [InlineData("snuffleupagus@hotmail.com", ComparisonOperator.Regex, "^.*?@gmail.com$", false)]
+    [InlineData("snuffleupagus@gmail.com", ComparisonOperator.NotRegex, "^.*?@gmail.com$", false)]
+    [InlineData("snuffleupagus@hotmail.com", ComparisonOperator.NotRegex, "^.*?@gmail.com$", true)]
+    // PostHog supports this for number types.
+    [InlineData(8675309, ComparisonOperator.Regex, ".+75.+", true)]
+    [InlineData(8675309, ComparisonOperator.NotRegex, ".+75.+", false)]
+    [InlineData(8675309, ComparisonOperator.Regex, ".+76.+", false)]
+    [InlineData(8675309, ComparisonOperator.NotRegex, ".+76.+", true)]
+    public void MatchesRegexUserProperty(object overrideValue, ComparisonOperator comparison, string filterValue, bool expected)
     {
         var flags = CreateFlags(
             key: "email",
@@ -40,13 +49,13 @@ public class TheEvaluateFeatureFlagMethod
                 new PropertyFilter(
                     Type: FilterType.Person,
                     Key: "email",
-                    Value: new PropertyFilterValue("^.*?@gmail.com$"),
-                    Operator: ComparisonOperator.Regex)
+                    Value: new PropertyFilterValue(filterValue),
+                    Operator: comparison)
             ]
         );
         var properties = new Dictionary<string, object?>
         {
-            ["email"] = "snuffleupagus@gmail.com"
+            ["email"] = overrideValue
         };
         var localEvaluator = new LocalEvaluator(flags);
 
@@ -55,7 +64,88 @@ public class TheEvaluateFeatureFlagMethod
             distinctId: "distinct-id",
             personProperties: properties);
 
-        Assert.Equal(true, result);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("Works at PostHog", ComparisonOperator.ContainsIgnoreCase, "\"posthog\"", true)]
+    [InlineData("Works at PostHog", ComparisonOperator.DoesNotContainsIgnoreCase, "\"posthog\"", false)]
+    [InlineData("Works at PostHog", ComparisonOperator.DoesNotContainsIgnoreCase, "\"PostHog\"", false)]
+    [InlineData("Loves puppies", ComparisonOperator.ContainsIgnoreCase, "\"cats\"", false)]
+    [InlineData("Loves puppies", ComparisonOperator.DoesNotContainsIgnoreCase, "\"cats\"", true)]
+    public void HandlesContainsComparisons(object overrideValue, ComparisonOperator comparison, string filterValueJson, bool expected)
+    {
+        var flags = CreateFlags(
+            key: "bio",
+            properties:
+            [
+                new PropertyFilter(
+                    Type: FilterType.Person,
+                    Key: "bio",
+                    Value: PropertyFilterValue.Create(JsonDocument.Parse(filterValueJson).RootElement)!,
+                    Operator: comparison)
+            ]
+        );
+        var properties = new Dictionary<string, object?>
+        {
+            ["bio"] = overrideValue
+        };
+        var localEvaluator = new LocalEvaluator(flags);
+
+        var result = localEvaluator.EvaluateFeatureFlag(
+            key: "bio",
+            distinctId: "distinct-id",
+            personProperties: properties);
+
+        Assert.Equal(expected, result);
+    }
+
+
+    [Theory]
+    [InlineData(22, ComparisonOperator.GreaterThan, "\"21\"", true)]
+    [InlineData(22, ComparisonOperator.GreaterThanOrEquals, "\"21\"", true)]
+    [InlineData("22", ComparisonOperator.GreaterThan, "\"21\"", true)]
+    [InlineData("22", ComparisonOperator.GreaterThanOrEquals, "\"21\"", true)]
+    [InlineData(20, ComparisonOperator.GreaterThan, "\"21\"", false)]
+    [InlineData(20, ComparisonOperator.GreaterThanOrEquals, "\"21\"", false)]
+    [InlineData("20", ComparisonOperator.GreaterThan, "\"21\"", false)]
+    [InlineData("20", ComparisonOperator.GreaterThanOrEquals, "\"21\"", false)]
+    [InlineData(22, ComparisonOperator.LessThan, "\"21\"", false)]
+    [InlineData(22, ComparisonOperator.LessThanOrEquals, "\"21\"", false)]
+    [InlineData("22", ComparisonOperator.LessThan, "\"21\"", false)]
+    [InlineData("22", ComparisonOperator.LessThanOrEquals, "\"21\"", false)]
+    [InlineData(20, ComparisonOperator.LessThan, "\"21\"", true)]
+    [InlineData(20, ComparisonOperator.LessThanOrEquals, "\"21\"", true)]
+    [InlineData("20", ComparisonOperator.LessThan, "\"21\"", true)]
+    [InlineData("20", ComparisonOperator.LessThanOrEquals, "\"21\"", true)]
+    [InlineData(21, ComparisonOperator.GreaterThanOrEquals, "\"21\"", true)]
+    [InlineData("21", ComparisonOperator.GreaterThanOrEquals, "\"21\"", true)]
+    [InlineData(21, ComparisonOperator.LessThanOrEquals, "\"21\"", true)]
+    [InlineData("21", ComparisonOperator.LessThanOrEquals, "\"21\"", true)]
+    public void HandlesGreaterAndLessThanComparisons(object overrideValue, ComparisonOperator comparison, string filterValueJson, bool expected)
+    {
+        var flags = CreateFlags(
+            key: "age",
+            properties: [
+                new PropertyFilter(
+                    Type: FilterType.Person,
+                    Key: "age",
+                    Value: PropertyFilterValue.Create(JsonDocument.Parse(filterValueJson).RootElement)!,
+                    Operator: comparison)
+            ]
+        );
+        var properties = new Dictionary<string, object?>
+        {
+            ["age"] = overrideValue
+        };
+        var localEvaluator = new LocalEvaluator(flags);
+
+        var result = localEvaluator.EvaluateFeatureFlag(
+            key: "age",
+            distinctId: "distinct-id",
+            personProperties: properties);
+
+        Assert.Equal(expected, result);
     }
 
     [Theory]
@@ -95,8 +185,12 @@ public class TheEvaluateFeatureFlagMethod
 
     [Theory]
     [InlineData(42, true)]
+    [InlineData(42.5, true)]
+    [InlineData("42.5", true)]
     [InlineData(21, false)]
-    public void HandlesExactMatchWithIntValuesArray(int age, bool expected)
+    [InlineData("42", true)]
+    [InlineData("21", false)]
+    public void HandlesExactMatchNumericValues(object ageOverride, bool expected)
     {
         var flags = CreateFlags(
             key: "age",
@@ -104,48 +198,19 @@ public class TheEvaluateFeatureFlagMethod
                 new PropertyFilter(
                     Type: FilterType.Person,
                     Key: "age",
-                    Value: new PropertyFilterValue([4, 8, 15, 16, 23, 42 ]),
+                    Value: new PropertyFilterValue(["4", "8", "15", "16", "23", "42", "42.5" ]),
                     Operator: ComparisonOperator.Exact)
             ]
         );
         var properties = new Dictionary<string, object?>
         {
-            ["age"] = age
+            ["age"] = ageOverride
         };
         var localEvaluator = new LocalEvaluator(flags);
 
         var result = localEvaluator.EvaluateFeatureFlag(
             key: "age",
             distinctId: "1234",
-            personProperties: properties);
-
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData(42.42, true)]
-    [InlineData(23.49, false)]
-    public void HandlesExactMatchWithDoubleValuesArray(double age, bool expected)
-    {
-        var flags = CreateFlags(
-            key: "cash",
-            properties: [
-                new PropertyFilter(
-                    Type: FilterType.Person,
-                    Key: "cash",
-                    Value: new PropertyFilterValue([4.1, 8.2, 15.3, 16.4, 23.5, 42.42]),
-                    Operator: ComparisonOperator.Exact)
-            ]
-        );
-        var properties = new Dictionary<string, object?>
-        {
-            ["cash"] = age
-        };
-        var localEvaluator = new LocalEvaluator(flags);
-
-        var result = localEvaluator.EvaluateFeatureFlag(
-            key: "cash",
-            distinctId: "12341234",
             personProperties: properties);
 
         Assert.Equal(expected, result);
