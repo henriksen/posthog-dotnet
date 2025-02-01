@@ -118,5 +118,5 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <summary>
     /// The version of this library.
     /// </summary>
-    Version Version { get; }
+    string Version { get; }
 }

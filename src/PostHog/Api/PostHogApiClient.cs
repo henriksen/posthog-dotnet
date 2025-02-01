@@ -156,7 +156,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
     }
 
     /// <inheritdoc/>
-    public Version Version => new(VersionConstants.Version);
+    public string Version => VersionConstants.Version;
 
     void PrepareAndMutatePayload(Dictionary<string, object> payload)
     {

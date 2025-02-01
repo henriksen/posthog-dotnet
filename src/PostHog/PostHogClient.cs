@@ -309,7 +309,7 @@ public sealed class PostHogClient : IPostHogClient
     public async Task FlushAsync() => await _asyncBatchHandler.FlushAsync();
 
     /// <inheritdoc/>
-    public Version Version => _apiClient.Version;
+    public string Version => _apiClient.Version;
 
     /// <inheritdoc/>
     public void Dispose() => DisposeAsync().AsTask().Wait();

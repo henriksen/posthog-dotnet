@@ -50,5 +50,5 @@ public interface IPostHogApiClient : IDisposable
     /// <summary>
     /// The version of the client.
     /// </summary>
-    Version Version { get; }
+    string Version { get; }
 }
