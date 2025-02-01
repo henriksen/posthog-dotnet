@@ -1386,7 +1386,9 @@ public class TheGetFeatureFlagAsyncMethod
         var client = container.Activate<PostHogClient>();
         Assert.Equal(
             "second-variant",
-            await client.GetFeatureFlagAsync("beta-feature", "test_id",
+            await client.GetFeatureFlagAsync(
+                featureKey: "beta-feature",
+                distinctId: "test_id",
                 options: new FeatureFlagOptions
                 {
                     PersonProperties = new() { ["email"] = "test@posthog.com" }
@@ -1394,6 +1396,254 @@ public class TheGetFeatureFlagAsyncMethod
         Assert.Equal(
             "first-variant",
             await client.GetFeatureFlagAsync("beta-feature", "example_id"));
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_flag_with_clashing_variant_overrides
+    public async Task GetsFlagWithClashingVariantOverrides()
+    {
+        var container = new TestContainer("fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "rollout_percentage":100,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"email",
+                                    "type":"person",
+                                    "value":"test@posthog.com",
+                                    "operator":"exact"
+                                 }
+                              ],
+                              "rollout_percentage":100,
+                              "variant":"second-variant"
+                           },
+                           {
+                              "properties":[
+                                 {
+                                    "key":"email",
+                                    "type":"person",
+                                    "value":"test@posthog.com",
+                                    "operator":"exact"
+                                 }
+                              ],
+                              "rollout_percentage":100,
+                              "variant":"first-variant"
+                           },
+                           {
+                              "rollout_percentage":50,
+                              "variant":"first-variant"
+                           }
+                        ],
+                        "multivariate":{
+                           "variants":[
+                              {
+                                 "key":"first-variant",
+                                 "name":"First Variant",
+                                 "rollout_percentage":50
+                              },
+                              {
+                                 "key":"second-variant",
+                                 "name":"Second Variant",
+                                 "rollout_percentage":25
+                              },
+                              {
+                                 "key":"third-variant",
+                                 "name":"Third Variant",
+                                 "rollout_percentage":25
+                              }
+                           ]
+                        }
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+        // Because second-variant is first in the group, it takes precedence
+        Assert.Equal(
+            "second-variant",
+            await client.GetFeatureFlagAsync(
+                featureKey: "beta-feature",
+                distinctId: "test_id",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["email"] = "test@posthog.com" }
+                }));
+        Assert.Equal(
+            "second-variant",
+            await client.GetFeatureFlagAsync(
+                featureKey: "beta-feature",
+                distinctId: "example_id",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["email"] = "test@posthog.com" }
+                }));
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_flag_with_invalid_variant_overrides
+    public async Task GetsFlagWithInvalidVariantOverrides()
+    {
+        var container = new TestContainer("fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "rollout_percentage":100,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"email",
+                                    "type":"person",
+                                    "value":"test@posthog.com",
+                                    "operator":"exact"
+                                 }
+                              ],
+                              "rollout_percentage":100,
+                              "variant":"second???"
+                           },
+                           {
+                              "rollout_percentage":50,
+                              "variant":"first??"
+                           }
+                        ],
+                        "multivariate":{
+                           "variants":[
+                              {
+                                 "key":"first-variant",
+                                 "name":"First Variant",
+                                 "rollout_percentage":50
+                              },
+                              {
+                                 "key":"second-variant",
+                                 "name":"Second Variant",
+                                 "rollout_percentage":25
+                              },
+                              {
+                                 "key":"third-variant",
+                                 "name":"Third Variant",
+                                 "rollout_percentage":25
+                              }
+                           ]
+                        }
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+        Assert.Equal(
+            "third-variant",
+            await client.GetFeatureFlagAsync(
+                featureKey: "beta-feature",
+                distinctId: "test_id",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["email"] = "test@posthog.com" }
+                }));
+        Assert.Equal(
+            "second-variant",
+            await client.GetFeatureFlagAsync(featureKey: "beta-feature", distinctId: "example_id"));
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_flag_with_multiple_variant_overrides
+    public async Task GetsFlagWithMultipleVariantOverrides()
+    {
+        var container = new TestContainer("fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "rollout_percentage":100,
+                     "filters":{
+                        "groups":[
+                           {
+                              "rollout_percentage":100
+                           },
+                           {
+                              "properties":[
+                                 {
+                                    "key":"email",
+                                    "type":"person",
+                                    "value":"test@posthog.com",
+                                    "operator":"exact"
+                                 }
+                              ],
+                              "rollout_percentage":100,
+                              "variant":"second-variant"
+                           },
+                           {
+                              "rollout_percentage":50,
+                              "variant":"third-variant"
+                           }
+                        ],
+                        "multivariate":{
+                           "variants":[
+                              {
+                                 "key":"first-variant",
+                                 "name":"First Variant",
+                                 "rollout_percentage":50
+                              },
+                              {
+                                 "key":"second-variant",
+                                 "name":"Second Variant",
+                                 "rollout_percentage":25
+                              },
+                              {
+                                 "key":"third-variant",
+                                 "name":"Third Variant",
+                                 "rollout_percentage":25
+                              }
+                           ]
+                        }
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+        // The override applies even if the first condition matches all and gives everyone their default group
+        Assert.Equal(
+            "second-variant",
+            await client.GetFeatureFlagAsync(
+                featureKey: "beta-feature",
+                distinctId: "test_id",
+                options: new FeatureFlagOptions
+                {
+                    PersonProperties = new() { ["email"] = "test@posthog.com" }
+                }));
+        Assert.Equal(
+            "third-variant",
+            await client.GetFeatureFlagAsync(featureKey: "beta-feature", distinctId: "example_id"));
+        Assert.Equal(
+            "second-variant",
+            await client.GetFeatureFlagAsync(featureKey: "beta-feature", distinctId: "another_id"));
     }
 
     [Fact]
