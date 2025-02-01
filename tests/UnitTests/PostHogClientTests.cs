@@ -1646,6 +1646,147 @@ public class TheGetFeatureFlagAsyncMethod
             await client.GetFeatureFlagAsync(featureKey: "beta-feature", distinctId: "another_id"));
     }
 
+    [Fact] // Ported from PostHog/posthog-python test_boolean_feature_flag_payloads_local
+    public async Task BooleanFeatureFlagPayloadsLocal()
+    {
+        var container = new TestContainer("fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"person-flag",
+                     "is_simple_flag":true,
+                     "active":true,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"region",
+                                    "operator":"exact",
+                                    "value":[
+                                       "USA"
+                                    ],
+                                    "type":"person"
+                                 }
+                              ],
+                              "rollout_percentage":100
+                           }
+                        ],
+                        "payloads":{
+                           "true":"300"
+                        }
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.GetFeatureFlagAsync("person-flag", "distinct_id", new FeatureFlagOptions
+        {
+            PersonProperties = new() { ["region"] = "USA" }
+        });
+        Assert.Equal("300", result?.Payload);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_boolean_feature_flag_payload_decide
+    public async Task BooleanFeatureFlagPayloadsFromDecide()
+    {
+        var container = new TestContainer();
+        container.FakeHttpMessageHandler.AddDecideResponse(
+            """
+            {"featureFlags": {"person-flag": true}, "featureFlagPayloads": {"person-flag": "300"}}
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.GetFeatureFlagAsync("person-flag", "distinct_id", new FeatureFlagOptions
+        {
+            PersonProperties = new() { ["region"] = "USA" }
+        });
+        Assert.Equal("300", result?.Payload);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_multivariate_feature_flag_payloads
+    public async Task MultivariateFeatureFlagPayloads()
+    {
+        var container = new TestContainer("fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+               "flags":[
+                  {
+                     "id":1,
+                     "name":"Beta Feature",
+                     "key":"beta-feature",
+                     "is_simple_flag":false,
+                     "active":true,
+                     "rollout_percentage":100,
+                     "filters":{
+                        "groups":[
+                           {
+                              "properties":[
+                                 {
+                                    "key":"email",
+                                    "type":"person",
+                                    "value":"test@posthog.com",
+                                    "operator":"exact"
+                                 }
+                              ],
+                              "rollout_percentage":100,
+                              "variant":"second???"
+                           },
+                           {
+                              "rollout_percentage":50,
+                              "variant":"first??"
+                           }
+                        ],
+                        "multivariate":{
+                           "variants":[
+                              {
+                                 "key":"first-variant",
+                                 "name":"First Variant",
+                                 "rollout_percentage":50
+                              },
+                              {
+                                 "key":"second-variant",
+                                 "name":"Second Variant",
+                                 "rollout_percentage":25
+                              },
+                              {
+                                 "key":"third-variant",
+                                 "name":"Third Variant",
+                                 "rollout_percentage":25
+                              }
+                           ]
+                        },
+                        "payloads":{
+                           "first-variant":"some-payload",
+                           "third-variant":"{\"a\":\"json\"}"
+                        }
+                     }
+                  }
+               ]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.GetFeatureFlagAsync(
+            featureKey: "beta-feature",
+            distinctId: "test_id",
+            new FeatureFlagOptions
+            {
+                PersonProperties = new() { ["email"] = "test@posthog.com" }
+            });
+        Assert.Equal("""{"a":"json"}""", result?.Payload);
+    }
+
     [Fact]
     public async Task ReturnsFalseWhenFlagDoesNotExist()
     {

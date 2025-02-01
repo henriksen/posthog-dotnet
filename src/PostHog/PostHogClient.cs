@@ -300,7 +300,7 @@ public sealed class PostHogClient : IPostHogClient
             return results?.FeatureFlags is not null
                 ? results.FeatureFlags.ToReadOnlyDictionary(
                     kvp => kvp.Key,
-                    kvp => new FeatureFlag(kvp, results.FeatureFlagPayloads))
+                    kvp => FeatureFlag.CreateFromDecide(kvp.Key, kvp.Value, results))
                 : new Dictionary<string, FeatureFlag>();
         }
     }

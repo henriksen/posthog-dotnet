@@ -133,20 +133,7 @@ internal sealed class LocalEvaluator
                     personProperties ?? [],
                     warnOnUnknownGroups);
 
-#pragma warning disable CA1308
-                var payloadKey = flagValue.StringValue ?? flagValue.Value.ToString().ToLowerInvariant();
-#pragma warning restore CA1308
-                var payload = flag
-                    .Filters?
-                    .Payloads?
-                    .GetValueOrDefault(payloadKey);
-
-                var featureFlag = new FeatureFlag(
-                    Key: flag.Key,
-                    IsEnabled: flagValue.Value,
-                    VariantKey: flagValue.StringValue,
-                    Payload: payload);
-                results[flag.Key] = featureFlag;
+                results[flag.Key] = FeatureFlag.CreateFromLocalEvaluation(flag.Key, flagValue, flag);
             }
             catch (InconclusiveMatchException)
             {
