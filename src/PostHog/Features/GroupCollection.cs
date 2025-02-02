@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 
 namespace PostHog;
 
@@ -30,7 +31,7 @@ public class GroupCollection : ICollection<Group>
         {
             return;
         }
-        ThrowArgumentExceptionIfGroupWithGroupTypeExists(groupType); ;
+        ThrowArgumentExceptionIfGroupWithGroupTypeExists(groupType);
     }
 
     /// <summary>
@@ -123,4 +124,13 @@ public class GroupCollection : ICollection<Group>
         get => _groups[groupType];
         set => _groups[groupType] = value;
     }
+
+    /// <summary>
+    /// Attempts to get a group by the specified group type.
+    /// </summary>
+    /// <param name="groupType">The group type.</param>
+    /// <param name="group">The group and its properties.</param>
+    /// <returns><c>true</c> if the group exists, otherwise false.</returns>
+    public bool TryGetGroup(string groupType, [NotNullWhen(returnValue: true)] out Group? group)
+        => _groups.TryGetValue(groupType, out group);
 }

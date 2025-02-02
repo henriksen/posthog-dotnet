@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
@@ -143,7 +141,7 @@ internal interface IStringOrObject
 }
 
 /// <summary>
-/// Value converter for <see cref="StringOrValue{T}"/>.
+/// Json converter for <see cref="StringOrValue{T}"/>.
 /// </summary>
 internal class StringOrValueConverter : JsonConverter<IStringOrObject>
 {

@@ -3,84 +3,74 @@ using NSubstitute;
 using PostHog.Cache;
 using PostHog.Features;
 
-public class HttpContextFeatureFlagCacheTests
+namespace HttpContextFeatureFlagCacheTests;
+
+public class TheGetAndCacheFeatureFlagsAsyncMethod
 {
-    public class TheGetAndCacheFeatureFlagsAsyncMethod
+    [Fact]
+    public async Task CachesFlagsInHttpContext()
     {
-        [Fact]
-        public async Task CachesFlagsInHttpContext()
+        var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+        var httpContext = new DefaultHttpContext();
+        httpContextAccessor.HttpContext.Returns(httpContext);
+
+        var cache = new HttpContextFeatureFlagCache(httpContextAccessor);
+        var distinctId = "user123";
+        var featureFlags = new Dictionary<string, FeatureFlag>
         {
-            // Arrange
-            var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-            var httpContext = new DefaultHttpContext();
-            httpContextAccessor.HttpContext.Returns(httpContext);
+            { "feature1", new FeatureFlag(Key: "feature1", IsEnabled: true) }
+        };
 
-            var cache = new HttpContextFeatureFlagCache(httpContextAccessor);
-            var distinctId = "user123";
-            var featureFlags = new Dictionary<string, FeatureFlag>
-            {
-                { "feature1", new FeatureFlag(Key: "feature1", IsEnabled: true, null, null) }
-            };
+        Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher = _ =>
+            Task.FromResult((IReadOnlyDictionary<string, FeatureFlag>)featureFlags);
 
-            Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher = _ =>
-                Task.FromResult((IReadOnlyDictionary<string, FeatureFlag>)featureFlags);
+        var result = await cache.GetAndCacheFeatureFlagsAsync(distinctId, fetcher, CancellationToken.None);
 
-            // Act
-            var result = await cache.GetAndCacheFeatureFlagsAsync(distinctId, fetcher, CancellationToken.None);
+        Assert.Equal(featureFlags, result);
+        Assert.Equal(featureFlags, httpContext.Items[$"$PostHog(feature_flags):{distinctId}"]);
+    }
 
-            // Assert
-            Assert.Equal(featureFlags, result);
-            Assert.Equal(featureFlags, httpContext.Items[$"$PostHog(feature_flags):{distinctId}"]);
-        }
-
-        [Fact]
-        public async Task ReturnsCachedFlagsFromHttpContext()
+    [Fact]
+    public async Task ReturnsCachedFlagsFromHttpContext()
+    {
+        var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+        var httpContext = new DefaultHttpContext();
+        var distinctId = "user123";
+        var cachedFeatureFlags = new Dictionary<string, FeatureFlag>
         {
-            // Arrange
-            var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-            var httpContext = new DefaultHttpContext();
-            var distinctId = "user123";
-            var cachedFeatureFlags = new Dictionary<string, FeatureFlag>
-            {
-                { "feature1", new FeatureFlag(Key: "feature1", IsEnabled: true, null, null) }
-            };
-            httpContext.Items[$"$PostHog(feature_flags):{distinctId}"] = cachedFeatureFlags;
-            httpContextAccessor.HttpContext.Returns(httpContext);
+            { "feature1", new FeatureFlag(Key: "feature1", IsEnabled: true) }
+        };
+        httpContext.Items[$"$PostHog(feature_flags):{distinctId}"] = cachedFeatureFlags;
+        httpContextAccessor.HttpContext.Returns(httpContext);
 
-            var cache = new HttpContextFeatureFlagCache(httpContextAccessor);
+        var cache = new HttpContextFeatureFlagCache(httpContextAccessor);
 
-            Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher = _ =>
-                Task.FromResult((IReadOnlyDictionary<string, FeatureFlag>)new Dictionary<string, FeatureFlag>());
+        Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher = _ =>
+            Task.FromResult((IReadOnlyDictionary<string, FeatureFlag>)new Dictionary<string, FeatureFlag>());
 
-            // Act
-            var result = await cache.GetAndCacheFeatureFlagsAsync(distinctId, fetcher, CancellationToken.None);
+        var result = await cache.GetAndCacheFeatureFlagsAsync(distinctId, fetcher, CancellationToken.None);
 
-            // Assert
-            Assert.Equal(cachedFeatureFlags, result);
-        }
+        Assert.Equal(cachedFeatureFlags, result);
+    }
 
-        [Fact]
-        public async Task DoesNotCacheIfHttpContextIsNull()
+    [Fact]
+    public async Task DoesNotCacheIfHttpContextIsNull()
+    {
+        var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+        httpContextAccessor.HttpContext.Returns((HttpContext)null!);
+
+        var cache = new HttpContextFeatureFlagCache(httpContextAccessor);
+        var distinctId = "user123";
+        var featureFlags = new Dictionary<string, FeatureFlag>
         {
-            // Arrange
-            var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-            httpContextAccessor.HttpContext.Returns((HttpContext)null!);
+            { "feature1", new FeatureFlag(Key: "feature1", IsEnabled: true) }
+        };
 
-            var cache = new HttpContextFeatureFlagCache(httpContextAccessor);
-            var distinctId = "user123";
-            var featureFlags = new Dictionary<string, FeatureFlag>
-            {
-                { "feature1", new FeatureFlag(Key: "feature1", IsEnabled: true, null, null) }
-            };
+        Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher = _ =>
+            Task.FromResult((IReadOnlyDictionary<string, FeatureFlag>)featureFlags);
 
-            Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher = _ =>
-                Task.FromResult((IReadOnlyDictionary<string, FeatureFlag>)featureFlags);
+        var result = await cache.GetAndCacheFeatureFlagsAsync(distinctId, fetcher, CancellationToken.None);
 
-            // Act
-            var result = await cache.GetAndCacheFeatureFlagsAsync(distinctId, fetcher, CancellationToken.None);
-
-            // Assert
-            Assert.Equal(featureFlags, result);
-        }
+        Assert.Equal(featureFlags, result);
     }
 }

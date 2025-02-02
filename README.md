@@ -84,3 +84,147 @@ When you create the Release, the [`main.yml`](../.github/.workflow.release.yml) 
 > When creating a release, it's important to create and publish it in one go. If you save a draft of the release and
 > then later publish it, the workflow will not run. If you find yourself in that position, you can [manually trigger the workflow run](https://github.com/PostHog/posthog-dotnet/actions/workflows/main.yaml)
 > and select the tag to publish.
+
+## Usage
+
+Inject the `IPostHogClient` interface into your controller or page:
+
+```csharp
+posthogClient.CaptureEvent(userId, "user signed up", new() { ["plan"] = "pro" });
+}
+```
+
+```csharp
+client.CapturePageView(userId, Request.Path.Value ?? "Unknown");
+```
+
+### Identity
+
+#### Identify a user
+
+See the [Identifying users](https://posthog.com/docs/product-analytics/identify) for more information about identifying users.
+
+Identifying a user typically happens on the front-end. For example, when an authenticated user logs in, you can call `identify` to associate the user with their previously anonymous actions.
+
+When `identify` is called the first-time for a distinct id, PostHog will create a new user profile. If the user already exists, PostHog will update the user profile with the new data. So the typical usage of `IdentifyAsync` here will be to update the person properties that PostHog knows about your user.
+
+```csharp
+await posthogClient.IdentifyAsync(
+    userId,
+    new() 
+    {
+        ["email"] = "haacked@posthog.com",
+        ["name"] = "Phil Haack",
+        ["plan"] = "pro"
+    });
+```
+
+#### Alias a user
+
+Use the `Alias` method to associate one identity with another. This is useful when a user logs in and you want to associate their anonymous actions with their authenticated actions.
+
+```csharp
+await posthogClient.AliasAsync(sessionId, userId);
+```
+
+### Analytics
+
+#### Capture an Event
+
+Note that capturing events is designed to be fast and done in the background. You can configure how often batches are sent to the PostHog API using the `FlushAt` and `FlushInterval` settings.
+
+```csharp
+posthogClient.CaptureEvent(userId, "user signed up", new() { ["plan"] = "pro" });
+```
+
+#### Capture a Page View
+
+```csharp
+posthogClient.CapturePageView(userId, Request.Path.Value ?? "Unknown");
+```
+
+#### Capture a Screen View
+
+```csharp
+posthogClient.CaptureScreen(userId, "Main Screen");
+```
+
+### Feature Flags
+
+#### Check if feature flag is enabled
+
+Check if the `awesome-new-feature` feature flag is enabled for the user with the id `userId`.
+
+```csharp
+var enabled = await posthogClient.IsFeatureEnabledAsync(userId, "awesome-new-feature");
+```
+
+You can override properties of the user stored on PostHog servers for the purposes of feature flag evaluation. 
+For example, suppose you offer a temporary pro-plan for the duration of the user's session. You might do this:
+
+```csharp
+if (await posthogClient.IsFeatureEnabledAsync(
+    userId,
+    "pro-feature",
+    new FeatureFlagOptions { PersonProperties = new() { ["plan"] = "pro" })) 
+{
+    // Access to pro feature
+}
+```
+
+If you have group analytics enabled, you can also override group properties.
+
+```csharp
+if (await posthogClient.IsFeatureEnabledAsync(
+    userId,
+    "large-project-feature",
+    new FeatureFlagOptions 
+    {
+        GroupProperties = new Group("project", "project-group-key", new Dictionary<string, object>
+        {
+            ["size"] = "large"
+        }))) 
+{
+    // Access large project features
+}
+```
+
+> [!NOTE]
+> Specifying `PersonProperties` and `GroupProperties` is necessary when using local evaluation of feature flags.
+
+### Get a single Feature Flag
+
+Some feature flags may have associated payloads.
+
+```csharp
+if (await posthogClient.GetFeatureFlagAsync(userId, "awesome-new-feature") is { Payload: {} payload })
+{
+    // Do something with the payload.
+    Console.WriteLine($"The payload is: {payload}");
+}
+```
+
+### Get All Feature Flags
+
+Using information on the PostHog server.
+
+```csharp
+var flags = await posthogClient.GetFeatureFlagsAsync(userId);
+```
+
+Overriding the groups for the current user.
+
+```csharp
+var flags = await postHogClient.GetFeatureFlagsAsync(
+    userId,
+    personProperties: null,
+    groupProperties:
+    [
+        new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object>
+        {
+            ["$group_key"] = "aaaa-bbbb-cccc",
+            ["size"] = ProjectSize ?? "large"
+        })
+    ],
+    cancellationToken: HttpContext.RequestAborted);
+```

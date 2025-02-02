@@ -1,0 +1,158 @@
+{
+  "flags": [
+    {
+      "id": 91866,
+      "team_id": 110510,
+      "name": "A multivariate feature flag that tells you what character you are",
+      "key": "hogtied_got_character",
+      "filters": {
+        "groups": [
+          {
+            "variant": null,
+            "properties": [
+              {
+                "key": "size",
+                "type": "group",
+                "value": [
+                  "small"
+                ],
+                "operator": "exact",
+                "group_type_index": 3
+              },
+              {
+                "key": "id",
+                "type": "cohort",
+                "value": 1,
+                "operator": "in"
+              },
+              {
+                "key": "$group_key",
+                "type": "group",
+                "value": "12345",
+                "operator": "exact",
+                "group_type_index": 3
+              }
+            ],
+            "rollout_percentage": 100
+          }
+        ],
+        "payloads": {
+          "cersei": "{\"role\": \"burn it all down\"}",
+          "tyrion": "{\"role\": \"advisor\"}",
+          "danaerys": "{\"role\": \"khaleesi\"}",
+          "jon-snow": "{\"role\": \"king in the north\"}"
+        },
+        "multivariate": {
+          "variants": [
+            {
+              "key": "tyrion",
+              "name": "The one who talks",
+              "rollout_percentage": 25
+            },
+            {
+              "key": "danaerys",
+              "name": "The mother of dragons",
+              "rollout_percentage": 25
+            },
+            {
+              "key": "jon-snow",
+              "name": "Knows nothing",
+              "rollout_percentage": 25
+            },
+            {
+              "key": "cersei",
+              "name": "Not nice",
+              "rollout_percentage": 25
+            }
+          ]
+        }
+      },
+      "deleted": false,
+      "active": true,
+      "ensure_experience_continuity": false
+    },
+    {
+      "id": 91468,
+      "team_id": 110510,
+      "name": "Testing a PostHog client",
+      "key": "hogtied-homepage-user",
+      "filters": {
+        "groups": [
+          {
+            "variant": null,
+            "properties": [
+              {
+                "key": "$group_key",
+                "type": "group",
+                "value": "01943db3-83be-0000-e7ea-ecae4d9b5afb",
+                "operator": "exact",
+                "group_type_index": 2
+              }
+            ],
+            "rollout_percentage": 80
+          }
+        ],
+        "payloads": {
+          "true": "{\"is_cool\": true}"
+        },
+        "multivariate": null
+      },
+      "deleted": false,
+      "active": true,
+      "ensure_experience_continuity": true
+    },
+    {
+      "id": 1,
+      "team_id": 42,
+      "name": "File previews",
+      "key": "file-previews",
+      "filters": {
+        "groups": [
+          {
+            "properties": [
+              {
+                "key": "email",
+                "type": "person",
+                "value": [
+                  "tyrion@example.com",
+                  "danaerys@example.com",
+                  "sansa@example.com",
+                  "ned@example.com"
+                ],
+                "operator": "exact"
+              }
+            ]
+          }
+        ]
+      },
+      "deleted": false,
+      "active": false,
+      "ensure_experience_continuity": false
+    }
+  ],
+  "group_type_mapping": {
+    "0": "account",
+    "1": "instance",
+    "2": "organization",
+    "3": "project",
+    "4": "company"
+  },
+  "cohorts": {
+    "1": {
+      "type": "OR",
+      "values": [
+        {
+          "type": "AND",
+          "values": [
+            {
+              "key": "work_email",
+              "operator": "is_set",
+              "type": "person",
+              "value": "is_set"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

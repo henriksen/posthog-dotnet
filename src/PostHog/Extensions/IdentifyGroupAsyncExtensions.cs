@@ -14,7 +14,7 @@ public static class IdentifyGroupAsyncExtensions
     /// <param name="key">Unique identifier for that type of group (ex: 'id:5')</param>
     /// <param name="name">The friendly name of the group.</param>
     /// <param name="properties">Additional information about the group.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     public static async Task<ApiResult> IdentifyGroupAsync(
         this IPostHogClient client,

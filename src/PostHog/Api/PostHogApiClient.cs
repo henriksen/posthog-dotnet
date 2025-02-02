@@ -1,6 +1,9 @@
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PostHog.Config;
+using PostHog.Json;
 using PostHog.Library;
 using PostHog.Versioning;
 
@@ -18,9 +21,30 @@ public sealed class PostHogApiClient : IPostHogApiClient
     /// <summary>
     /// Initialize a new PostHog client
     /// </summary>
+    /// <remarks>
+    /// This constructor is used for dependency injection.
+    /// </remarks>
+    /// <param name="options">The options used to configure this client.</param>
+    /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
+    /// <param name="logger">The logger.</param>
+    public PostHogApiClient(
+        IOptions<PostHogOptions> options,
+        TimeProvider timeProvider,
+        ILogger<PostHogApiClient> logger)
+        : this(
+            CreateHttpClient(logger),
+            options,
+            timeProvider,
+            logger)
+    {
+    }
+
+    /// <summary>
+    /// Initialize a new PostHog client
+    /// </summary>
     /// <param name="httpClient">The <see cref="HttpClient"/> used to make requests.</param>
     /// <param name="options">The options used to configure this client.</param>
-    /// <param name="timeProvider"></param>
+    /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
     /// <param name="logger">The logger.</param>
     public PostHogApiClient(
         HttpClient httpClient,
@@ -37,26 +61,14 @@ public sealed class PostHogApiClient : IPostHogApiClient
         logger.LogTraceApiClientCreated(HostUrl);
     }
 
-    /// <summary>
-    /// Initialize a new PostHog client
-    /// </summary>
-    /// <param name="options">The options used to configure this client.</param>
-    /// <param name="timeProvider"></param>
-    /// <param name="logger">The logger.</param>
-    public PostHogApiClient(
-        IOptions<PostHogOptions> options,
-        TimeProvider timeProvider,
-        ILogger<PostHogApiClient> logger)
-        : this(
+    static HttpClient CreateHttpClient(ILogger<PostHogApiClient> logger) =>
+        new(
 #pragma warning disable CA2000
-            // LoggingHttpMessageHandler is disposed when we dispose the HttpClient
-            new HttpClient(new LoggingHttpMessageHandler(logger)
+            new LoggingHttpMessageHandler(logger)
+#pragma warning restore CA2000
             {
                 InnerHandler = new HttpClientHandler()
-            }), options, timeProvider, logger)
-#pragma warning restore CA2000
-    {
-    }
+            });
 
     Uri HostUrl => _options.Value.HostUrl;
 
@@ -97,9 +109,9 @@ public sealed class PostHogApiClient : IPostHogApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<FeatureFlagsApiResult> GetFeatureFlagsAsync(
+    public async Task<DecideApiResult?> GetAllFeatureFlagsFromDecideAsync(
         string distinctUserId,
-        Dictionary<string, object>? personProperties,
+        Dictionary<string, object?>? personProperties,
         GroupCollection? groupProperties,
         CancellationToken cancellationToken)
     {
@@ -107,7 +119,7 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
         var payload = new Dictionary<string, object>
         {
-            ["distinct_id"] = distinctUserId,
+            ["distinct_id"] = distinctUserId
         };
 
         if (personProperties is { Count: > 0 })
@@ -119,12 +131,32 @@ public sealed class PostHogApiClient : IPostHogApiClient
 
         PrepareAndMutatePayload(payload);
 
-        return await _httpClient.PostJsonAsync<FeatureFlagsApiResult>(endpointUrl, payload, cancellationToken)
-               ?? new FeatureFlagsApiResult();
+        return await _httpClient.PostJsonAsync<DecideApiResult>(
+                   endpointUrl,
+                   payload,
+                   cancellationToken);
+    }
+
+    public async Task<LocalEvaluationApiResult?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken)
+    {
+        var personalApiKey = _options.Value.PersonalApiKey
+            ?? throw new InvalidOperationException("This API requires that a Personal API Key is set.");
+        var options = _options.Value ?? throw new InvalidOperationException(nameof(_options));
+
+        var endpointUrl = new Uri(HostUrl, $"/api/feature_flag/local_evaluation/?token={options.ProjectApiKey}&send_cohorts");
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, endpointUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue(scheme: "Bearer", personalApiKey);
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        return await response.Content.ReadFromJsonAsync<LocalEvaluationApiResult>(
+            JsonSerializerHelper.Options,
+            cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Version Version => new(VersionConstants.Version);
+    public string Version => VersionConstants.Version;
 
     void PrepareAndMutatePayload(Dictionary<string, object> payload)
     {

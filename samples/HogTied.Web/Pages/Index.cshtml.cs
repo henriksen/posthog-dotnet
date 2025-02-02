@@ -62,28 +62,39 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                     UserId,
                     email: User.FindFirst(ClaimTypes.Email)?.Value,
                     name: User.FindFirst(ClaimTypes.Name)?.Value,
+                    additionalUserPropertiesToSet: new Dictionary<string, object>
+                    {
+                        ["site"] = "sample website",
+                        ["rate"] = 2.99
+                    },
+                    userPropertiesToSetOnce: new Dictionary<string, object>
+                    {
+                        ["join_date"] = DateTime.UtcNow
+                    },
                     HttpContext.RequestAborted);
             }
 
-            var flags = await postHogClient.GetFeatureFlagsAsync(
+            var flags = await postHogClient.GetAllFeatureFlagsAsync(
                 UserId,
-                personProperties: null,
-                groupProperties:
-                [
-                    new Group("organization","01943db3-83be-0000-e7ea-ecae4d9b5afb"),
-                    new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object>
-                    {
-                        ["size"] = ProjectSize ?? "large"
-                    })
-                ],
+                options: new AllFeatureFlagsOptions
+                {
+                    GroupProperties =
+                    [
+                        new Group("organization","01943db3-83be-0000-e7ea-ecae4d9b5afb"),
+                        new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object?>
+                        {
+                            ["size"] = ProjectSize ?? "large"
+                        })
+                    ]
+                },
                 cancellationToken: HttpContext.RequestAborted);
 
             foreach (var (key, flag) in flags)
             {
-                FeatureFlags[key] = (flag, await postHogClient.IsFeatureEnabledAsync(UserId, key));
+                FeatureFlags[key] = (flag, await postHogClient.IsFeatureEnabledAsync(key, UserId));
             }
 
-            NonExistentFlag = await postHogClient.IsFeatureEnabledAsync(UserId, "non-existent-flag");
+            NonExistentFlag = await postHogClient.IsFeatureEnabledAsync("non-existent-flag", UserId);
         }
     }
 

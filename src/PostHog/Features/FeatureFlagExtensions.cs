@@ -11,120 +11,122 @@ public static class FeatureFlagExtensions
     /// Determines whether a feature is enabled for the specified user.
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
-    /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
-    /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
-    /// <param name="sendFeatureFlagEvents">Optional - whether to send feature flag events. Used for Experiments. Defaults to <c>true</c>.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>
-    /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
-    /// </returns>
-    public static async Task<bool?> IsFeatureEnabledAsync(this IPostHogClient client,
-        string distinctId,
-        string featureKey,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties,
-        bool sendFeatureFlagEvents,
-        CancellationToken cancellationToken)
-    {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-        var result = await client.GetFeatureFlagAsync(
-            distinctId,
-            featureKey,
-            personProperties,
-            groupProperties,
-            sendFeatureFlagEvents,
-            cancellationToken);
-
-        return result?.IsEnabled;
-    }
-
-    /// <summary>
-    /// Determines whether a feature is enabled for the specified user.
-    /// </summary>
-    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>
     /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature does not
     /// exist.
     /// </returns>
     public static Task<bool?> IsFeatureEnabledAsync(
         this IPostHogClient client,
-        string distinctId,
         string featureKey,
+        string distinctId,
         CancellationToken cancellationToken)
-        => client.IsFeatureEnabledAsync(
+        => (client ?? throw new ArgumentNullException(nameof(client))).IsFeatureEnabledAsync(featureKey,
             distinctId,
-            featureKey,
-            personProperties: null,
-            groupProperties: null,
-            sendFeatureFlagEvents: true,
-            cancellationToken: cancellationToken);
+            options: null, cancellationToken: cancellationToken);
 
     /// <summary>
     /// Determines whether a feature is enabled for the specified user.
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
-    /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
     /// <returns>
     /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
     /// </returns>
     public static Task<bool?> IsFeatureEnabledAsync(
         this IPostHogClient client,
-        string distinctId,
-        string featureKey)
-        => client.IsFeatureEnabledAsync(
-            distinctId,
-            featureKey,
-            personProperties: null,
-            groupProperties: null,
-            sendFeatureFlagEvents: true,
-            cancellationToken: CancellationToken.None);
-
-    /// <summary>
-    /// Determines whether a feature is enabled for the specified user.
-    /// </summary>
-    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
-    /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
-    /// <returns>
-    /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
-    /// </returns>
-    public static Task<bool?> IsFeatureEnabledAsync(
-        this IPostHogClient client,
-        string distinctId,
         string featureKey,
-        Dictionary<string, object> personProperties)
-        => client.IsFeatureEnabledAsync(
+        string distinctId)
+        => (client ?? throw new ArgumentNullException(nameof(client))).IsFeatureEnabledAsync(featureKey,
             distinctId,
-            featureKey,
-            personProperties,
-            groupProperties: null,
-            sendFeatureFlagEvents: true,
-            cancellationToken: CancellationToken.None);
+            options: null, cancellationToken: CancellationToken.None);
+
+    /// <summary>
+    /// Determines whether a feature is enabled for the specified user.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
+    /// <returns>
+    /// <c>true</c> if the feature is enabled for the user. <c>false</c> if not. <c>null</c> if the feature is undefined.
+    /// </returns>
+    public static Task<bool?> IsFeatureEnabledAsync(
+        this IPostHogClient client,
+        string featureKey,
+        string distinctId,
+        FeatureFlagOptions? options)
+        => (client ?? throw new ArgumentNullException(nameof(client))).IsFeatureEnabledAsync(featureKey,
+            distinctId,
+            options, cancellationToken: CancellationToken.None);
+
+
+    /// <summary>
+    /// Retrieves a feature flag.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
+    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
+    public static async Task<FeatureFlag?> GetFeatureFlagAsync(
+        this IPostHogClient client,
+        string featureKey,
+        string distinctId,
+        CancellationToken cancellationToken)
+        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(featureKey,
+            distinctId,
+            options: null, cancellationToken: cancellationToken);
+
+    /// <summary>
+    /// Retrieves a feature flag.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
+    public static async Task<FeatureFlag?> GetFeatureFlagAsync(this IPostHogClient client,
+        string featureKey,
+        string distinctId)
+        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(featureKey,
+            distinctId,
+            options: null, cancellationToken: CancellationToken.None);
+
+    /// <summary>
+    /// Retrieves a feature flag.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="featureKey">The name of the feature flag.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
+    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
+    public static async Task<FeatureFlag?> GetFeatureFlagAsync(
+        this IPostHogClient client,
+        string featureKey,
+        string distinctId,
+        FeatureFlagOptions options)
+        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(featureKey,
+            distinctId,
+            options, cancellationToken: CancellationToken.None);
 
     /// <summary>
     /// Retrieves all the feature flags.
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation.</param>
-    /// <param name="groupProperties">Optional: A list of the currently active groups. Required if the flag depends on groups. Each group can optionally include properties that override what's on PostHog's server when evaluating feature flags. Specifing properties for each group is required if local evaluation is <c>true</c>.</param>
+    /// <param name="options">Optional: Options used to control feature flag evaluation.</param>
     /// <returns>
     /// A dictionary containing all the feature flags. The key is the feature flag key and the value is the feature flag.
     /// </returns>
-    public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
+    public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetAllFeatureFlagsAsync(
         this IPostHogClient client,
         string distinctId,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties)
+        AllFeatureFlagsOptions options)
         => await (client ?? throw new ArgumentNullException(nameof(client)))
-            .GetFeatureFlagsAsync(distinctId, personProperties, groupProperties, CancellationToken.None);
+            .GetAllFeatureFlagsAsync(distinctId, options, CancellationToken.None);
 
     /// <summary>
     /// Retrieves all the feature flags.
@@ -134,51 +136,11 @@ public static class FeatureFlagExtensions
     /// <returns>
     /// A dictionary containing all the feature flags. The key is the feature flag key and the value is the feature flag.
     /// </returns>
-    public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
+    public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetAllFeatureFlagsAsync(
         this IPostHogClient client,
         string distinctId)
         => await (client ?? throw new ArgumentNullException(nameof(client)))
-            .GetFeatureFlagsAsync(distinctId, personProperties: null, groupProperties: null, CancellationToken.None);
-
-    /// <summary>
-    /// Retrieves a feature flag.
-    /// </summary>
-    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
-    /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="featureKey">The name of the feature flag.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
-    public static async Task<FeatureFlag?> GetFeatureFlagAsync(
-        this IPostHogClient client,
-        string distinctId,
-        string featureKey,
-        CancellationToken cancellationToken)
-        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(
-            distinctId,
-            featureKey,
-            personProperties: null,
-            groupProperties: null,
-            sendFeatureFlagEvents: true,
-            cancellationToken: cancellationToken);
-
-    /// <summary>
-    /// Retrieves a feature flag.
-    /// </summary>
-    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
-    /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="featureKey">The name of the feature flag.</param>
-    /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
-    public static async Task<FeatureFlag?> GetFeatureFlagAsync(
-        this IPostHogClient client,
-        string distinctId,
-        string featureKey)
-        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(
-            distinctId,
-            featureKey,
-            personProperties: null,
-            groupProperties: null,
-            sendFeatureFlagEvents: true,
-            cancellationToken: CancellationToken.None);
+            .GetAllFeatureFlagsAsync(distinctId, options: new AllFeatureFlagsOptions(), CancellationToken.None);
 
     /// <summary>
     /// When reporting the result of a feature flag evaluation, this method converts the result to a string

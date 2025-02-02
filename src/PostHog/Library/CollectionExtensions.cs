@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
+using System.Threading.Channels;
 
 namespace PostHog.Library;
 
@@ -54,39 +52,36 @@ internal static class CollectionExtensions
     /// </summary>
     /// <param name="queue">The queue.</param>
     /// <param name="batchSize">The batch size.</param>
-    /// <typeparam name="T">The type of the queue items.</typeparam>
-    /// <returns>A list of dequeued items.</returns>
-    public static IReadOnlyCollection<T> DequeueBatch<T>(this ConcurrentQueue<T> queue, int batchSize)
-    {
-        var items = new List<T>(batchSize);
-        for (var i = 0; i < batchSize; i++)
-        {
-            if (queue.TryDequeue(out var item))
-            {
-                items.Add(item);
-            }
-            else
-            {
-                break; // Exit if the queue is empty before reaching the batch size
-            }
-        }
-        return items;
-    }
-
-    /// <summary>
-    /// Dequeues a batch of items from a <see cref="ConcurrentQueue{T}"/>.
-    /// </summary>
-    /// <param name="queue">The queue.</param>
-    /// <param name="batchSize">The batch size.</param>
     /// <param name="items">The items to return.</param>
     /// <typeparam name="T">The type of the queue items.</typeparam>
     /// <returns><c>True</c> if any items are in the batch, otherwise <c>false</c></returns>
-    public static bool TryDequeueBatch<T>(
-        this ConcurrentQueue<T> queue,
+    public static bool TryReadBatch<T>(
+        this ChannelReader<T> queue,
         int batchSize,
         out IReadOnlyCollection<T> items)
     {
-        items = queue.DequeueBatch(batchSize);
-        return items.Count > 0;
+        var batch = new List<T>(batchSize);
+        while (batch.Count < batchSize && queue.TryRead(out var item))
+        {
+            batch.Add(item);
+        }
+
+        items = batch.Count > 0 ? batch : Array.Empty<T>();
+        return batch.Count > 0;
     }
+
+    internal static bool ListsAreEqual<T>(this IReadOnlyList<T>? list, IReadOnlyList<T>? otherList)
+        => list is null && otherList is null
+           || (list is not null
+               && otherList is not null
+               && list.SequenceEqual(otherList));
+
+    internal static bool DictionariesAreEqual<TKey, TValue>(
+        this IReadOnlyDictionary<TKey, TValue>? dictionary,
+        IReadOnlyDictionary<TKey, TValue>? otherDictionary)
+        => dictionary is null && otherDictionary is null
+           || (dictionary is not null
+               && otherDictionary is not null
+               && dictionary.Keys.SequenceEqual(otherDictionary.Keys)
+               && dictionary.Values.SequenceEqual(otherDictionary.Values));
 }

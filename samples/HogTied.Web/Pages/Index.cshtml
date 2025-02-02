@@ -70,7 +70,7 @@
                         <button type="submit" class="btn btn-primary mb-2">Check Feature Flag</button>
                     </form>
                     @if (Model.FeatureFlagKey is { } key) {
-                        var flag = await PostHog.IsFeatureEnabledAsync(Model.UserId, key);
+                        var flag = await PostHog.IsFeatureEnabledAsync(key, Model.UserId);
                         @if (flag == true) {
                             <div class="alert alert-success" role="alert">
                                 The feature flag <code>@Model.FeatureFlagKey</code> is enabled.

@@ -15,6 +15,7 @@ public sealed class PostHogClient : IPostHogClient
 {
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
     readonly IPostHogApiClient _apiClient;
+    readonly LocalFeatureFlagsLoader _featureFlagsLoader;
     readonly IFeatureFlagCache _featureFlagsCache;
     readonly MemoryCache _featureFlagSentCache;
     readonly TimeProvider _timeProvider;
@@ -45,19 +46,25 @@ public sealed class PostHogClient : IPostHogClient
         _taskScheduler = taskScheduler ?? throw new ArgumentNullException(nameof(taskScheduler));
         _apiClient = postHogApiClient;
         _featureFlagsCache = featureFlagsCache;
-        _asyncBatchHandler = new(
+        _asyncBatchHandler = new AsyncBatchHandler<CapturedEvent>(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
             taskScheduler,
             timeProvider,
             logger);
 
+        _featureFlagsLoader = new LocalFeatureFlagsLoader(
+            postHogApiClient,
+            options,
+            taskScheduler,
+            timeProvider,
+            NullLogger.Instance);
         _featureFlagsCache = featureFlagsCache;
         _featureFlagSentCache = new MemoryCache(new MemoryCacheOptions
         {
             SizeLimit = options.Value.FeatureFlagSentCacheSizeLimit,
             Clock = new TimeProviderSystemClock(timeProvider),
-            CompactionPercentage = options.Value.FeatureFlagSentCacheCompactionPercentage,
+            CompactionPercentage = options.Value.FeatureFlagSentCacheCompactionPercentage
         });
 
         _timeProvider = timeProvider;
@@ -126,26 +133,81 @@ public sealed class PostHogClient : IPostHogClient
     }
 
     /// <inheritdoc/>
-    public async Task<FeatureFlag?> GetFeatureFlagAsync(
-        string distinctId,
+    public async Task<bool?> IsFeatureEnabledAsync(
         string featureKey,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties,
-        bool sendFeatureFlagEvents,
+        string distinctId,
+        FeatureFlagOptions? options,
         CancellationToken cancellationToken)
     {
-        var flags = await GetFeatureFlagsAsync(
+        var result = await GetFeatureFlagAsync(featureKey,
             distinctId,
-            personProperties,
-            groupProperties,
-            cancellationToken);
+            options, cancellationToken);
 
-        var flag = flags.GetValueOrDefault(featureKey);
+        return result?.IsEnabled;
+    }
 
-        var returnValue = sendFeatureFlagEvents
-            ? _featureFlagSentCache.GetOrCreate((distinctId, featureKey),
-                cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, flag))
-            : flag;
+    /// <inheritdoc/>
+    public async Task<FeatureFlag?> GetFeatureFlagAsync(
+        string featureKey,
+        string distinctId,
+        FeatureFlagOptions? options,
+        CancellationToken cancellationToken)
+    {
+        var localEvaluator = await _featureFlagsLoader.GetFeatureFlagsForLocalEvaluationAsync(cancellationToken);
+        FeatureFlag? response = null;
+        if (localEvaluator is not null && localEvaluator.TryGetLocalFeatureFlag(featureKey, out var localFeatureFlag))
+        {
+            try
+            {
+                response = new FeatureFlag(
+                    featureKey,
+                    localEvaluator.ComputeFlagLocally(
+                        localFeatureFlag,
+                        distinctId,
+                        options?.GroupProperties ?? [],
+                        options?.PersonProperties ?? []),
+                    localFeatureFlag.Filters?.Payloads);
+                _logger.LogDebugSuccessLocally(featureKey, response);
+            }
+            catch (InconclusiveMatchException e)
+            {
+                _logger.LogDebugFailedToComputeFlag(e, featureKey);
+            }
+            catch (HttpRequestException e)
+            {
+                _logger.LogErrorFailedToComputeFlag(e, featureKey);
+            }
+        }
+
+        var flagWasLocallyEvaluated = response is not null;
+        if (!flagWasLocallyEvaluated && options is not { OnlyEvaluateLocally: true })
+        {
+            try
+            {
+                // Fallback to Decide
+                var flags = await DecideAsync(
+                    distinctId,
+                    options ?? new FeatureFlagOptions(),
+                    cancellationToken);
+
+                response = flags.GetValueOrDefault(featureKey) ?? new FeatureFlag(featureKey, IsEnabled: false);
+                _logger.LogDebugSuccessRemotely(featureKey, response);
+            }
+            catch (HttpRequestException e)
+            {
+                _logger.LogErrorUnableToGetRemotely(e, featureKey);
+            }
+        }
+
+        options ??= new FeatureFlagOptions(); // We need the defaults if options is null.
+
+        if (options.SendFeatureFlagEvents)
+        {
+            _featureFlagSentCache.GetOrCreate(
+                key: (distinctId, featureKey, (string)response),
+                // This is only called if the key doesn't exist in the cache.
+                factory: cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, response));
+        }
 
         if (_featureFlagSentCache.Count >= _options.Value.FeatureFlagSentCacheSizeLimit)
         {
@@ -155,10 +217,10 @@ public sealed class PostHogClient : IPostHogClient
                 cancellationToken);
         }
 
-        return returnValue;
+        return response;
     }
 
-    FeatureFlag? CaptureFeatureFlagSentEvent(
+    bool CaptureFeatureFlagSentEvent(
         string distinctId,
         string featureKey,
         ICacheEntry cacheEntry,
@@ -181,47 +243,81 @@ public sealed class PostHogClient : IPostHogClient
             // TODO: transform groupProperties into what we expect here.
             groups: new Dictionary<string, object>());
 
-        return flag;
+        return true;
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetFeatureFlagsAsync(
+    public async Task<IReadOnlyDictionary<string, FeatureFlag>> GetAllFeatureFlagsAsync(
         string distinctId,
-        Dictionary<string, object>? personProperties,
-        GroupCollection? groupProperties,
-        CancellationToken cancellationToken)
-        => await _featureFlagsCache.GetAndCacheFeatureFlagsAsync(
-            distinctId,
-            fetcher: ct => FetchFeatureFlagsAsync(
-                distinctId,
-                personProperties,
-                groupProperties,
-                ct), cancellationToken);
-
-    async Task<IReadOnlyDictionary<string, FeatureFlag>> FetchFeatureFlagsAsync(
-        string distinctId,
-        Dictionary<string, object>? userProperties,
-        GroupCollection? groupProperties,
+        AllFeatureFlagsOptions? options,
         CancellationToken cancellationToken)
     {
-        var results = await _apiClient.GetFeatureFlagsAsync(
+        if (_options.Value.PersonalApiKey is null)
+        {
+            return await DecideAsync(distinctId, options: options, cancellationToken);
+        }
+
+        // Attempt to load local feature flags.
+        var localEvaluator = await _featureFlagsLoader.GetFeatureFlagsForLocalEvaluationAsync(cancellationToken);
+        if (localEvaluator is null)
+        {
+            return await DecideAsync(distinctId, options: options, cancellationToken);
+        }
+
+        var (localEvaluationResults, fallbackToDecide) = localEvaluator.EvaluateAllFlags(
             distinctId,
-            userProperties,
-            groupProperties,
-            cancellationToken);
-        return results.FeatureFlags.ToReadOnlyDictionary(
-            kvp => kvp.Key,
-            kvp => new FeatureFlag(kvp, results.FeatureFlagPayloads));
+            options?.GroupProperties,
+            options?.PersonProperties,
+            warnOnUnknownGroups: false);
+
+        if (!fallbackToDecide || options is { OnlyEvaluateLocally: true })
+        {
+            return localEvaluationResults;
+        }
+
+        return await DecideAsync(distinctId, options: options, cancellationToken);
+    }
+
+    // Retrieves all the evaluated feature flags from the /decide endpoint.
+    async Task<IReadOnlyDictionary<string, FeatureFlag>> DecideAsync(
+        string distinctId,
+        AllFeatureFlagsOptions? options,
+        CancellationToken cancellationToken)
+    {
+        return await _featureFlagsCache.GetAndCacheFeatureFlagsAsync(
+            distinctId,
+            fetcher: _ => FetchDecideAsync(),
+            cancellationToken: cancellationToken);
+
+        async Task<IReadOnlyDictionary<string, FeatureFlag>> FetchDecideAsync()
+        {
+            var results = await _apiClient.GetAllFeatureFlagsFromDecideAsync(
+                distinctId,
+                options?.PersonProperties,
+                options?.GroupProperties,
+                cancellationToken);
+
+            return results?.FeatureFlags is not null
+                ? results.FeatureFlags.ToReadOnlyDictionary(
+                    kvp => kvp.Key,
+                    kvp => FeatureFlag.CreateFromDecide(kvp.Key, kvp.Value, results))
+                : new Dictionary<string, FeatureFlag>();
+        }
     }
 
     /// <inheritdoc/>
     public async Task FlushAsync() => await _asyncBatchHandler.FlushAsync();
 
     /// <inheritdoc/>
-    public Version Version => _apiClient.Version;
+    public string Version => _apiClient.Version;
 
     /// <inheritdoc/>
     public void Dispose() => DisposeAsync().AsTask().Wait();
+
+    /// <summary>
+    /// Clears the local flags cache.
+    /// </summary>
+    public void ClearLocalFlagsCache() => _featureFlagsLoader.Clear();
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
@@ -230,6 +326,7 @@ public sealed class PostHogClient : IPostHogClient
         await _asyncBatchHandler.DisposeAsync();
         _apiClient.Dispose();
         _featureFlagSentCache.Dispose();
+        _featureFlagsLoader.Dispose();
     }
 }
 
@@ -254,4 +351,34 @@ internal static partial class PostHogClientLoggerExtensions
         string eventName,
         int propertiesCount,
         int count);
+
+    [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Debug,
+        Message = "Failed to compute flag {Key} locally.")]
+    public static partial void LogDebugFailedToComputeFlag(this ILogger<PostHogClient> logger, Exception e, string key);
+
+    [LoggerMessage(
+        EventId = 4,
+        Level = LogLevel.Error,
+        Message = "[FEATURE FLAGS] Error while computing variant locally for flag {Key}.")]
+    public static partial void LogErrorFailedToComputeFlag(this ILogger<PostHogClient> logger, Exception e, string key);
+
+    [LoggerMessage(
+        EventId = 5,
+        Level = LogLevel.Error,
+        Message = "[FEATURE FLAGS] Unable to get flag {Key} remotely")]
+    public static partial void LogErrorUnableToGetRemotely(this ILogger<PostHogClient> logger, Exception e, string key);
+
+    [LoggerMessage(
+        EventId = 6,
+        Level = LogLevel.Debug,
+        Message = "Successfully computed flag locally: {Key} -> {Result}.")]
+    public static partial void LogDebugSuccessLocally(this ILogger<PostHogClient> logger, string key, FeatureFlag? result);
+
+    [LoggerMessage(
+        EventId = 7,
+        Level = LogLevel.Debug,
+        Message = "Successfully computed flag remotely: {Key} -> {Result}.")]
+    public static partial void LogDebugSuccessRemotely(this ILogger<PostHogClient> logger, string key, FeatureFlag? result);
 }

@@ -205,6 +205,7 @@ public class FakeHttpMessageHandler : HttpMessageHandler
     {
         var options = new JsonSerializerOptions
         {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = true
         };
         return JsonSerializer.Serialize(obj, options);

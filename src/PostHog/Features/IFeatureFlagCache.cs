@@ -13,7 +13,7 @@ public interface IFeatureFlagCache
     /// </summary>
     /// <param name="distinctId">The distinct id. Used as a cache key.</param>
     /// <param name="fetcher">The feature flag fetcher.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>The set of feature flags.</returns>
     Task<IReadOnlyDictionary<string, FeatureFlag>> GetAndCacheFeatureFlagsAsync(
         string distinctId,

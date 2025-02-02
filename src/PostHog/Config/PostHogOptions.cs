@@ -19,7 +19,6 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     /// Optional personal API key for local feature flag evaluation.
     /// </summary>
     /// <remarks>
-    ///
     /// You can find this https://us.posthog.com/project/{YOUR_PROJECT_ID}/settings/user-api-keys
     /// When developing an ASP.NET Core project locally, we recommend setting this in your user secrets.
     /// <c>
@@ -33,6 +32,12 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     /// PostHog API host, usually 'https://us.i.posthog.com' (default) or 'https://eu.i.posthog.com'
     /// </summary>
     public Uri HostUrl { get; set; } = new("https://us.i.posthog.com");
+
+    /// <summary>
+    /// When <see cref="PersonalApiKey"/> is set, this is the interval to poll for feature flags used in
+    /// local evaluation.
+    /// </summary>
+    public TimeSpan FeatureFlagPollInterval { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// The size limit of the $feature_flag_sent cache.

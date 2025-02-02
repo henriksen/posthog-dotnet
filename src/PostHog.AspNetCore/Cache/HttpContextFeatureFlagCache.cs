@@ -36,11 +36,12 @@ public class HttpContextFeatureFlagCache(
         {
             logger.LogTraceFetchingFeatureFlags(distinctId);
             flags = await fetcher(cancellationToken);
-            if (httpContext is not null)
+            if (httpContext is null)
             {
-                logger.LogTraceStoringFeatureFlagsInCache(distinctId);
-                httpContext.Items[GetCacheKey(distinctId)] = flags;
+                return flags;
             }
+            logger.LogTraceStoringFeatureFlagsInCache(distinctId);
+            httpContext.Items[GetCacheKey(distinctId)] = flags;
         }
         else
         {
