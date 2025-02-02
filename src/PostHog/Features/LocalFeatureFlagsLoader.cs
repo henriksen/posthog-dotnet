@@ -10,12 +10,12 @@ namespace PostHog.Features;
 /// This class is responsible for loading the feature flags from the PostHog API and storing them locally.
 /// It polls the API at a regular interval (set in <see cref="PostHogOptions"/>) and stores the result in memory.
 /// </summary>
-/// <param name="postHogApiClient">The <see cref="IPostHogApiClient"/> used to make requests.</param>
+/// <param name="postHogApiClient">The <see cref="PostHogApiClient"/> used to make requests.</param>
 /// <param name="options">The options used to configure the client.</param>
 /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
 /// <param name="taskScheduler">Used to run tasks on the background.</param>
 internal sealed class LocalFeatureFlagsLoader(
-    IPostHogApiClient postHogApiClient,
+    PostHogApiClient postHogApiClient,
     IOptions<PostHogOptions> options,
     ITaskScheduler taskScheduler,
     TimeProvider timeProvider,

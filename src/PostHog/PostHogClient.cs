@@ -7,6 +7,8 @@ using PostHog.Config;
 using PostHog.Features;
 using PostHog.Json;
 using PostHog.Library;
+using PostHog.Versioning;
+using static PostHog.Library.Ensure;
 
 namespace PostHog;
 
@@ -14,7 +16,7 @@ namespace PostHog;
 public sealed class PostHogClient : IPostHogClient
 {
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
-    readonly IPostHogApiClient _apiClient;
+    readonly PostHogApiClient _apiClient;
     readonly LocalFeatureFlagsLoader _featureFlagsLoader;
     readonly IFeatureFlagCache _featureFlagsCache;
     readonly MemoryCache _featureFlagSentCache;
@@ -24,37 +26,53 @@ public sealed class PostHogClient : IPostHogClient
     readonly ILogger<PostHogClient> _logger;
 
     /// <summary>
-    /// Constructs a <see cref="PostHogClient"/> with the specified <paramref name="options"/>,
-    /// <see cref="TimeProvider"/>, and <paramref name="logger"/>.
+    /// Constructs a <see cref="IPostHogClient"/> with the specified options.
     /// </summary>
-    /// <param name="postHogApiClient">The <see cref="IPostHogApiClient"/> used to make requests.</param>
-    /// <param name="featureFlagsCache">Caches feature flags for a duration appropriate to the environment.</param>
+    /// <param name="options">The options to use with this client</param>
+    public PostHogClient(IOptions<PostHogOptions> options)
+        : this(options,
+            NullFeatureFlagCache.Instance,
+            new SimpleHttpClientFactory(),
+            new TaskRunTaskScheduler(),
+            TimeProvider.System, NullLoggerFactory.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Constructs a <see cref="PostHogClient"/>. This is the main class used to interact with PostHog.
+    /// </summary>
     /// <param name="options">The options used to configure the client.</param>
+    /// <param name="featureFlagsCache">Caches feature flags for a duration appropriate to the environment.</param>
+    /// <param name="httpClientFactory">Creates <see cref="HttpClient"/> for making requests to PostHog's API.</param>
     /// <param name="taskScheduler">Used to run tasks on the background.</param>
     /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
-    /// <param name="logger">The logger.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
+    /// <param name="loggerFactory">The logger factory.</param>
     public PostHogClient(
-        IPostHogApiClient postHogApiClient,
-        IFeatureFlagCache featureFlagsCache,
         IOptions<PostHogOptions> options,
+        IFeatureFlagCache featureFlagsCache,
+        IHttpClientFactory httpClientFactory,
         ITaskScheduler taskScheduler,
         TimeProvider timeProvider,
-        ILogger<PostHogClient> logger)
+        ILoggerFactory loggerFactory)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
-        _taskScheduler = taskScheduler ?? throw new ArgumentNullException(nameof(taskScheduler));
-        _apiClient = postHogApiClient;
+        _options = NotNull(options);
+        _taskScheduler = NotNull(taskScheduler);
+        _apiClient = new PostHogApiClient(
+            NotNull(httpClientFactory).CreateClient(nameof(PostHogClient)),
+            options,
+            timeProvider,
+            loggerFactory.CreateLogger<PostHogApiClient>()
+        );
         _featureFlagsCache = featureFlagsCache;
         _asyncBatchHandler = new AsyncBatchHandler<CapturedEvent>(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
             taskScheduler,
             timeProvider,
-            logger);
+            loggerFactory.CreateLogger<AsyncBatchHandler<CapturedEvent>>());
 
         _featureFlagsLoader = new LocalFeatureFlagsLoader(
-            postHogApiClient,
+            _apiClient,
             options,
             taskScheduler,
             timeProvider,
@@ -63,28 +81,13 @@ public sealed class PostHogClient : IPostHogClient
         _featureFlagSentCache = new MemoryCache(new MemoryCacheOptions
         {
             SizeLimit = options.Value.FeatureFlagSentCacheSizeLimit,
-            Clock = new TimeProviderSystemClock(timeProvider),
+            Clock = new TimeProviderSystemClock(NotNull(timeProvider)),
             CompactionPercentage = options.Value.FeatureFlagSentCacheCompactionPercentage
         });
 
         _timeProvider = timeProvider;
-        _logger = logger;
-
+        _logger = loggerFactory.CreateLogger<PostHogClient>();
         _logger.LogInfoClientCreated(options.Value.MaxBatchSize, options.Value.FlushInterval, options.Value.FlushAt);
-    }
-
-    /// <summary>
-    /// The simplest way to create a <see cref="PostHogClient"/>.
-    /// </summary>
-    /// <param name="options">The options used to configure the client.</param>
-    public PostHogClient(IOptions<PostHogOptions> options) : this(
-        new PostHogApiClient(options, TimeProvider.System, NullLogger<PostHogApiClient>.Instance),
-        NullFeatureFlagCache.Instance,
-        options,
-        new TaskRunTaskScheduler(),
-        TimeProvider.System,
-        NullLogger<PostHogClient>.Instance)
-    {
     }
 
     /// <inheritdoc/>
@@ -309,7 +312,7 @@ public sealed class PostHogClient : IPostHogClient
     public async Task FlushAsync() => await _asyncBatchHandler.FlushAsync();
 
     /// <inheritdoc/>
-    public string Version => _apiClient.Version;
+    public string Version => VersionConstants.Version;
 
     /// <inheritdoc/>
     public void Dispose() => DisposeAsync().AsTask().Wait();

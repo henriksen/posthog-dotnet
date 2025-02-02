@@ -5,7 +5,7 @@ using PostHog.Json;
 /// <summary>
 /// Extensions of <see cref="FakeHttpMessageHandler"/> specific to PostHog
 /// </summary>
-public static class FakeHttpMessageHandlerExtensions
+internal static class FakeHttpMessageHandlerExtensions
 {
     static readonly Uri DecideUrl = new("https://us.i.posthog.com/decide?v=3");
 

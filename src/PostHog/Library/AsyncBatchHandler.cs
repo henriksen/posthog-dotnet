@@ -8,9 +8,9 @@ namespace PostHog.Library;
 internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 {
     readonly Channel<TItem> _channel;
-    readonly IOptions<AsyncBatchHandlerOptions> _options;
+    readonly IOptions<PostHogOptions> _options;
     readonly Func<IEnumerable<TItem>, Task> _batchHandlerFunc;
-    readonly ILogger _logger;
+    readonly ILogger<AsyncBatchHandler<TItem>> _logger;
     readonly PeriodicTimer _timer;
     readonly CancellationTokenSource _cancellationTokenSource = new();
     readonly SemaphoreSlim _flushSignal = new(0); // Used to signal when a flush is needed
@@ -19,10 +19,10 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
-        IOptions<AsyncBatchHandlerOptions> options,
+        IOptions<PostHogOptions> options,
         ITaskScheduler taskScheduler,
         TimeProvider timeProvider,
-        ILogger logger)
+        ILogger<AsyncBatchHandler<TItem>> logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _batchHandlerFunc = batchHandlerFunc;
@@ -39,8 +39,8 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
         TimeProvider timeProvider,
-        IOptions<AsyncBatchHandlerOptions> options)
-        : this(batchHandlerFunc, options, new TaskRunTaskScheduler(), timeProvider, NullLogger.Instance)
+        IOptions<PostHogOptions> options)
+        : this(batchHandlerFunc, options, new TaskRunTaskScheduler(), timeProvider, NullLogger<AsyncBatchHandler<TItem>>.Instance)
     {
     }
 

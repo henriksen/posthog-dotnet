@@ -11,7 +11,7 @@ namespace PostHog.Api;
 /// <param name="Flags">The list of feature flags.</param>
 /// <param name="GroupTypeMapping">A mapping of group IDs to group type.</param>
 /// <param name="Cohorts">A mapping of cohort IDs to a set of filters.</param>
-public record LocalEvaluationApiResult(
+internal record LocalEvaluationApiResult(
     IReadOnlyList<LocalFeatureFlag> Flags,
     [property: JsonPropertyName("group_type_mapping")]
     IReadOnlyDictionary<string, string>? GroupTypeMapping = null,

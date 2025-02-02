@@ -24,7 +24,7 @@ public record FeatureFlag(
     /// <param name="key">The feature flag key.</param>
     /// <param name="value">The value of the flag.</param>
     /// <param name="apiResult">The Decide Api result.</param>
-    public static FeatureFlag CreateFromDecide(
+    internal static FeatureFlag CreateFromDecide(
         string key,
         StringOrValue<bool> value,
         DecideApiResult apiResult)
@@ -40,7 +40,7 @@ public record FeatureFlag(
     /// <param name="key">The feature flag key.</param>
     /// <param name="value">The value of the flag.</param>
     /// <param name="localFeatureFlag">The feature flag definition.</param>
-    public static FeatureFlag CreateFromLocalEvaluation(
+    internal static FeatureFlag CreateFromLocalEvaluation(
         string key,
         StringOrValue<bool> value,
         LocalFeatureFlag localFeatureFlag)
@@ -57,16 +57,6 @@ public record FeatureFlag(
             value.IsString ? value.StringValue is not null : value.Value,
             VariantKey: value.StringValue,
             Payload: payload)
-    {
-    }
-
-    /// <summary>
-    /// Constructs a new instance of <see cref="FeatureFlag"/>.
-    /// </summary>
-    /// <param name="kvp">A key value pair with the feature key and the resulting value.</param>
-    /// <param name="payloads">The payload dictionary from the API response.</param>
-    public FeatureFlag(KeyValuePair<string, StringOrValue<bool>> kvp, IReadOnlyDictionary<string, string>? payloads)
-        : this(kvp.Key, kvp.Value, payloads)
     {
     }
 

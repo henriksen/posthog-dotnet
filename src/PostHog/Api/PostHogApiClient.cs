@@ -9,35 +9,16 @@ using PostHog.Versioning;
 
 namespace PostHog.Api;
 
-/// <inheritdoc cref="IPostHogApiClient" />
-public sealed class PostHogApiClient : IPostHogApiClient
+/// <summary>
+/// PostHog API client for capturing events and managing user tracking
+/// </summary>
+internal sealed class PostHogApiClient : IDisposable
 {
     internal const string LibraryName = "posthog-dotnet";
 
     readonly TimeProvider _timeProvider;
     readonly HttpClient _httpClient;
     readonly IOptions<PostHogOptions> _options;
-
-    /// <summary>
-    /// Initialize a new PostHog client
-    /// </summary>
-    /// <remarks>
-    /// This constructor is used for dependency injection.
-    /// </remarks>
-    /// <param name="options">The options used to configure this client.</param>
-    /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
-    /// <param name="logger">The logger.</param>
-    public PostHogApiClient(
-        IOptions<PostHogOptions> options,
-        TimeProvider timeProvider,
-        ILogger<PostHogApiClient> logger)
-        : this(
-            CreateHttpClient(logger),
-            options,
-            timeProvider,
-            logger)
-    {
-    }
 
     /// <summary>
     /// Initialize a new PostHog client
@@ -61,21 +42,16 @@ public sealed class PostHogApiClient : IPostHogApiClient
         logger.LogTraceApiClientCreated(HostUrl);
     }
 
-    static HttpClient CreateHttpClient(ILogger<PostHogApiClient> logger) =>
-        new(
-#pragma warning disable CA2000
-            new LoggingHttpMessageHandler(logger)
-#pragma warning restore CA2000
-            {
-                InnerHandler = new HttpClientHandler()
-            });
-
     Uri HostUrl => _options.Value.HostUrl;
 
     string ProjectApiKey => _options.Value.ProjectApiKey
                             ?? throw new InvalidOperationException("The Project API Key is not configured.");
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Capture an event with optional properties
+    /// </summary>
+    /// <param name="events">The events to send to PostHog.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     public async Task<ApiResult> CaptureBatchAsync(
         IEnumerable<CapturedEvent> events,
         CancellationToken cancellationToken)
@@ -93,7 +69,10 @@ public sealed class PostHogApiClient : IPostHogApiClient
                ?? new ApiResult(0);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Method to send an event to the PostHog API's /capture endpoint. This is used for
+    /// capturing events, identify, alias, etc.
+    /// </summary>
     public async Task<ApiResult> SendEventAsync(
         Dictionary<string, object> payload,
         CancellationToken cancellationToken)
@@ -108,7 +87,14 @@ public sealed class PostHogApiClient : IPostHogApiClient
                ?? new ApiResult(0);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Retrieves all the feature flags for the user by making a request to the <c>/decide</c> endpoint.
+    /// </summary>
+    /// <param name="distinctUserId">The Id of the user.</param>
+    /// <param name="personProperties">Optional: What person properties are known. Used to compute flags locally, if personalApiKey is present. Not needed if using remote evaluation, but can be used to override remote values for the purposes of feature flag evaluation.</param>
+    /// <param name="groupProperties">Optional: What group properties are known. Used to compute flags locally, if personalApiKey is present.  Not needed if using remote evaluation, but can be used to override remote values for the purposes of feature flag evaluation.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
+    /// <returns>A <see cref="DecideApiResult"/>.</returns>
     public async Task<DecideApiResult?> GetAllFeatureFlagsFromDecideAsync(
         string distinctUserId,
         Dictionary<string, object?>? personProperties,
@@ -137,6 +123,13 @@ public sealed class PostHogApiClient : IPostHogApiClient
                    cancellationToken);
     }
 
+    /// <summary>
+    /// Retrieves all the feature flags for the project by making a request to the
+    /// <c>/api/feature_flag/local_evaluation</c> endpoint. This requires that a Personal API Key is set in
+    /// <see cref="PostHogOptions"/>.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
+    /// <returns>A <see cref="LocalEvaluationApiResult"/> containing all the feature flags.</returns>
     public async Task<LocalEvaluationApiResult?> GetFeatureFlagsForLocalEvaluationAsync(CancellationToken cancellationToken)
     {
         var personalApiKey = _options.Value.PersonalApiKey
@@ -154,9 +147,6 @@ public sealed class PostHogApiClient : IPostHogApiClient
             JsonSerializerHelper.Options,
             cancellationToken);
     }
-
-    /// <inheritdoc/>
-    public string Version => VersionConstants.Version;
 
     void PrepareAndMutatePayload(Dictionary<string, object> payload)
     {

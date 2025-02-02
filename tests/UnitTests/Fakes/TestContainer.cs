@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using PostHog;
-using PostHog.Api;
 using PostHog.Config;
 using PostHog.Library;
 
@@ -72,22 +71,21 @@ public sealed class TestContainer : IServiceProvider
             return FakeTimeProvider;
         });
         services.AddSingleton<ITaskScheduler>(FakeTaskScheduler);
-        services.AddSingleton<HttpClient>(_ => new HttpClient(FakeHttpMessageHandler));
+        services.AddHttpClient(nameof(PostHogClient))
+            .ConfigurePrimaryHttpMessageHandler(() => FakeHttpMessageHandler);
         services.AddSingleton<IFeatureFlagCache>(NullFeatureFlagCache.Instance);
-        services.AddSingleton<IPostHogApiClient, PostHogApiClient>(_ => CreatePostHogApiClient());
-        services.AddSingleton<IPostHogClient, PostHogClient>();
+        services.AddSingleton<IPostHogClient, PostHogClient>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var cache = sp.GetRequiredService<IFeatureFlagCache>();
+            var options = sp.GetRequiredService<IOptions<PostHogOptions>>();
+            var taskScheduler = sp.GetRequiredService<ITaskScheduler>();
+            var timeProvider = sp.GetRequiredService<TimeProvider>();
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            return new PostHogClient(options, cache, httpClientFactory, taskScheduler, timeProvider, loggerFactory);
+        });
     }
 
-    PostHogApiClient CreatePostHogApiClient()
-    {
-        var httpClient = this.GetRequiredService<HttpClient>();
-        var options = this.GetRequiredService<IOptions<PostHogOptions>>();
-        return new PostHogApiClient(
-            httpClient,
-            options,
-            FakeTimeProvider,
-            logger: this.GetRequiredService<ILogger<PostHogApiClient>>());
-    }
 
     /// <summary>
     /// Activates a new instance of <typeparamref name="T" /> using the services registered in the container.
@@ -95,16 +93,7 @@ public sealed class TestContainer : IServiceProvider
     /// </summary>
     /// <typeparam name="T">The type to activate.</typeparam>
     public T Activate<T>(params object[] parameters) where T : class
-    {
-        // Kludge: Temporary workaround.
-        if (typeof(T) == typeof(PostHogApiClient))
-        {
-            return CreatePostHogApiClient() as T
-                   ?? throw new InvalidOperationException("Could not create a PostHogApiClient.");
-        }
-
-        return ActivatorUtilities.CreateInstance<T>(_serviceProvider, parameters);
-    }
+        => ActivatorUtilities.CreateInstance<T>(_serviceProvider, parameters);
 
     object? IServiceProvider.GetService(Type serviceType) => _serviceProvider.GetService(serviceType);
 }

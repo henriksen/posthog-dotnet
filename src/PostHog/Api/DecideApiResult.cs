@@ -10,7 +10,7 @@ namespace PostHog.Api;
 /// <remarks>
 ///
 /// </remarks>
-public record DecideApiResult(
+internal record DecideApiResult(
     FeatureFlagsConfig? Config = null,
     bool IsAuthenticated = false,
     IReadOnlyDictionary<string, StringOrValue<bool>>? FeatureFlags = null,

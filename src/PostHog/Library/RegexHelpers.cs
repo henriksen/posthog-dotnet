@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace PostHog.Library;
 
-public static class RegexHelpers
+internal static class RegexHelpers
 {
     /// <summary>
     /// Validates that the pattern is a valid regular expression and if so, returns a <see cref="Regex"/> object.
