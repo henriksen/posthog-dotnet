@@ -77,8 +77,6 @@ internal sealed class PostHogApiClient : IDisposable
         Dictionary<string, object> payload,
         CancellationToken cancellationToken)
     {
-        payload = payload ?? throw new ArgumentNullException(nameof(payload));
-
         PrepareAndMutatePayload(payload);
 
         var endpointUrl = new Uri(HostUrl, "capture");

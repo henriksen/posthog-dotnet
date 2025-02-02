@@ -85,17 +85,13 @@ internal static class PostHogApiClientExtensions
         string distinctId,
         string alias,
         CancellationToken cancellationToken)
-    {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-
-        return await client.SendEventAsync(distinctId,
+        => await client.SendEventAsync(distinctId,
             "$create_alias",
             properties: new Dictionary<string, object>
             {
                 ["distinct_id"] = distinctId,
                 ["alias"] = alias
             }, cancellationToken: cancellationToken);
-    }
 
     /// <summary>
     /// Unlink future events with the current user. Call this when a user logs out.
@@ -104,13 +100,11 @@ internal static class PostHogApiClientExtensions
         this PostHogApiClient client,
         string distinctId,
         CancellationToken cancellationToken)
-    {
-        await client.SendEventAsync(
+        => await client.SendEventAsync(
             distinctId,
             eventName: "$reset",
             properties: new Dictionary<string, object>(),
             cancellationToken);
-    }
 
     /// <summary>
     /// Capture an event with optional properties
@@ -146,8 +140,6 @@ internal static class PostHogApiClientExtensions
         Dictionary<string, object>? properties,
         CancellationToken cancellationToken)
     {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-
         var payload = new Dictionary<string, object>
         {
             ["event"] = eventName,

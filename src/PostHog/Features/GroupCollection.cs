@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using static PostHog.Library.Ensure;
 
 namespace PostHog;
 
@@ -39,7 +40,7 @@ public class GroupCollection : ICollection<Group>
     /// </summary>
     /// <param name="group">The group to add.</param>
     /// <returns><c>true</c> if the group was added. <c>false</c> if the group type already exists.</returns>
-    public bool TryAdd(Group group) => _groups.TryAdd((group ?? throw new ArgumentNullException(nameof(group))).GroupKey, group);
+    public bool TryAdd(Group group) => _groups.TryAdd(NotNull(group).GroupKey, group);
 
     /// <summary>
     /// Adds a <see cref="Group"/> to this collection.
@@ -48,9 +49,7 @@ public class GroupCollection : ICollection<Group>
     /// <exception cref="ArgumentNullException">Thrown if a group with this group type already exists.</exception>
     public void Add(Group group)
     {
-        group = group ?? throw new ArgumentNullException(nameof(group));
-
-        if (_groups.TryAdd(group.GroupType, group))
+        if (_groups.TryAdd(NotNull(group).GroupType, group))
         {
             return;
         }
@@ -67,7 +66,7 @@ public class GroupCollection : ICollection<Group>
     /// </summary>
     /// <param name="group">The group.</param>
     /// <returns><c>true</c> if a group with the same type exists. Otherwise <c>false</c>.</returns>
-    public bool Contains(Group group) => Contains((group ?? throw new ArgumentNullException(nameof(group))).GroupType);
+    public bool Contains(Group group) => Contains(NotNull(group).GroupType);
 
     /// <summary>
     /// Determines whether this collection contains the specified group type.
@@ -86,9 +85,9 @@ public class GroupCollection : ICollection<Group>
     /// <summary>
     /// Removes a group from this collection based on its group type.
     /// </summary>
-    /// <param name="item">The group to remove.</param>
+    /// <param name="group">The group to remove.</param>
     /// <returns><c>true</c> if the group was removed. <c>false</c> if the group does not exist.</returns>
-    public bool Remove(Group item) => Remove((item ?? throw new ArgumentNullException(nameof(item))).GroupType);
+    public bool Remove(Group group) => Remove(NotNull(group).GroupType);
 
     /// <summary>
     /// Removes a group from this collection based on its group type.

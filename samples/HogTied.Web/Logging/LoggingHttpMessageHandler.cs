@@ -12,8 +12,6 @@ public class LoggingHttpMessageHandler(ILogger<LoggingHttpMessageHandler> logger
 {
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        request = request ?? throw new ArgumentNullException(nameof(request));
-
         // Log request
         var requestBody = request.Content != null
             ? await request.Content.ReadAsStringAsync(cancellationToken)

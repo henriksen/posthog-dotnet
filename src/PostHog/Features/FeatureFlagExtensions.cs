@@ -1,4 +1,5 @@
 using PostHog.Features;
+using static PostHog.Library.Ensure;
 
 namespace PostHog; // Intentionally put in the root namespace.
 
@@ -23,7 +24,7 @@ public static class FeatureFlagExtensions
         string featureKey,
         string distinctId,
         CancellationToken cancellationToken)
-        => (client ?? throw new ArgumentNullException(nameof(client))).IsFeatureEnabledAsync(featureKey,
+        => NotNull(client).IsFeatureEnabledAsync(featureKey,
             distinctId,
             options: null, cancellationToken: cancellationToken);
 
@@ -40,7 +41,7 @@ public static class FeatureFlagExtensions
         this IPostHogClient client,
         string featureKey,
         string distinctId)
-        => (client ?? throw new ArgumentNullException(nameof(client))).IsFeatureEnabledAsync(featureKey,
+        => NotNull(client).IsFeatureEnabledAsync(featureKey,
             distinctId,
             options: null, cancellationToken: CancellationToken.None);
 
@@ -59,7 +60,7 @@ public static class FeatureFlagExtensions
         string featureKey,
         string distinctId,
         FeatureFlagOptions? options)
-        => (client ?? throw new ArgumentNullException(nameof(client))).IsFeatureEnabledAsync(featureKey,
+        => NotNull(client).IsFeatureEnabledAsync(featureKey,
             distinctId,
             options, cancellationToken: CancellationToken.None);
 
@@ -77,7 +78,7 @@ public static class FeatureFlagExtensions
         string featureKey,
         string distinctId,
         CancellationToken cancellationToken)
-        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(featureKey,
+        => await NotNull(client).GetFeatureFlagAsync(featureKey,
             distinctId,
             options: null, cancellationToken: cancellationToken);
 
@@ -91,7 +92,7 @@ public static class FeatureFlagExtensions
     public static async Task<FeatureFlag?> GetFeatureFlagAsync(this IPostHogClient client,
         string featureKey,
         string distinctId)
-        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(featureKey,
+        => await NotNull(client).GetFeatureFlagAsync(featureKey,
             distinctId,
             options: null, cancellationToken: CancellationToken.None);
 
@@ -108,7 +109,7 @@ public static class FeatureFlagExtensions
         string featureKey,
         string distinctId,
         FeatureFlagOptions options)
-        => await (client ?? throw new ArgumentNullException(nameof(client))).GetFeatureFlagAsync(featureKey,
+        => await NotNull(client).GetFeatureFlagAsync(featureKey,
             distinctId,
             options, cancellationToken: CancellationToken.None);
 
@@ -125,7 +126,7 @@ public static class FeatureFlagExtensions
         this IPostHogClient client,
         string distinctId,
         AllFeatureFlagsOptions options)
-        => await (client ?? throw new ArgumentNullException(nameof(client)))
+        => await NotNull(client)
             .GetAllFeatureFlagsAsync(distinctId, options, CancellationToken.None);
 
     /// <summary>
@@ -139,7 +140,7 @@ public static class FeatureFlagExtensions
     public static async Task<IReadOnlyDictionary<string, FeatureFlag>> GetAllFeatureFlagsAsync(
         this IPostHogClient client,
         string distinctId)
-        => await (client ?? throw new ArgumentNullException(nameof(client)))
+        => await NotNull(client)
             .GetAllFeatureFlagsAsync(distinctId, options: new AllFeatureFlagsOptions(), CancellationToken.None);
 
     /// <summary>

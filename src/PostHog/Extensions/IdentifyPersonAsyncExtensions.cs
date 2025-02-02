@@ -1,4 +1,5 @@
 using PostHog.Api;
+using static PostHog.Library.Ensure;
 
 namespace PostHog; // Intentionally put in the root namespace.
 
@@ -14,8 +15,8 @@ public static class IdentifyPersonAsyncExtensions
     public static Task<ApiResult> IdentifyPersonAsync(
         this IPostHogClient client,
         string distinctId,
-        CancellationToken cancellationToken) =>
-        (client ?? throw new ArgumentNullException(nameof(client)))
+        CancellationToken cancellationToken)
+        => NotNull(client)
             .IdentifyPersonAsync(
             distinctId,
             userPropertiesToSet: null,
@@ -98,8 +99,6 @@ public static class IdentifyPersonAsyncExtensions
         Dictionary<string, object>? userPropertiesToSetOnce,
         CancellationToken cancellationToken)
     {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-
         if (email is not null)
         {
             additionalUserPropertiesToSet ??= new Dictionary<string, object>();
@@ -112,7 +111,7 @@ public static class IdentifyPersonAsyncExtensions
             additionalUserPropertiesToSet["name"] = name;
         }
 
-        return await client.IdentifyPersonAsync(distinctId,
+        return await NotNull(client).IdentifyPersonAsync(distinctId,
                 additionalUserPropertiesToSet,
                 userPropertiesToSetOnce,
                 cancellationToken);
@@ -126,9 +125,8 @@ public static class IdentifyPersonAsyncExtensions
     /// <param name="distinctId">The identifier you use for the user.</param>
     public static Task<ApiResult> IdentifyPersonAsync(
         this IPostHogClient client,
-        string distinctId) =>
-        (client ?? throw new ArgumentNullException(nameof(client)))
-        .IdentifyPersonAsync(
+        string distinctId)
+        => NotNull(client).IdentifyPersonAsync(
             distinctId,
             userPropertiesToSet: null,
             userPropertiesToSetOnce: null,

@@ -1,14 +1,5 @@
 using System.Net.Http.Headers;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using NSubstitute;
 using PostHog;
-using PostHog.Api;
-using PostHog.Cache;
-using PostHog.Config;
-using PostHog.Features;
-using PostHog.Json;
 using PostHog.Versioning;
 using UnitTests.Fakes;
 
@@ -27,8 +18,9 @@ public class TheCaptureBatchAsyncMethod
         var requestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
-        client.CaptureEvent("some-distinct-id", "some_event", null, null);
+        var result = client.CaptureEvent("some-distinct-id", "some_event");
 
+        Assert.True(result);
         await client.FlushAsync();
         var received = requestHandler.GetReceivedRequestBody(indented: true);
         Assert.Equal($$"""

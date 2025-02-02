@@ -111,13 +111,12 @@ public sealed class PostHogClient : IPostHogClient
     => _apiClient.IdentifyGroupAsync(type, key, properties, cancellationToken);
 
     /// <inheritdoc/>
-    public void CaptureEvent(
+    public bool CaptureEvent(
         string distinctId,
         string eventName,
         Dictionary<string, object>? properties,
         Dictionary<string, object>? groups)
     {
-
         if (groups is { Count: > 0 })
         {
             properties ??= new Dictionary<string, object>();
@@ -130,9 +129,13 @@ public sealed class PostHogClient : IPostHogClient
             properties,
             timestamp: _timeProvider.GetUtcNow());
 
-        _asyncBatchHandler.Enqueue(capturedEvent);
-
-        _logger.LogTraceCaptureCalled(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
+        if (_asyncBatchHandler.Enqueue(capturedEvent))
+        {
+            _logger.LogTraceCaptureCalled(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
+            return true;
+        }
+        _logger.LogWarnCaptureFailed(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
+        return false;
     }
 
     /// <inheritdoc/>
@@ -384,4 +387,14 @@ internal static partial class PostHogClientLoggerExtensions
         Level = LogLevel.Debug,
         Message = "Successfully computed flag remotely: {Key} -> {Result}.")]
     public static partial void LogDebugSuccessRemotely(this ILogger<PostHogClient> logger, string key, FeatureFlag? result);
+
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Warning,
+        Message = "Capture failed for event {EventName} with {PropertiesCount} properties. {Count} items in the queue")]
+    public static partial void LogWarnCaptureFailed(
+        this ILogger<PostHogClient> logger,
+        string eventName,
+        int propertiesCount,
+        int count);
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PostHog.Features;
+using static PostHog.Library.Ensure;
 
 namespace PostHog.Cache;
 
@@ -28,14 +29,12 @@ public class HttpContextFeatureFlagCache(
         Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher,
         CancellationToken cancellationToken)
     {
-        fetcher = fetcher ?? throw new ArgumentNullException(nameof(fetcher));
-
         var httpContext = httpContextAccessor.HttpContext;
 
         if (httpContext?.Items[GetCacheKey(distinctId)] is not IReadOnlyDictionary<string, FeatureFlag> flags)
         {
             logger.LogTraceFetchingFeatureFlags(distinctId);
-            flags = await fetcher(cancellationToken);
+            flags = await NotNull(fetcher)(cancellationToken);
             if (httpContext is null)
             {
                 return flags;
