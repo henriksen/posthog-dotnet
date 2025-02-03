@@ -7,6 +7,8 @@ using PostHog.Config;
 using PostHog.Features;
 using PostHog.Json;
 using PostHog.Library;
+using PostHog.Versioning;
+using static PostHog.Library.Ensure;
 
 namespace PostHog;
 
@@ -14,7 +16,7 @@ namespace PostHog;
 public sealed class PostHogClient : IPostHogClient
 {
     readonly AsyncBatchHandler<CapturedEvent> _asyncBatchHandler;
-    readonly IPostHogApiClient _apiClient;
+    readonly PostHogApiClient _apiClient;
     readonly LocalFeatureFlagsLoader _featureFlagsLoader;
     readonly IFeatureFlagCache _featureFlagsCache;
     readonly MemoryCache _featureFlagSentCache;
@@ -24,37 +26,54 @@ public sealed class PostHogClient : IPostHogClient
     readonly ILogger<PostHogClient> _logger;
 
     /// <summary>
-    /// Constructs a <see cref="PostHogClient"/> with the specified <paramref name="options"/>,
-    /// <see cref="TimeProvider"/>, and <paramref name="logger"/>.
+    /// Constructs a <see cref="IPostHogClient"/> with the specified options.
     /// </summary>
-    /// <param name="postHogApiClient">The <see cref="IPostHogApiClient"/> used to make requests.</param>
-    /// <param name="featureFlagsCache">Caches feature flags for a duration appropriate to the environment.</param>
+    /// <param name="options">The options to use with this client</param>
+    public PostHogClient(IOptions<PostHogOptions> options)
+        : this(
+            options,
+            NullFeatureFlagCache.Instance,
+            new SimpleHttpClientFactory(),
+            new TaskRunTaskScheduler(),
+            TimeProvider.System, NullLoggerFactory.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Constructs a <see cref="PostHogClient"/>. This is the main class used to interact with PostHog.
+    /// </summary>
     /// <param name="options">The options used to configure the client.</param>
+    /// <param name="featureFlagsCache">Caches feature flags for a duration appropriate to the environment.</param>
+    /// <param name="httpClientFactory">Creates <see cref="HttpClient"/> for making requests to PostHog's API.</param>
     /// <param name="taskScheduler">Used to run tasks on the background.</param>
     /// <param name="timeProvider">The time provider <see cref="TimeProvider"/> to use to determine time.</param>
-    /// <param name="logger">The logger.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="options"/> is null.</exception>
+    /// <param name="loggerFactory">The logger factory.</param>
     public PostHogClient(
-        IPostHogApiClient postHogApiClient,
-        IFeatureFlagCache featureFlagsCache,
         IOptions<PostHogOptions> options,
+        IFeatureFlagCache featureFlagsCache,
+        IHttpClientFactory httpClientFactory,
         ITaskScheduler taskScheduler,
         TimeProvider timeProvider,
-        ILogger<PostHogClient> logger)
+        ILoggerFactory loggerFactory)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
-        _taskScheduler = taskScheduler ?? throw new ArgumentNullException(nameof(taskScheduler));
-        _apiClient = postHogApiClient;
+        _options = NotNull(options);
+        _taskScheduler = NotNull(taskScheduler);
+        _apiClient = new PostHogApiClient(
+            NotNull(httpClientFactory).CreateClient(nameof(PostHogClient)),
+            options,
+            timeProvider,
+            loggerFactory.CreateLogger<PostHogApiClient>()
+        );
         _featureFlagsCache = featureFlagsCache;
         _asyncBatchHandler = new AsyncBatchHandler<CapturedEvent>(
             batch => _apiClient.CaptureBatchAsync(batch, CancellationToken.None),
             options,
             taskScheduler,
             timeProvider,
-            logger);
+            loggerFactory.CreateLogger<AsyncBatchHandler<CapturedEvent>>());
 
         _featureFlagsLoader = new LocalFeatureFlagsLoader(
-            postHogApiClient,
+            _apiClient,
             options,
             taskScheduler,
             timeProvider,
@@ -63,40 +82,25 @@ public sealed class PostHogClient : IPostHogClient
         _featureFlagSentCache = new MemoryCache(new MemoryCacheOptions
         {
             SizeLimit = options.Value.FeatureFlagSentCacheSizeLimit,
-            Clock = new TimeProviderSystemClock(timeProvider),
+            Clock = new TimeProviderSystemClock(NotNull(timeProvider)),
             CompactionPercentage = options.Value.FeatureFlagSentCacheCompactionPercentage
         });
 
         _timeProvider = timeProvider;
-        _logger = logger;
-
+        _logger = loggerFactory.CreateLogger<PostHogClient>();
         _logger.LogInfoClientCreated(options.Value.MaxBatchSize, options.Value.FlushInterval, options.Value.FlushAt);
-    }
-
-    /// <summary>
-    /// The simplest way to create a <see cref="PostHogClient"/>.
-    /// </summary>
-    /// <param name="options">The options used to configure the client.</param>
-    public PostHogClient(IOptions<PostHogOptions> options) : this(
-        new PostHogApiClient(options, TimeProvider.System, NullLogger<PostHogApiClient>.Instance),
-        NullFeatureFlagCache.Instance,
-        options,
-        new TaskRunTaskScheduler(),
-        TimeProvider.System,
-        NullLogger<PostHogClient>.Instance)
-    {
     }
 
     /// <inheritdoc/>
     public async Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
-        Dictionary<string, object>? userPropertiesToSet,
-        Dictionary<string, object>? userPropertiesToSetOnce,
+        Dictionary<string, object>? personPropertiesToSet,
+        Dictionary<string, object>? personPropertiesToSetOnce,
         CancellationToken cancellationToken)
         => await _apiClient.IdentifyPersonAsync(
             distinctId,
-            userPropertiesToSet,
-            userPropertiesToSetOnce,
+            personPropertiesToSet,
+            personPropertiesToSetOnce,
             cancellationToken);
 
     /// <inheritdoc/>
@@ -108,28 +112,33 @@ public sealed class PostHogClient : IPostHogClient
     => _apiClient.IdentifyGroupAsync(type, key, properties, cancellationToken);
 
     /// <inheritdoc/>
-    public void CaptureEvent(
+    public bool CaptureEvent(
         string distinctId,
         string eventName,
         Dictionary<string, object>? properties,
-        Dictionary<string, object>? groups)
+        GroupCollection? groups,
+        bool sendFeatureFlags)
     {
-
-        if (groups is { Count: > 0 })
-        {
-            properties ??= new Dictionary<string, object>();
-            properties["$groups"] = groups;
-        }
-
         var capturedEvent = new CapturedEvent(
             eventName,
             distinctId,
             properties,
             timestamp: _timeProvider.GetUtcNow());
 
-        _asyncBatchHandler.Enqueue(capturedEvent);
+        if (groups is { Count: > 0 })
+        {
+            capturedEvent.Properties["$groups"] = groups.ToDictionary(g => g.GroupType, g => g.GroupKey);
+        }
 
-        _logger.LogTraceCaptureCalled(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
+        capturedEvent.Properties.Merge(_options.Value.SuperProperties);
+
+        if (_asyncBatchHandler.Enqueue(capturedEvent))
+        {
+            _logger.LogTraceCaptureCalled(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
+            return true;
+        }
+        _logger.LogWarnCaptureFailed(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
+        return false;
     }
 
     /// <inheritdoc/>
@@ -206,7 +215,12 @@ public sealed class PostHogClient : IPostHogClient
             _featureFlagSentCache.GetOrCreate(
                 key: (distinctId, featureKey, (string)response),
                 // This is only called if the key doesn't exist in the cache.
-                factory: cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, response));
+                factory: cacheEntry => CaptureFeatureFlagSentEvent(
+                    distinctId,
+                    featureKey,
+                    cacheEntry,
+                    response,
+                    options.GroupProperties));
         }
 
         if (_featureFlagSentCache.Count >= _options.Value.FeatureFlagSentCacheSizeLimit)
@@ -224,7 +238,8 @@ public sealed class PostHogClient : IPostHogClient
         string distinctId,
         string featureKey,
         ICacheEntry cacheEntry,
-        FeatureFlag? flag)
+        FeatureFlag? flag,
+        GroupCollection? groupProperties)
     {
         cacheEntry.SetSize(1); // Each entry has a size of 1
         cacheEntry.SetPriority(CacheItemPriority.Low);
@@ -240,8 +255,8 @@ public sealed class PostHogClient : IPostHogClient
                 ["locally_evaluated"] = false,
                 [$"$feature/{featureKey}"] = flag.ToResponseObject()
             },
-            // TODO: transform groupProperties into what we expect here.
-            groups: new Dictionary<string, object>());
+            groups: groupProperties,
+            sendFeatureFlags: false);
 
         return true;
     }
@@ -309,7 +324,7 @@ public sealed class PostHogClient : IPostHogClient
     public async Task FlushAsync() => await _asyncBatchHandler.FlushAsync();
 
     /// <inheritdoc/>
-    public string Version => _apiClient.Version;
+    public string Version => VersionConstants.Version;
 
     /// <inheritdoc/>
     public void Dispose() => DisposeAsync().AsTask().Wait();
@@ -381,4 +396,14 @@ internal static partial class PostHogClientLoggerExtensions
         Level = LogLevel.Debug,
         Message = "Successfully computed flag remotely: {Key} -> {Result}.")]
     public static partial void LogDebugSuccessRemotely(this ILogger<PostHogClient> logger, string key, FeatureFlag? result);
+
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Warning,
+        Message = "Capture failed for event {EventName} with {PropertiesCount} properties. {Count} items in the queue")]
+    public static partial void LogWarnCaptureFailed(
+        this ILogger<PostHogClient> logger,
+        string eventName,
+        int propertiesCount,
+        int count);
 }

@@ -62,12 +62,12 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                     UserId,
                     email: User.FindFirst(ClaimTypes.Email)?.Value,
                     name: User.FindFirst(ClaimTypes.Name)?.Value,
-                    additionalUserPropertiesToSet: new Dictionary<string, object>
+                    personPropertiesToSet: new Dictionary<string, object>
                     {
                         ["site"] = "sample website",
                         ["rate"] = 2.99
                     },
-                    userPropertiesToSetOnce: new Dictionary<string, object>
+                    personPropertiesToSetOnce: new Dictionary<string, object>
                     {
                         ["join_date"] = DateTime.UtcNow
                     },

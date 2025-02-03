@@ -1,4 +1,7 @@
+using PostHog.Library;
+
 namespace PostHog;
+using static Ensure;
 
 /// <summary>
 /// Extensions of <see cref="IPostHogClient"/> related to capturing events.
@@ -11,21 +14,57 @@ public static class CaptureExtensions
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="eventName">Human friendly name of the event. Recommended format [object] [verb] such as "Project created" or "User signed up".</param>
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureEvent(
+        this IPostHogClient client,
+        string distinctId,
+        string eventName)
+        => NotNull(client).CaptureEvent(
+            distinctId,
+            eventName,
+            properties: null,
+            groups: null,
+            sendFeatureFlags: false);
+
+    /// <summary>
+    /// Captures an event with additional properties to add to the event.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="eventName">Human friendly name of the event. Recommended format [object] [verb] such as "Project created" or "User signed up".</param>
     /// <param name="properties">Optional: The properties to send along with the event.</param>
-    public static void CaptureEvent(
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureEvent(
         this IPostHogClient client,
         string distinctId,
         string eventName,
         Dictionary<string, object>? properties)
-    {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-
-        client.CaptureEvent(
+        => NotNull(client).CaptureEvent(
             distinctId,
             eventName,
             properties,
-            groups: null);
-    }
+            groups: null,
+            sendFeatureFlags: false);
+
+    /// <summary>
+    /// Captures an event.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="eventName">Human friendly name of the event. Recommended format [object] [verb] such as "Project created" or "User signed up".</param>
+    /// <param name="groups">A set of groups to send with the event. The groups are identified by their group_type and group_key.</param>
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureEvent(
+        this IPostHogClient client,
+        string distinctId,
+        string eventName,
+        GroupCollection groups)
+        => NotNull(client).CaptureEvent(
+            distinctId,
+            eventName,
+            properties: null,
+            groups: groups,
+            sendFeatureFlags: false);
 
     /// <summary>
     /// Captures a Page View ($pageview) event.
@@ -34,7 +73,8 @@ public static class CaptureExtensions
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="pagePath">The URL or path of the page to capture.</param>
     /// <param name="properties">Additional context to save with the event.</param>
-    public static void CapturePageView(
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CapturePageView(
         this IPostHogClient client,
         string distinctId,
         string pagePath,
@@ -52,7 +92,7 @@ public static class CaptureExtensions
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="pagePath">The URL or path of the page to capture.</param>
-    public static void CapturePageView(
+    public static bool CapturePageView(
         this IPostHogClient client,
         string distinctId,
         string pagePath) => client.CapturePageView(distinctId, pagePath, properties: null);
@@ -64,7 +104,8 @@ public static class CaptureExtensions
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="screenName">The URL or path of the page to capture.</param>
     /// <param name="properties">Additional context to save with the event.</param>
-    public static void CaptureScreenView(
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureScreenView(
         this IPostHogClient client,
         string distinctId,
         string screenName,
@@ -82,7 +123,8 @@ public static class CaptureExtensions
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="screenName">The URL or path of the page to capture.</param>
-    public static void CaptureScreenView(
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureScreenView(
         this IPostHogClient client,
         string distinctId,
         string screenName) => client.CaptureScreenView(distinctId, screenName, properties: null);
@@ -95,7 +137,8 @@ public static class CaptureExtensions
     /// <param name="surveyId">The id of the survey.</param>
     /// <param name="surveyResponse">The survey response.</param>
     /// <param name="properties">Additional properties to capture.</param>
-    public static void CaptureSurveyResponse(
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureSurveyResponse(
         this IPostHogClient client,
         string distinctId,
         string surveyId,
@@ -115,20 +158,18 @@ public static class CaptureExtensions
     /// <param name="surveyId">The id of the survey.</param>
     /// <param name="surveyResponses">The survey responses.</param>
     /// <param name="properties">Additional properties to capture.</param>
-    public static void CaptureSurveyResponses(
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureSurveyResponses(
         this IPostHogClient client,
         string distinctId,
         string surveyId,
         IReadOnlyList<string> surveyResponses,
         Dictionary<string, object>? properties)
     {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-        surveyResponses = surveyResponses ?? throw new ArgumentNullException(nameof(surveyResponses));
-
         properties ??= new Dictionary<string, object>();
         properties["$survey_id"] = surveyId;
 
-        if (surveyResponses.Count > 0)
+        if (NotNull(surveyResponses).Count > 0)
         {
             properties["$survey_response"] = surveyResponses[0];
         }
@@ -138,7 +179,7 @@ public static class CaptureExtensions
             properties[$"survey_response_{i}"] = surveyResponses[i];
         }
 
-        client.CaptureEvent(distinctId, "survey sent", properties, groups: null);
+        return NotNull(client).CaptureEvent(distinctId, "survey sent", properties, groups: null, sendFeatureFlags: false);
     }
 
     /// <summary>
@@ -148,7 +189,8 @@ public static class CaptureExtensions
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="surveyId">The id of the survey.</param>
     /// <param name="properties">Additional properties to capture.</param>
-    public static void CaptureSurveyShown(
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureSurveyShown(
         this IPostHogClient client,
         string distinctId,
         string surveyId,
@@ -167,7 +209,8 @@ public static class CaptureExtensions
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="surveyId">The id of the survey.</param>
     /// <param name="properties">Additional properties to capture.</param>
-    public static void CaptureSurveyDismissed(
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureSurveyDismissed(
         this IPostHogClient client,
         string distinctId,
         string surveyId,
@@ -179,7 +222,7 @@ public static class CaptureExtensions
             eventPropertyValue: surveyId,
             properties);
 
-    static void CaptureSpecialEvent(
+    static bool CaptureSpecialEvent(
         this IPostHogClient client,
         string distinctId,
         string eventName,
@@ -187,10 +230,8 @@ public static class CaptureExtensions
         string eventPropertyValue,
         Dictionary<string, object>? properties)
     {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-
         properties ??= new Dictionary<string, object>();
         properties[eventPropertyName] = eventPropertyValue;
-        client.CaptureEvent(distinctId, eventName, properties);
+        return client.CaptureEvent(distinctId, eventName, properties);
     }
 }

@@ -9,32 +9,32 @@ internal static class PostHogApiClientExtensions
     /// </summary>
     /// <param name="client">The <see cref="PostHogApiClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="userPropertiesToSet">
+    /// <param name="personPropertiesToSet">
     /// Key value pairs to store as a property of the user. Any key value pairs in this dictionary that match
     /// existing property keys will overwrite those properties.
     /// </param>
-    /// <param name="userPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
+    /// <param name="personPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
     /// value in this dictionary is ignored.
     /// </param>
     /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     public static async Task<ApiResult> IdentifyPersonAsync(
-        this IPostHogApiClient client,
+        this PostHogApiClient client,
         string distinctId,
-        Dictionary<string, object>? userPropertiesToSet,
-        Dictionary<string, object>? userPropertiesToSetOnce,
+        Dictionary<string, object>? personPropertiesToSet,
+        Dictionary<string, object>? personPropertiesToSetOnce,
         CancellationToken cancellationToken)
     {
         var properties = new Dictionary<string, object>();
 
-        if (userPropertiesToSet is not null)
+        if (personPropertiesToSet is not null)
         {
-            properties["$set"] = userPropertiesToSet;
+            properties["$set"] = personPropertiesToSet;
         }
 
-        if (userPropertiesToSetOnce is not null)
+        if (personPropertiesToSetOnce is not null)
         {
-            properties["$set_once"] = userPropertiesToSetOnce;
+            properties["$set_once"] = personPropertiesToSetOnce;
         }
 
         return await client.SendEventAsync(
@@ -48,14 +48,14 @@ internal static class PostHogApiClientExtensions
     /// Identify a group with additional properties
     /// </summary>
     public static async Task<ApiResult> IdentifyGroupAsync(
-        this IPostHogApiClient client,
+        this PostHogApiClient client,
         string type,
         StringOrValue<int> key,
         Dictionary<string, object>? properties,
         CancellationToken cancellationToken)
     {
         return await client.SendEventAsync(
-            distinctId: $"{type}_{key}",
+            distinctId: $"${type}_{key}",
             eventName: "$groupidentify",
             properties: new Dictionary<string, object>
             {
@@ -81,42 +81,36 @@ internal static class PostHogApiClientExtensions
     /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     public static async Task<ApiResult> AliasAsync(
-        this IPostHogApiClient client,
+        this PostHogApiClient client,
         string distinctId,
         string alias,
         CancellationToken cancellationToken)
-    {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-
-        return await client.SendEventAsync(distinctId,
+        => await client.SendEventAsync(distinctId,
             "$create_alias",
             properties: new Dictionary<string, object>
             {
                 ["distinct_id"] = distinctId,
                 ["alias"] = alias
             }, cancellationToken: cancellationToken);
-    }
 
     /// <summary>
     /// Unlink future events with the current user. Call this when a user logs out.
     /// </summary>
     public static async Task ResetAsync(
-        this IPostHogApiClient client,
+        this PostHogApiClient client,
         string distinctId,
         CancellationToken cancellationToken)
-    {
-        await client.SendEventAsync(
+        => await client.SendEventAsync(
             distinctId,
             eventName: "$reset",
             properties: new Dictionary<string, object>(),
             cancellationToken);
-    }
 
     /// <summary>
     /// Capture an event with optional properties
     /// </summary>
     public static async Task<ApiResult> CaptureAsync(
-        this IPostHogApiClient client,
+        this PostHogApiClient client,
         string distinctId,
         string eventName,
         Dictionary<string, object>? properties,
@@ -135,19 +129,17 @@ internal static class PostHogApiClientExtensions
     /// Capture an event with optional properties
     /// </summary>
     public static async Task<ApiResult> CaptureAsync(
-        this IPostHogApiClient client,
+        this PostHogApiClient client,
         string distinctId,
         string eventName) => await client.CaptureAsync(distinctId, eventName, null, CancellationToken.None);
 
     static async Task<ApiResult> SendEventAsync(
-        this IPostHogApiClient client,
+        this PostHogApiClient client,
         string distinctId,
         string eventName,
         Dictionary<string, object>? properties,
         CancellationToken cancellationToken)
     {
-        client = client ?? throw new ArgumentNullException(nameof(client));
-
         var payload = new Dictionary<string, object>
         {
             ["event"] = eventName,

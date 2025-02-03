@@ -5,9 +5,15 @@ using PostHog.Json;
 /// <summary>
 /// Extensions of <see cref="FakeHttpMessageHandler"/> specific to PostHog
 /// </summary>
-public static class FakeHttpMessageHandlerExtensions
+internal static class FakeHttpMessageHandlerExtensions
 {
     static readonly Uri DecideUrl = new("https://us.i.posthog.com/decide?v=3");
+
+    public static FakeHttpMessageHandler.RequestHandler AddCaptureResponse(this FakeHttpMessageHandler handler) =>
+        handler.AddResponse(
+            new Uri("https://us.i.posthog.com/capture"),
+            HttpMethod.Post,
+            responseBody: new { status = 1 });
 
     public static FakeHttpMessageHandler.RequestHandler AddBatchResponse(this FakeHttpMessageHandler handler) =>
         handler.AddResponse(

@@ -3,14 +3,15 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PostHog.Config;
+using static PostHog.Library.Ensure;
 
 namespace PostHog.Library;
 internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 {
     readonly Channel<TItem> _channel;
-    readonly IOptions<AsyncBatchHandlerOptions> _options;
+    readonly IOptions<PostHogOptions> _options;
     readonly Func<IEnumerable<TItem>, Task> _batchHandlerFunc;
-    readonly ILogger _logger;
+    readonly ILogger<AsyncBatchHandler<TItem>> _logger;
     readonly PeriodicTimer _timer;
     readonly CancellationTokenSource _cancellationTokenSource = new();
     readonly SemaphoreSlim _flushSignal = new(0); // Used to signal when a flush is needed
@@ -19,12 +20,12 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
-        IOptions<AsyncBatchHandlerOptions> options,
+        IOptions<PostHogOptions> options,
         ITaskScheduler taskScheduler,
         TimeProvider timeProvider,
-        ILogger logger)
+        ILogger<AsyncBatchHandler<TItem>> logger)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _options = NotNull(options);
         _batchHandlerFunc = batchHandlerFunc;
         _logger = logger;
         _channel = Channel.CreateBounded<TItem>(new BoundedChannelOptions(_options.Value.MaxQueueSize)
@@ -39,14 +40,19 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
     public AsyncBatchHandler(
         Func<IEnumerable<TItem>, Task> batchHandlerFunc,
         TimeProvider timeProvider,
-        IOptions<AsyncBatchHandlerOptions> options)
-        : this(batchHandlerFunc, options, new TaskRunTaskScheduler(), timeProvider, NullLogger.Instance)
+        IOptions<PostHogOptions> options)
+        : this(batchHandlerFunc, options, new TaskRunTaskScheduler(), timeProvider, NullLogger<AsyncBatchHandler<TItem>>.Instance)
     {
     }
 
     public int Count => _channel.Reader.Count;
 
-    public void Enqueue(TItem item)
+    /// <summary>
+    /// Enqueues an item and returns true if the item was successfully enqueued.
+    /// </summary>
+    /// <param name="item">The item to enqueue</param>
+    /// <returns><c>true</c> if the item was enqueued, otherwise <c>false</c>ß</returns>
+    public bool Enqueue(TItem item)
     {
         if (Count >= _options.Value.MaxQueueSize)
         {
@@ -56,17 +62,18 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         if (!_channel.Writer.TryWrite(item))
         {
             _logger.LogWarningCannotEnqueueEvent(_disposed is 1);
-            return;
+            return false;
         }
 
         if (Count < _options.Value.FlushAt)
         {
-            return;
+            return true;
         }
 
         _logger.LogTraceFlushCalledOnCaptureFlushAt(_options.Value.FlushAt, Count);
         // Signal that a flush is needed.
         SignalFlush();
+        return true;
     }
 
     void SignalFlush()

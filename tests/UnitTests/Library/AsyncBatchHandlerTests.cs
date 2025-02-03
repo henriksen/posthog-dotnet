@@ -9,7 +9,7 @@ public class TheEnqueueMethod
     [Fact]
     public async Task CallsBatchHandlerWhenThresholdMet()
     {
-        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+        var options = new FakeOptions<PostHogOptions>(new()
         {
             FlushAt = 3,
             FlushInterval = TimeSpan.FromHours(3)
@@ -37,7 +37,7 @@ public class TheEnqueueMethod
     public async Task CallsBatchHandlerUntilQueueDrained()
     {
         var timeProvider = new FakeTimeProvider();
-        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+        var options = new FakeOptions<PostHogOptions>(new()
         {
             FlushAt = 1000,
             FlushInterval = TimeSpan.FromSeconds(10),
@@ -70,7 +70,7 @@ public class TheEnqueueMethod
     [Fact]
     public async Task FlushBatchAsyncContinuesAfterException()
     {
-        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+        var options = new FakeOptions<PostHogOptions>(new()
         {
             MaxBatchSize = 2,
             FlushInterval = TimeSpan.FromHours(3)
@@ -107,7 +107,7 @@ public class TheEnqueueMethod
     public async Task DropsOlderEventsWhenMaxQueueMet()
     {
         var timeProvider = new FakeTimeProvider();
-        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+        var options = new FakeOptions<PostHogOptions>(new()
         {
             FlushAt = 100,
             MaxQueueSize = 5, // In practice, this should be smaller than FlushAt. But for this test, this is needed.
@@ -140,7 +140,7 @@ public class TheEnqueueMethod
     public async Task FlushesBatchOnTimer()
     {
         var timeProvider = new FakeTimeProvider();
-        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+        var options = new FakeOptions<PostHogOptions>(new()
         {
             FlushAt = 10,
             FlushInterval = TimeSpan.FromSeconds(2)
@@ -177,7 +177,7 @@ public class TheEnqueueMethod
     public async Task IgnoresEnqueuedItemAfterDispose()
     {
         var timeProvider = new FakeTimeProvider();
-        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+        var options = new FakeOptions<PostHogOptions>(new()
         {
             FlushAt = 2,
             FlushInterval = TimeSpan.FromSeconds(2)
@@ -212,7 +212,7 @@ public class TheDisposeAsyncMethod
     {
         var timeProvider = new FakeTimeProvider();
         var handlerCompleteTask = new TaskCompletionSource();
-        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+        var options = new FakeOptions<PostHogOptions>(new()
         {
             FlushAt = 3,
             FlushInterval = TimeSpan.FromHours(3)
@@ -241,7 +241,7 @@ public class TheDisposeAsyncMethod
     [Fact]
     public async Task DoesNotDisposeTwice()
     {
-        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+        var options = new FakeOptions<PostHogOptions>(new()
         {
             FlushAt = 3,
             FlushInterval = TimeSpan.FromHours(3)
@@ -275,7 +275,7 @@ public class TheDisposeAsyncMethod
     [Fact]
     public async Task HandlesExceptionsInFlushBatchAsync()
     {
-        var options = new FakeOptions<AsyncBatchHandlerOptions>(new()
+        var options = new FakeOptions<PostHogOptions>(new()
         {
             FlushAt = 9,
             FlushInterval = TimeSpan.FromHours(3)

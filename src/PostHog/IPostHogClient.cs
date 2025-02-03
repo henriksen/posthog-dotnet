@@ -22,19 +22,19 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// PostHog is up to date.
     /// </remarks>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="userPropertiesToSet">
+    /// <param name="personPropertiesToSet">
     /// Key value pairs to store as a property of the user. Any key value pairs in this dictionary that match
     /// existing property keys will overwrite those properties.
     /// </param>
-    /// <param name="userPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
+    /// <param name="personPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
     /// value in this dictionary is ignored.
     /// </param>
     /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
-        Dictionary<string, object>? userPropertiesToSet,
-        Dictionary<string, object>? userPropertiesToSetOnce,
+        Dictionary<string, object>? personPropertiesToSet,
+        Dictionary<string, object>? personPropertiesToSetOnce,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -59,11 +59,14 @@ public interface IPostHogClient : IDisposable, IAsyncDisposable
     /// <param name="eventName">Human friendly name of the event. Recommended format [object] [verb] such as "Project created" or "User signed up".</param>
     /// <param name="properties">Optional: The properties to send along with the event.</param>
     /// <param name="groups">Optional: Context of what groups are related to this event, example: { ["company"] = "id:5" }. Can be used to analyze companies instead of users.</param>
-    void CaptureEvent(
+    /// <param name="sendFeatureFlags">Default: <c>false</c>. If <c>true</c>, feature flags are sent with the captured event.</param>
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    bool CaptureEvent(
         string distinctId,
         string eventName,
         Dictionary<string, object>? properties,
-        Dictionary<string, object>? groups);
+        GroupCollection? groups,
+        bool sendFeatureFlags);
 
     /// <summary>
     /// Determines whether a feature is enabled for the specified user.

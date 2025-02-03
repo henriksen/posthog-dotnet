@@ -1,5 +1,6 @@
 using PostHog.Api;
 using PostHog.Json;
+using static PostHog.Library.Ensure;
 
 namespace PostHog; // Intentionally put in the root namespace.
 
@@ -24,10 +25,9 @@ public static class IdentifyGroupAsyncExtensions
         Dictionary<string, object>? properties,
         CancellationToken cancellationToken)
     {
-        client = client ?? throw new ArgumentNullException(nameof(client));
         properties ??= new Dictionary<string, object>();
         properties["name"] = name;
-        return await client.IdentifyGroupAsync(type, key, properties, cancellationToken);
+        return await NotNull(client).IdentifyGroupAsync(type, key, properties, cancellationToken);
     }
 
     /// <summary>

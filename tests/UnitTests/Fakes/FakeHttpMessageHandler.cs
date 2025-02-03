@@ -64,7 +64,6 @@ public class FakeHttpMessageHandler : HttpMessageHandler
         Func<int, TResponseBody> responseBodyFunc,
         string contentType = "application/json")
     {
-        responseBodyFunc = responseBodyFunc ?? throw new ArgumentNullException(nameof(responseBodyFunc));
         for (var i = 0; i < count; i++)
         {
             AddResponse(url, httpMethod, responseBodyFunc(i), contentType);

@@ -6,7 +6,7 @@ namespace PostHog.Library;
 /// <summary>
 /// Represents a date that can be compared to other dates. This might be a relative date or a standard date.
 /// </summary>
-public partial record RelativeDate
+internal partial record RelativeDate
 {
     static readonly Regex RelativeDateRegex = MyRegex();
     readonly Func<DateTimeOffset, DateTimeOffset?>? _currentDateOffsetFunc;

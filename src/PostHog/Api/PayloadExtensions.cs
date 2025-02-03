@@ -12,8 +12,6 @@ internal static class PayloadExtensions
     /// <param name="payload">A dictionary that is the payload to the PostHog API.</param>
     internal static void AddToPayload(this GroupCollection groupCollection, Dictionary<string, object> payload)
     {
-        payload = payload ?? throw new ArgumentNullException(nameof(payload));
-
         if (groupCollection.Count is 0)
         {
             return;

@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Headers;
-using Microsoft.Extensions.Logging;
 
 namespace PostHog.Library;
 
@@ -9,12 +8,10 @@ namespace PostHog.Library;
 /// API calls.
 /// </summary>
 /// <param name="logger">The logger.</param>
-public class LoggingHttpMessageHandler(ILogger logger) : DelegatingHandler
+public class LoggingHttpMessageHandler(ILogger<LoggingHttpMessageHandler> logger) : DelegatingHandler
 {
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        request = request ?? throw new ArgumentNullException(nameof(request));
-
         // Log request
         var requestBody = request.Content != null
             ? await request.Content.ReadAsStringAsync(cancellationToken)
@@ -43,7 +40,7 @@ internal static partial class LoggingHttpMessageHandlerLoggerExtensions
         Level = LogLevel.Trace,
         Message = "HTTP Request: {Method} {RequestUri}{Headers}{Body}")]
     public static partial void LogTraceRequest(
-        this ILogger logger,
+        this ILogger<LoggingHttpMessageHandler> logger,
         HttpMethod method,
         Uri? requestUri,
         string headers,
@@ -54,7 +51,7 @@ internal static partial class LoggingHttpMessageHandlerLoggerExtensions
         Level = LogLevel.Trace,
         Message = "HTTP Response: {StatusCode}{Headers}{Body}")]
     public static partial void LogTraceResponse(
-        this ILogger logger,
+        this ILogger<LoggingHttpMessageHandler> logger,
         HttpStatusCode statusCode,
         string headers,
         string body);

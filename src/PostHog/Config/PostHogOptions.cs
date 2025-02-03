@@ -5,7 +5,7 @@ namespace PostHog.Config;
 /// <summary>
 /// Options for configuring the PostHog client.
 /// </summary>
-public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogOptions>
+public sealed class PostHogOptions : IOptions<PostHogOptions>
 {
     /// <summary>
     /// The project API key that identifies which project this client works with.
@@ -34,6 +34,12 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     public Uri HostUrl { get; set; } = new("https://us.i.posthog.com");
 
     /// <summary>
+    /// Default properties to send when capturing events. These properties override any properties with the same
+    /// key sent with the event.
+    /// </summary>
+    public IReadOnlyDictionary<string, object> SuperProperties { get; init; } = new Dictionary<string, object>();
+
+    /// <summary>
     /// When <see cref="PersonalApiKey"/> is set, this is the interval to poll for feature flags used in
     /// local evaluation.
     /// </summary>
@@ -60,6 +66,32 @@ public sealed class PostHogOptions : AsyncBatchHandlerOptions, IOptions<PostHogO
     /// for more about the cache.
     /// </summary>
     public TimeSpan FeatureFlagSentCacheSlidingExpiration { get; set; } = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// The maximum number of messages to send in a batch. (Default: 100)
+    /// </summary>
+    /// <remarks>
+    /// This property ensures we don't try to send too much data in a single batch request.
+    /// </remarks>
+    public int MaxBatchSize { get; set; } = 100;
+
+    /// <summary>
+    /// The max number of messages to store in the queue before we start dropping messages. (Default: 1000)
+    /// </summary>
+    /// <remarks>
+    /// This property prevents runaway growth of the queue in the case of network outage or a burst of messages.
+    /// </remarks>
+    public int MaxQueueSize { get; set; } = 1000;
+
+    /// <summary>
+    /// The number of events to queue before sending to PostHog (Default: 20)
+    /// </summary>
+    public int FlushAt { get; set; } = 20;
+
+    /// <summary>
+    /// The interval in milliseconds between periodic flushes. (Default: 30s)
+    /// </summary>
+    public TimeSpan FlushInterval { get; set; } = TimeSpan.FromSeconds(30);
 
     // Explicit implementation to hide this value from most users.
     // This is here to make it easier to instantiate the client with the options.

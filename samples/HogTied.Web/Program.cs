@@ -5,13 +5,16 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PostHog;
+using PostHog.Library;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.AddPostHog()
+    .AddHttpMessageHandler<LoggingHttpMessageHandler>()
     .Services
+    .AddTransient<LoggingHttpMessageHandler>()
     .AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connectionString))
     .AddDatabaseDeveloperPageExceptionFilter()
     .ConfigureApplicationCookie(options =>
@@ -38,12 +41,12 @@ builder.AddPostHog()
                             userId,
                             user.Email,
                             user.UserName,
-                            additionalUserPropertiesToSet: new()
+                            personPropertiesToSet: new()
                             {
                                 ["phone"] = user.PhoneNumber ?? "unknown",
                                 ["email_confirmed"] = user.EmailConfirmed,
                             },
-                            userPropertiesToSetOnce: new()
+                            personPropertiesToSetOnce: new()
                             {
                                 ["joined"] = DateTime.UtcNow // If this property is already set, it won't be overwritten.
                             },

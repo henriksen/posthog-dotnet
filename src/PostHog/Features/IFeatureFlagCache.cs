@@ -1,4 +1,5 @@
 using PostHog.Features;
+using static PostHog.Library.Ensure;
 
 namespace PostHog;
 
@@ -37,10 +38,6 @@ public sealed class NullFeatureFlagCache : IFeatureFlagCache
         string distinctId,
         Func<CancellationToken, Task<IReadOnlyDictionary<string, FeatureFlag>>> fetcher,
         CancellationToken cancellationToken)
-    {
-        fetcher = fetcher ?? throw new ArgumentNullException(nameof(fetcher));
-
-        return await fetcher(cancellationToken);
-    }
+        => await NotNull(fetcher)(cancellationToken);
 }
 
