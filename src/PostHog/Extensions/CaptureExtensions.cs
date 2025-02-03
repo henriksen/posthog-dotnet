@@ -1,6 +1,3 @@
-
-
-using Microsoft.Extensions.Logging;
 using PostHog.Library;
 
 namespace PostHog;
@@ -26,10 +23,11 @@ public static class CaptureExtensions
             distinctId,
             eventName,
             properties: null,
-            groups: null);
+            groups: null,
+            sendFeatureFlags: false);
 
     /// <summary>
-    /// Captures an event.
+    /// Captures an event with additional properties to add to the event.
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
@@ -45,7 +43,28 @@ public static class CaptureExtensions
             distinctId,
             eventName,
             properties,
-            groups: null);
+            groups: null,
+            sendFeatureFlags: false);
+
+    /// <summary>
+    /// Captures an event.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="eventName">Human friendly name of the event. Recommended format [object] [verb] such as "Project created" or "User signed up".</param>
+    /// <param name="groups">A set of groups to send with the event. The groups are identified by their group_type and group_key.</param>
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureEvent(
+        this IPostHogClient client,
+        string distinctId,
+        string eventName,
+        GroupCollection groups)
+        => NotNull(client).CaptureEvent(
+            distinctId,
+            eventName,
+            properties: null,
+            groups: groups,
+            sendFeatureFlags: false);
 
     /// <summary>
     /// Captures a Page View ($pageview) event.
@@ -160,7 +179,7 @@ public static class CaptureExtensions
             properties[$"survey_response_{i}"] = surveyResponses[i];
         }
 
-        return NotNull(client).CaptureEvent(distinctId, "survey sent", properties, groups: null);
+        return NotNull(client).CaptureEvent(distinctId, "survey sent", properties, groups: null, sendFeatureFlags: false);
     }
 
     /// <summary>

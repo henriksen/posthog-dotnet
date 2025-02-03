@@ -6,7 +6,8 @@ namespace PostHog;
 
 /// <summary>
 /// When calling an API that requires a group or set of groups, such as evaluating feature flags,
-/// use this to specify the groups. This also provides a way to specify additional group properties.
+/// use this to specify the groups. This also provides a way to specify additional group properties which may be
+/// required when doing local evaluation of feature flags.
 /// </summary>
 public class GroupCollection : ICollection<Group>
 {

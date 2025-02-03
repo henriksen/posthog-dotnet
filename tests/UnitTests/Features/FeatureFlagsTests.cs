@@ -1875,6 +1875,61 @@ public class TheGetFeatureFlagAsyncMethod
     }
 
     [Fact]
+    public async Task CapturesFeatureFlagCalledEventWithGroupInformation()
+    {
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
+        messageHandler.AddRepeatedDecideResponse(
+            count: 2,
+            responseBody: new DecideApiResult
+            {
+                FeatureFlags = new Dictionary<string, StringOrValue<bool>>
+                {
+                    ["flag-key"] = true
+                }.AsReadOnly()
+            });
+        var captureRequestHandler = messageHandler.AddBatchResponse();
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.GetFeatureFlagAsync("flag-key", "a-distinct-id", options: new FeatureFlagOptions
+        {
+            GroupProperties = [new Group("company", "id:5"), new Group("department", "id:3")]
+        });
+
+        Assert.NotNull(result);
+        Assert.True(result.IsEnabled);
+        await client.FlushAsync();
+        var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal($$"""
+                       {
+                         "api_key": "fake-project-api-key",
+                         "historical_migrations": false,
+                         "batch": [
+                           {
+                             "event": "$feature_flag_called",
+                             "properties": {
+                               "$feature_flag": "flag-key",
+                               "$feature_flag_response": true,
+                               "locally_evaluated": false,
+                               "$feature/flag-key": true,
+                               "distinct_id": "a-distinct-id",
+                               "$lib": "posthog-dotnet",
+                               "$lib_version": "{{client.Version}}",
+                               "$geoip_disable": true,
+                               "$groups": {
+                                 "company": "id:5",
+                                 "department": "id:3"
+                               }
+                             },
+                             "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                           }
+                         ]
+                       }
+                       """, received);
+    }
+
+
+    [Fact]
     public async Task CapturesFeatureFlagCalledEventAgainIfCacheLimitExceededAndIsCompacted()
     {
         var container = new TestContainer(sp =>

@@ -9,15 +9,14 @@ using UnitTests.Fakes;
 #pragma warning disable CA2000
 namespace PostHogClientTests;
 
-public class TheCaptureBatchAsyncMethod
+public class TheCaptureEventMethod
 {
     [Fact]
     public async Task SendsBatchToCaptureEndpoint()
     {
         var container = new TestContainer();
-        var messageHandler = container.FakeHttpMessageHandler;
         container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
-        var requestHandler = messageHandler.AddBatchResponse();
+        var requestHandler = container.FakeHttpMessageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
         var result = client.CaptureEvent("some-distinct-id", "some_event");
@@ -45,6 +44,49 @@ public class TheCaptureBatchAsyncMethod
                        """, received);
     }
 
+    [Fact] // Ported from PostHog/posthog-python test_groups_capture
+    public async Task CapturesGroups()
+    {
+        var container = new TestContainer();
+        container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        var requestHandler = container.FakeHttpMessageHandler.AddBatchResponse();
+        var client = container.Activate<PostHogClient>();
+
+        var result = client.CaptureEvent(
+            distinctId: "some-distinct-id",
+            eventName: "some_event",
+            groups: [
+                new Group("company", "id:5"),
+                new Group("department", "engineering")
+            ]);
+
+        Assert.True(result);
+        await client.FlushAsync();
+        var received = requestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal($$"""
+                       {
+                         "api_key": "fake-project-api-key",
+                         "historical_migrations": false,
+                         "batch": [
+                           {
+                             "event": "some_event",
+                             "properties": {
+                               "distinct_id": "some-distinct-id",
+                               "$lib": "posthog-dotnet",
+                               "$lib_version": "{{VersionConstants.Version}}",
+                               "$geoip_disable": true,
+                               "$groups": {
+                                 "company": "id:5",
+                                 "department": "engineering"
+                               }
+                             },
+                             "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                           }
+                         ]
+                       }
+                       """, received);
+    }
+
     [Fact] // Ported from PostHog/posthog-python test_basic_super_properties
     public async Task SendsSuperPropertiesToEndpoint()
     {
@@ -56,9 +98,8 @@ public class TheCaptureBatchAsyncMethod
                 SuperProperties = new Dictionary<string, object> { ["source"] = "repo-name" }
             });
         });
-        var messageHandler = container.FakeHttpMessageHandler;
         container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
-        var requestHandler = messageHandler.AddBatchResponse();
+        var requestHandler = container.FakeHttpMessageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
         var result = client.CaptureEvent("some-distinct-id", "some_event");

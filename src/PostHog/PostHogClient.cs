@@ -116,19 +116,19 @@ public sealed class PostHogClient : IPostHogClient
         string distinctId,
         string eventName,
         Dictionary<string, object>? properties,
-        Dictionary<string, object>? groups)
+        GroupCollection? groups,
+        bool sendFeatureFlags)
     {
-        if (groups is { Count: > 0 })
-        {
-            properties ??= new Dictionary<string, object>();
-            properties["$groups"] = groups;
-        }
-
         var capturedEvent = new CapturedEvent(
             eventName,
             distinctId,
             properties,
             timestamp: _timeProvider.GetUtcNow());
+
+        if (groups is { Count: > 0 })
+        {
+            capturedEvent.Properties["$groups"] = groups.ToDictionary(g => g.GroupType, g => g.GroupKey);
+        }
 
         capturedEvent.Properties.Merge(_options.Value.SuperProperties);
 
@@ -215,7 +215,12 @@ public sealed class PostHogClient : IPostHogClient
             _featureFlagSentCache.GetOrCreate(
                 key: (distinctId, featureKey, (string)response),
                 // This is only called if the key doesn't exist in the cache.
-                factory: cacheEntry => CaptureFeatureFlagSentEvent(distinctId, featureKey, cacheEntry, response));
+                factory: cacheEntry => CaptureFeatureFlagSentEvent(
+                    distinctId,
+                    featureKey,
+                    cacheEntry,
+                    response,
+                    options.GroupProperties));
         }
 
         if (_featureFlagSentCache.Count >= _options.Value.FeatureFlagSentCacheSizeLimit)
@@ -233,7 +238,8 @@ public sealed class PostHogClient : IPostHogClient
         string distinctId,
         string featureKey,
         ICacheEntry cacheEntry,
-        FeatureFlag? flag)
+        FeatureFlag? flag,
+        GroupCollection? groupProperties)
     {
         cacheEntry.SetSize(1); // Each entry has a size of 1
         cacheEntry.SetPriority(CacheItemPriority.Low);
@@ -249,8 +255,8 @@ public sealed class PostHogClient : IPostHogClient
                 ["locally_evaluated"] = false,
                 [$"$feature/{featureKey}"] = flag.ToResponseObject()
             },
-            // TODO: transform groupProperties into what we expect here.
-            groups: new Dictionary<string, object>());
+            groups: groupProperties,
+            sendFeatureFlags: false);
 
         return true;
     }
