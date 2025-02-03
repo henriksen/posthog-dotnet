@@ -55,7 +55,7 @@ internal static class PostHogApiClientExtensions
         CancellationToken cancellationToken)
     {
         return await client.SendEventAsync(
-            distinctId: $"{type}_{key}",
+            distinctId: $"${type}_{key}",
             eventName: "$groupidentify",
             properties: new Dictionary<string, object>
             {
