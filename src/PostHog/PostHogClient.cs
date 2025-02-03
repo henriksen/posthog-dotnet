@@ -30,7 +30,8 @@ public sealed class PostHogClient : IPostHogClient
     /// </summary>
     /// <param name="options">The options to use with this client</param>
     public PostHogClient(IOptions<PostHogOptions> options)
-        : this(options,
+        : this(
+            options,
             NullFeatureFlagCache.Instance,
             new SimpleHttpClientFactory(),
             new TaskRunTaskScheduler(),
@@ -128,6 +129,8 @@ public sealed class PostHogClient : IPostHogClient
             distinctId,
             properties,
             timestamp: _timeProvider.GetUtcNow());
+
+        capturedEvent.Properties.Merge(_options.Value.SuperProperties);
 
         if (_asyncBatchHandler.Enqueue(capturedEvent))
         {

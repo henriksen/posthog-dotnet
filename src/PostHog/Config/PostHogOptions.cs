@@ -34,6 +34,12 @@ public sealed class PostHogOptions : IOptions<PostHogOptions>
     public Uri HostUrl { get; set; } = new("https://us.i.posthog.com");
 
     /// <summary>
+    /// Default properties to send when capturing events. These properties override any properties with the same
+    /// key sent with the event.
+    /// </summary>
+    public IReadOnlyDictionary<string, object> SuperProperties { get; init; } = new Dictionary<string, object>();
+
+    /// <summary>
     /// When <see cref="PersonalApiKey"/> is set, this is the interval to poll for feature flags used in
     /// local evaluation.
     /// </summary>

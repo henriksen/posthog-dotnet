@@ -38,14 +38,45 @@ internal static class CollectionExtensions
         => new ReadOnlyDictionary<TKey, TValue>(enumerable.ToDictionary(keySelector, valueSelector));
 
     /// <summary>
-    /// Filters out null values from an <see cref="IEnumerable{T}"/>.
+    /// Similar to Python's hash merging, this method merges the contents of one dictionary into another.
+    /// The values of the other dictionary will overwrite the values of the original dictionary.
     /// </summary>
-    /// <param name="source"></param>
-    /// <typeparam name="T"></typeparam>
-    /// <returns></returns>
-    public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> source)
-        where T : class
-        => source.Where(item => item is not null)!;
+    /// <param name="dictionary">The source dictionary.</param>
+    /// <param name="otherDictionary">The other dictionary.</param>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <typeparam name="TObject">The value type.</typeparam>
+    public static void Merge<TKey, TObject>(
+        this IDictionary<TKey, TObject> dictionary,
+        IReadOnlyDictionary<TKey, TObject> otherDictionary)
+    {
+        foreach (var (key, value) in otherDictionary)
+        {
+            dictionary[key] = value;
+        }
+    }
+
+    /// <summary>
+    /// Retrieves a value from a dictionary as the specified type or adds a new value if the key does not exist or
+    /// if it exists, but is not the correct type.
+    /// </summary>
+    /// <param name="dictionary">The source dictionary to modify.</param>
+    /// <param name="key">The key.</param>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <typeparam name="TValue">The value type.</typeparam>
+    /// <returns>The value or a new instance.</returns>
+    public static TValue GetOrAdd<TKey, TValue>(
+        this IDictionary<TKey, object> dictionary,
+        TKey key) where TValue : new()
+    {
+        if (dictionary.TryGetValue(key, out var value) && value is TValue typedValue)
+        {
+            return typedValue;
+        }
+
+        var newValue = new TValue();
+        dictionary[key] = newValue;
+        return newValue;
+    }
 
     /// <summary>
     /// Dequeues a batch of items from a <see cref="ConcurrentQueue{T}"/>.

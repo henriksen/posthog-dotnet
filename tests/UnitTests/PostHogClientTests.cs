@@ -1,5 +1,8 @@
 using System.Net.Http.Headers;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using PostHog;
+using PostHog.Config;
 using PostHog.Versioning;
 using UnitTests.Fakes;
 
@@ -13,8 +16,7 @@ public class TheCaptureBatchAsyncMethod
     {
         var container = new TestContainer();
         var messageHandler = container.FakeHttpMessageHandler;
-        var timeProvider = container.FakeTimeProvider;
-        timeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
         var requestHandler = messageHandler.AddBatchResponse();
         var client = container.Activate<PostHogClient>();
 
@@ -43,12 +45,53 @@ public class TheCaptureBatchAsyncMethod
                        """, received);
     }
 
+    [Fact] // Ported from PostHog/posthog-python test_basic_super_properties
+    public async Task SendsSuperPropertiesToEndpoint()
+    {
+        var container = new TestContainer(sp =>
+        {
+            sp.AddSingleton<IOptions<PostHogOptions>>(new PostHogOptions
+            {
+                ProjectApiKey = "fake-project-api-key",
+                SuperProperties = new Dictionary<string, object> { ["source"] = "repo-name" }
+            });
+        });
+        var messageHandler = container.FakeHttpMessageHandler;
+        container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        var requestHandler = messageHandler.AddBatchResponse();
+        var client = container.Activate<PostHogClient>();
+
+        var result = client.CaptureEvent("some-distinct-id", "some_event");
+
+        Assert.True(result);
+        await client.FlushAsync();
+        var received = requestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal($$"""
+                       {
+                         "api_key": "fake-project-api-key",
+                         "historical_migrations": false,
+                         "batch": [
+                           {
+                             "event": "some_event",
+                             "properties": {
+                               "distinct_id": "some-distinct-id",
+                               "$lib": "posthog-dotnet",
+                               "$lib_version": "{{VersionConstants.Version}}",
+                               "$geoip_disable": true,
+                               "source": "repo-name"
+                             },
+                             "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                           }
+                         ]
+                       }
+                       """, received);
+    }
+
     [Fact]
     public async Task UsesAuthenticatedHttpClientForLocalEvaluationFlags()
     {
         var container = new TestContainer("fake-personal-api-key");
-        var timeProvider = container.FakeTimeProvider;
-        timeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
         var requestHandler = container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
             {
@@ -80,5 +123,107 @@ public class TheCaptureBatchAsyncMethod
         var received = requestHandler.ReceivedRequest;
         Assert.NotNull(received.Headers.Authorization);
         Assert.Equal(new AuthenticationHeaderValue("Bearer", "fake-personal-api-key"), received.Headers.Authorization);
+    }
+}
+
+public class TheIdentifyPersonAsyncMethod
+{
+    [Fact]
+    public async Task SendsCorrectPayload()
+    {
+        var container = new TestContainer();
+        container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        var requestHandler = container.FakeHttpMessageHandler.AddCaptureResponse();
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.IdentifyPersonAsync("some-distinct-id");
+
+        Assert.Equal(1, result.Status);
+        var received = requestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal($$"""
+                       {
+                         "event": "$identify",
+                         "distinct_id": "some-distinct-id",
+                         "properties": {
+                           "$lib": "posthog-dotnet",
+                           "$lib_version": "{{VersionConstants.Version}}",
+                           "$geoip_disable": true
+                         },
+                         "api_key": "fake-project-api-key",
+                         "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                       }
+                       """, received);
+    }
+
+    [Fact]
+    public async Task SendsCorrectPayloadWithPersonProperties()
+    {
+        var container = new TestContainer();
+        container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        var requestHandler = container.FakeHttpMessageHandler.AddCaptureResponse();
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.IdentifyPersonAsync(
+            distinctId: "some-distinct-id",
+            email: "wildling-lover@example.com",
+            name: "Jon Snow",
+            additionalUserPropertiesToSet: new Dictionary<string, object> { ["join_date"] = "2024-01-21" },
+            CancellationToken.None);
+
+        Assert.Equal(1, result.Status);
+        var received = requestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal($$"""
+                       {
+                         "event": "$identify",
+                         "distinct_id": "some-distinct-id",
+                         "properties": {
+                           "$set": {
+                             "join_date": "2024-01-21",
+                             "email": "wildling-lover@example.com",
+                             "name": "Jon Snow"
+                           },
+                           "$lib": "posthog-dotnet",
+                           "$lib_version": "{{VersionConstants.Version}}",
+                           "$geoip_disable": true
+                         },
+                         "api_key": "fake-project-api-key",
+                         "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                       }
+                       """, received);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_basic_super_properties
+    public async Task SendsCorrectPayloadWithSuperProperties()
+    {
+        var container = new TestContainer(sp =>
+        {
+            sp.AddSingleton<IOptions<PostHogOptions>>(new PostHogOptions
+            {
+                ProjectApiKey = "fake-project-api-key",
+                SuperProperties = new Dictionary<string, object> { ["source"] = "repo-name" }
+            });
+        });
+        container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        var requestHandler = container.FakeHttpMessageHandler.AddCaptureResponse();
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.IdentifyPersonAsync("some-distinct-id");
+
+        Assert.Equal(1, result.Status);
+        var received = requestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal($$"""
+                       {
+                         "event": "$identify",
+                         "distinct_id": "some-distinct-id",
+                         "properties": {
+                           "$lib": "posthog-dotnet",
+                           "$lib_version": "{{VersionConstants.Version}}",
+                           "$geoip_disable": true,
+                           "source": "repo-name"
+                         },
+                         "api_key": "fake-project-api-key",
+                         "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                       }
+                       """, received);
     }
 }

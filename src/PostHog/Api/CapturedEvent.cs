@@ -27,7 +27,7 @@ public class CapturedEvent
         Properties = properties ?? new Dictionary<string, object>();
 
         // Every event has to have these properties.
-        Properties["distinct_id"] = distinctId;
+        Properties["distinct_id"] = distinctId; // See `get_distinct_id` in PostHog/posthog api/capture.py line 321
         Properties["$lib"] = PostHogApiClient.LibraryName;
         Properties["$lib_version"] = VersionConstants.Version;
         Properties["$geoip_disable"] = true;

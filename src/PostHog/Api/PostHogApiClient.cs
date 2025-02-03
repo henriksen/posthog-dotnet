@@ -150,13 +150,15 @@ internal sealed class PostHogApiClient : IDisposable
     {
         payload["api_key"] = ProjectApiKey;
 
-        if (payload.GetValueOrDefault("properties") is Dictionary<string, object> properties)
-        {
-            properties["$lib"] = LibraryName;
-            properties["$lib_version"] = VersionConstants.Version;
-            properties["$geoip_disable"] = true;
-        }
+        var properties = payload.GetOrAdd<string, Dictionary<string, object>>("properties");
 
+        properties["$lib"] = LibraryName;
+        properties["$lib_version"] = VersionConstants.Version;
+        properties["$geoip_disable"] = true;
+
+        properties.Merge(_options.Value.SuperProperties);
+
+        payload["properties"] = properties;
         payload["timestamp"] = _timeProvider.GetUtcNow(); // ISO 8601
     }
 
