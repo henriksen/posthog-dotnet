@@ -208,7 +208,8 @@ public class TheIdentifyPersonAsyncMethod
             distinctId: "some-distinct-id",
             email: "wildling-lover@example.com",
             name: "Jon Snow",
-            additionalUserPropertiesToSet: new Dictionary<string, object> { ["join_date"] = "2024-01-21" },
+            personPropertiesToSet: new() { ["age"] = 36 },
+            personPropertiesToSetOnce: new() { ["join_date"] = "2024-01-21" },
             CancellationToken.None);
 
         Assert.Equal(1, result.Status);
@@ -219,9 +220,12 @@ public class TheIdentifyPersonAsyncMethod
                          "distinct_id": "some-distinct-id",
                          "properties": {
                            "$set": {
-                             "join_date": "2024-01-21",
+                             "age": 36,
                              "email": "wildling-lover@example.com",
                              "name": "Jon Snow"
+                           },
+                           "$set_once": {
+                             "join_date": "2024-01-21"
                            },
                            "$lib": "posthog-dotnet",
                            "$lib_version": "{{VersionConstants.Version}}",

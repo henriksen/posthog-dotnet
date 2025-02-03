@@ -19,8 +19,8 @@ public static class IdentifyPersonAsyncExtensions
         => NotNull(client)
             .IdentifyPersonAsync(
             distinctId,
-            userPropertiesToSet: null,
-            userPropertiesToSetOnce: null,
+            personPropertiesToSet: null,
+            personPropertiesToSetOnce: null,
             cancellationToken);
 
     /// <summary>
@@ -42,8 +42,8 @@ public static class IdentifyPersonAsyncExtensions
             distinctId,
             email,
             name,
-            additionalUserPropertiesToSet: null,
-            userPropertiesToSetOnce: null,
+            personPropertiesToSet: null,
+            personPropertiesToSetOnce: null,
             cancellationToken);
 
     /// <summary>
@@ -54,7 +54,7 @@ public static class IdentifyPersonAsyncExtensions
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="email">The email to set for the user.</param>
     /// <param name="name">The name to set for the user</param>
-    /// <param name="additionalUserPropertiesToSet">
+    /// <param name="personPropertiesToSet">
     /// Key value pairs to store as properties of the user in addition to the already specified "email" and "name".
     /// Any key value pairs in this dictionary that match existing property keys will overwrite those properties.
     /// </param>
@@ -64,14 +64,14 @@ public static class IdentifyPersonAsyncExtensions
         string distinctId,
         string? email,
         string? name,
-        Dictionary<string, object>? additionalUserPropertiesToSet,
+        Dictionary<string, object>? personPropertiesToSet,
         CancellationToken cancellationToken)
         => await client.IdentifyPersonAsync(
             distinctId,
             email,
             name,
-            additionalUserPropertiesToSet,
-            userPropertiesToSetOnce: null,
+            personPropertiesToSet,
+            personPropertiesToSetOnce: null,
             cancellationToken);
 
     /// <summary>
@@ -82,11 +82,11 @@ public static class IdentifyPersonAsyncExtensions
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <param name="email">The email to set for the user.</param>
     /// <param name="name">The name to set for the user</param>
-    /// <param name="additionalUserPropertiesToSet">
+    /// <param name="personPropertiesToSet">
     /// Key value pairs to store as properties of the user in addition to the already specified "email" and "name".
     /// Any key value pairs in this dictionary that match existing property keys will overwrite those properties.
     /// </param>
-    /// <param name="userPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
+    /// <param name="personPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
     /// value in this dictionary is ignored.
     /// </param>
     /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
@@ -95,25 +95,25 @@ public static class IdentifyPersonAsyncExtensions
         string distinctId,
         string? email,
         string? name,
-        Dictionary<string, object>? additionalUserPropertiesToSet,
-        Dictionary<string, object>? userPropertiesToSetOnce,
+        Dictionary<string, object>? personPropertiesToSet,
+        Dictionary<string, object>? personPropertiesToSetOnce,
         CancellationToken cancellationToken)
     {
         if (email is not null)
         {
-            additionalUserPropertiesToSet ??= new Dictionary<string, object>();
-            additionalUserPropertiesToSet["email"] = email;
+            personPropertiesToSet ??= new Dictionary<string, object>();
+            personPropertiesToSet["email"] = email;
         }
 
         if (name is not null)
         {
-            additionalUserPropertiesToSet ??= new Dictionary<string, object>();
-            additionalUserPropertiesToSet["name"] = name;
+            personPropertiesToSet ??= new Dictionary<string, object>();
+            personPropertiesToSet["name"] = name;
         }
 
         return await NotNull(client).IdentifyPersonAsync(distinctId,
-                additionalUserPropertiesToSet,
-                userPropertiesToSetOnce,
+                personPropertiesToSet,
+                personPropertiesToSetOnce,
                 cancellationToken);
     }
 
@@ -128,7 +128,7 @@ public static class IdentifyPersonAsyncExtensions
         string distinctId)
         => NotNull(client).IdentifyPersonAsync(
             distinctId,
-            userPropertiesToSet: null,
-            userPropertiesToSetOnce: null,
+            personPropertiesToSet: null,
+            personPropertiesToSetOnce: null,
             CancellationToken.None);
 }

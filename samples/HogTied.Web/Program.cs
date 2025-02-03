@@ -41,12 +41,12 @@ builder.AddPostHog()
                             userId,
                             user.Email,
                             user.UserName,
-                            additionalUserPropertiesToSet: new()
+                            personPropertiesToSet: new()
                             {
                                 ["phone"] = user.PhoneNumber ?? "unknown",
                                 ["email_confirmed"] = user.EmailConfirmed,
                             },
-                            userPropertiesToSetOnce: new()
+                            personPropertiesToSetOnce: new()
                             {
                                 ["joined"] = DateTime.UtcNow // If this property is already set, it won't be overwritten.
                             },

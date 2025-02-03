@@ -9,11 +9,11 @@ internal static class PostHogApiClientExtensions
     /// </summary>
     /// <param name="client">The <see cref="PostHogApiClient"/>.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
-    /// <param name="userPropertiesToSet">
+    /// <param name="personPropertiesToSet">
     /// Key value pairs to store as a property of the user. Any key value pairs in this dictionary that match
     /// existing property keys will overwrite those properties.
     /// </param>
-    /// <param name="userPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
+    /// <param name="personPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
     /// value in this dictionary is ignored.
     /// </param>
     /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
@@ -21,20 +21,20 @@ internal static class PostHogApiClientExtensions
     public static async Task<ApiResult> IdentifyPersonAsync(
         this PostHogApiClient client,
         string distinctId,
-        Dictionary<string, object>? userPropertiesToSet,
-        Dictionary<string, object>? userPropertiesToSetOnce,
+        Dictionary<string, object>? personPropertiesToSet,
+        Dictionary<string, object>? personPropertiesToSetOnce,
         CancellationToken cancellationToken)
     {
         var properties = new Dictionary<string, object>();
 
-        if (userPropertiesToSet is not null)
+        if (personPropertiesToSet is not null)
         {
-            properties["$set"] = userPropertiesToSet;
+            properties["$set"] = personPropertiesToSet;
         }
 
-        if (userPropertiesToSetOnce is not null)
+        if (personPropertiesToSetOnce is not null)
         {
-            properties["$set_once"] = userPropertiesToSetOnce;
+            properties["$set_once"] = personPropertiesToSetOnce;
         }
 
         return await client.SendEventAsync(

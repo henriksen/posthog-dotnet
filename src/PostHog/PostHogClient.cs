@@ -94,13 +94,13 @@ public sealed class PostHogClient : IPostHogClient
     /// <inheritdoc/>
     public async Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
-        Dictionary<string, object>? userPropertiesToSet,
-        Dictionary<string, object>? userPropertiesToSetOnce,
+        Dictionary<string, object>? personPropertiesToSet,
+        Dictionary<string, object>? personPropertiesToSetOnce,
         CancellationToken cancellationToken)
         => await _apiClient.IdentifyPersonAsync(
             distinctId,
-            userPropertiesToSet,
-            userPropertiesToSetOnce,
+            personPropertiesToSet,
+            personPropertiesToSetOnce,
             cancellationToken);
 
     /// <inheritdoc/>
