@@ -128,6 +128,50 @@ public class TheCaptureEventMethod
                        """, received);
     }
 
+    [Fact] // Ported from PostHog/posthog-python test_basic_capture_with_feature_flags
+    public async Task SendsFeatureFlags()
+    {
+      var container = new TestContainer();
+      container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+      var requestHandler = container.FakeHttpMessageHandler.AddBatchResponse();
+      container.FakeHttpMessageHandler.AddDecideResponse(
+          """
+          {"featureFlags": {"beta-feature": "random-variant", "another-feature": "another-variant"}}
+          """
+      );
+      var client = container.Activate<PostHogClient>();
+
+      var result = client.CaptureEvent("some-distinct-id", "dotnet test event", sendFeatureFlags: true);
+
+      Assert.True(result);
+      await client.FlushAsync();
+      var received = requestHandler.GetReceivedRequestBody(indented: true);
+      Assert.Equal($$"""
+                     {
+                       "api_key": "fake-project-api-key",
+                       "historical_migrations": false,
+                       "batch": [
+                         {
+                           "event": "dotnet test event",
+                           "properties": {
+                             "distinct_id": "some-distinct-id",
+                             "$lib": "posthog-dotnet",
+                             "$lib_version": "{{VersionConstants.Version}}",
+                             "$geoip_disable": true,
+                             "$feature/beta-feature": "random-variant",
+                             "$feature/another-feature": "another-variant",
+                             "$active_feature_flags": [
+                               "beta-feature",
+                               "another-feature"
+                             ]
+                           },
+                           "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                         }
+                       ]
+                     }
+                     """, received);
+    }
+
     [Fact]
     public async Task UsesAuthenticatedHttpClientForLocalEvaluationFlags()
     {

@@ -27,6 +27,26 @@ public static class CaptureExtensions
             sendFeatureFlags: false);
 
     /// <summary>
+    /// Captures an event.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="eventName">Human friendly name of the event. Recommended format [object] [verb] such as "Project created" or "User signed up".</param>
+    /// <param name="sendFeatureFlags">Default: <c>false</c>. If <c>true</c>, feature flags are sent with the captured event.</param>
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureEvent(
+        this IPostHogClient client,
+        string distinctId,
+        string eventName,
+        bool sendFeatureFlags)
+        => NotNull(client).CaptureEvent(
+            distinctId,
+            eventName,
+            properties: null,
+            groups: null,
+            sendFeatureFlags: sendFeatureFlags);
+
+    /// <summary>
     /// Captures an event with additional properties to add to the event.
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>

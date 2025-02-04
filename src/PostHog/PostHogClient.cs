@@ -132,13 +132,39 @@ public sealed class PostHogClient : IPostHogClient
 
         capturedEvent.Properties.Merge(_options.Value.SuperProperties);
 
-        if (_asyncBatchHandler.Enqueue(Task.FromResult(capturedEvent)))
+        var batchTask = sendFeatureFlags
+            ? AddFeatureFlagDataAsync(distinctId, groups, capturedEvent, CancellationToken.None)
+            : Task.FromResult(capturedEvent);
+
+        if (_asyncBatchHandler.Enqueue(batchTask))
         {
             _logger.LogTraceCaptureCalled(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
             return true;
         }
         _logger.LogWarnCaptureFailed(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
         return false;
+    }
+
+    async Task<CapturedEvent> AddFeatureFlagDataAsync(
+        string distinctId,
+        GroupCollection? groups,
+        CapturedEvent capturedEvent,
+        CancellationToken cancellationToken)
+    {
+        var flags = await DecideAsync(
+            distinctId,
+            options: new AllFeatureFlagsOptions
+            {
+                GroupProperties = groups
+            },
+            cancellationToken);
+
+        capturedEvent.Properties.Merge(flags.ToDictionary(
+            f => $"$feature/{f.Key}",
+            f => f.Value.ToResponseObject()));
+        capturedEvent.Properties["$active_feature_flags"] = flags.Keys.ToArray();
+
+        return capturedEvent;
     }
 
     /// <inheritdoc/>
