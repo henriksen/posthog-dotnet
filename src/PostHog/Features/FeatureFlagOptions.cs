@@ -44,5 +44,5 @@ public class AllFeatureFlagsOptions
     /// include properties that override what's on PostHog's server when evaluating feature flags.
     /// Specifying properties for each group is required if <see cref="OnlyEvaluateLocally"/> is <c>true</c>.
     /// </summary>
-    public GroupCollection? GroupProperties { get; init; }
+    public GroupCollection? Groups { get; init; }
 }

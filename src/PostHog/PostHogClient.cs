@@ -133,8 +133,10 @@ public sealed class PostHogClient : IPostHogClient
         capturedEvent.Properties.Merge(_options.Value.SuperProperties);
 
         var batchTask = sendFeatureFlags
-            ? AddFeatureFlagDataAsync(distinctId, groups, capturedEvent, CancellationToken.None)
-            : Task.FromResult(capturedEvent);
+            ? AddFreshFeatureFlagDataAsync(distinctId, groups, capturedEvent)
+            : _featureFlagsLoader.IsLoaded
+                ? AddLocalFeatureFlagDataAsync(distinctId, groups, capturedEvent)
+                : Task.FromResult(capturedEvent);
 
         if (_asyncBatchHandler.Enqueue(batchTask))
         {
@@ -145,25 +147,50 @@ public sealed class PostHogClient : IPostHogClient
         return false;
     }
 
-    async Task<CapturedEvent> AddFeatureFlagDataAsync(
+    async Task<CapturedEvent> AddFreshFeatureFlagDataAsync(
         string distinctId,
         GroupCollection? groups,
-        CapturedEvent capturedEvent,
-        CancellationToken cancellationToken)
+        CapturedEvent capturedEvent)
     {
         var flags = await DecideAsync(
             distinctId,
             options: new AllFeatureFlagsOptions
             {
-                GroupProperties = groups
+                Groups = groups
             },
-            cancellationToken);
+            CancellationToken.None);
 
+        return AddFeatureFlagsToCapturedEvent(capturedEvent, flags);
+    }
+
+    async Task<CapturedEvent> AddLocalFeatureFlagDataAsync(
+        string distinctId,
+        GroupCollection? groups,
+        CapturedEvent capturedEvent)
+    {
+        var flags = await GetAllFeatureFlagsAsync(
+            distinctId,
+            options: new AllFeatureFlagsOptions
+            {
+                Groups = groups,
+                OnlyEvaluateLocally = true
+            },
+            CancellationToken.None);
+
+        return AddFeatureFlagsToCapturedEvent(capturedEvent, flags);
+    }
+
+    static CapturedEvent AddFeatureFlagsToCapturedEvent(
+        CapturedEvent capturedEvent,
+        IReadOnlyDictionary<string, FeatureFlag> flags)
+    {
         capturedEvent.Properties.Merge(flags.ToDictionary(
             f => $"$feature/{f.Key}",
             f => f.Value.ToResponseObject()));
-        capturedEvent.Properties["$active_feature_flags"] = flags.Keys.ToArray();
-
+        capturedEvent.Properties["$active_feature_flags"] = flags
+            .Where(f => (bool)f.Value)
+            .Select(kvp => kvp.Key)
+            .ToArray();
         return capturedEvent;
     }
 
@@ -199,7 +226,7 @@ public sealed class PostHogClient : IPostHogClient
                     localEvaluator.ComputeFlagLocally(
                         localFeatureFlag,
                         distinctId,
-                        options?.GroupProperties ?? [],
+                        options?.Groups ?? [],
                         options?.PersonProperties ?? []),
                     localFeatureFlag.Filters?.Payloads);
                 _logger.LogDebugSuccessLocally(featureKey, response);
@@ -246,7 +273,7 @@ public sealed class PostHogClient : IPostHogClient
                     featureKey,
                     cacheEntry,
                     response,
-                    options.GroupProperties));
+                    options.Groups));
         }
 
         if (_featureFlagSentCache.Count >= _options.Value.FeatureFlagSentCacheSizeLimit)
@@ -307,7 +334,7 @@ public sealed class PostHogClient : IPostHogClient
 
         var (localEvaluationResults, fallbackToDecide) = localEvaluator.EvaluateAllFlags(
             distinctId,
-            options?.GroupProperties,
+            options?.Groups,
             options?.PersonProperties,
             warnOnUnknownGroups: false);
 
@@ -335,7 +362,7 @@ public sealed class PostHogClient : IPostHogClient
             var results = await _apiClient.GetAllFeatureFlagsFromDecideAsync(
                 distinctId,
                 options?.PersonProperties,
-                options?.GroupProperties,
+                options?.Groups,
                 cancellationToken);
 
             return results?.FeatureFlags is not null

@@ -153,7 +153,10 @@ public class TheIsFeatureFlagEnabledAsyncMethod
                     "distinct_id": "a-distinct-id",
                     "$lib": "posthog-dotnet",
                     "$lib_version": "{{client.Version}}",
-                    "$geoip_disable": true
+                    "$geoip_disable": true,
+                    "$active_feature_flags": [
+                      "flag-key"
+                    ]
                   },
                   "timestamp": "2024-01-21T19:08:23\u002B00:00"
                 },
@@ -167,7 +170,10 @@ public class TheIsFeatureFlagEnabledAsyncMethod
                     "distinct_id": "another-distinct-id",
                     "$lib": "posthog-dotnet",
                     "$lib_version": "{{client.Version}}",
-                    "$geoip_disable": true
+                    "$geoip_disable": true,
+                    "$active_feature_flags": [
+                      "flag-key"
+                    ]
                   },
                   "timestamp": "2024-01-21T19:08:23\u002B00:00"
                 },
@@ -181,7 +187,8 @@ public class TheIsFeatureFlagEnabledAsyncMethod
                     "distinct_id": "another-distinct-id",
                     "$lib": "posthog-dotnet",
                     "$lib_version": "{{client.Version}}",
-                    "$geoip_disable": true
+                    "$geoip_disable": true,
+                    "$active_feature_flags": []
                   },
                   "timestamp": "2024-01-21T19:08:23\u002B00:00"
                 }
@@ -322,7 +329,7 @@ public class TheGetFeatureFlagAsyncMethod
             distinctId: "some-distinct-id",
             options: new FeatureFlagOptions
             {
-                GroupProperties =
+                Groups =
                 [
                     new Group(
                         GroupType: "company",
@@ -339,7 +346,7 @@ public class TheGetFeatureFlagAsyncMethod
             distinctId: "some-distinct-2",
             options: new FeatureFlagOptions
             {
-                GroupProperties =
+                Groups =
                 [
                     new Group(
                         GroupType: "company",
@@ -355,7 +362,7 @@ public class TheGetFeatureFlagAsyncMethod
             distinctId: "some-distinct-id",
             options: new FeatureFlagOptions
             {
-                GroupProperties =
+                Groups =
                 [
                     new Group(
                         GroupType: "company",
@@ -371,7 +378,7 @@ public class TheGetFeatureFlagAsyncMethod
             distinctId: "some-distinct-id",
             options: new FeatureFlagOptions
             {
-                GroupProperties =
+                Groups =
                 [
                     new Group(
                         GroupType: "company",
@@ -387,7 +394,7 @@ public class TheGetFeatureFlagAsyncMethod
             distinctId: "some-distinct-2",
             options: new FeatureFlagOptions
             {
-                GroupProperties =
+                Groups =
                 [
                     new Group(
                         GroupType: "company",
@@ -447,7 +454,7 @@ public class TheGetFeatureFlagAsyncMethod
             distinctId: "some-distinct-id",
             options: new FeatureFlagOptions
             {
-                GroupProperties =
+                Groups =
                 [
                     new Group(
                         GroupType: "company",
@@ -1893,7 +1900,7 @@ public class TheGetFeatureFlagAsyncMethod
 
         var result = await client.GetFeatureFlagAsync("flag-key", "a-distinct-id", options: new FeatureFlagOptions
         {
-            GroupProperties = [new Group("company", "id:5"), new Group("department", "id:3")]
+            Groups = [new Group("company", "id:5"), new Group("department", "id:3")]
         });
 
         Assert.NotNull(result);

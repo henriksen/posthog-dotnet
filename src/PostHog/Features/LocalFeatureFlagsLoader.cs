@@ -91,6 +91,8 @@ internal sealed class LocalFeatureFlagsLoader(
         }
     }
 
+    public bool IsLoaded => _localEvaluator is not null;
+
     public void Dispose()
     {
         _cancellationTokenSource.Dispose();
