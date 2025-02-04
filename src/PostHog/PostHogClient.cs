@@ -132,7 +132,7 @@ public sealed class PostHogClient : IPostHogClient
 
         capturedEvent.Properties.Merge(_options.Value.SuperProperties);
 
-        if (_asyncBatchHandler.Enqueue(capturedEvent))
+        if (_asyncBatchHandler.Enqueue(Task.FromResult(capturedEvent)))
         {
             _logger.LogTraceCaptureCalled(eventName, capturedEvent.Properties.Count, _asyncBatchHandler.Count);
             return true;

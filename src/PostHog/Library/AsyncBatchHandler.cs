@@ -8,7 +8,7 @@ using static PostHog.Library.Ensure;
 namespace PostHog.Library;
 internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
 {
-    readonly Channel<TItem> _channel;
+    readonly Channel<Task<TItem>> _channel;
     readonly IOptions<PostHogOptions> _options;
     readonly Func<IEnumerable<TItem>, Task> _batchHandlerFunc;
     readonly ILogger<AsyncBatchHandler<TItem>> _logger;
@@ -28,7 +28,7 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         _options = NotNull(options);
         _batchHandlerFunc = batchHandlerFunc;
         _logger = logger;
-        _channel = Channel.CreateBounded<TItem>(new BoundedChannelOptions(_options.Value.MaxQueueSize)
+        _channel = Channel.CreateBounded<Task<TItem>>(new BoundedChannelOptions(_options.Value.MaxQueueSize)
         {
             FullMode = BoundedChannelFullMode.DropOldest
         });
@@ -52,7 +52,7 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
     /// </summary>
     /// <param name="item">The item to enqueue</param>
     /// <returns><c>true</c> if the item was enqueued, otherwise <c>false</c>ß</returns>
-    public bool Enqueue(TItem item)
+    public bool Enqueue(Task<TItem> item)
     {
         if (Count >= _options.Value.MaxQueueSize)
         {
@@ -144,7 +144,8 @@ internal sealed class AsyncBatchHandler<TItem> : IDisposable, IAsyncDisposable
         {
             while (_channel.Reader.TryReadBatch(_options.Value.MaxBatchSize, out var batch))
             {
-                await SendBatch(batch);
+                var resolved = await Task.WhenAll(batch);
+                await SendBatch(resolved);
             }
         }
         finally
