@@ -15,8 +15,8 @@ namespace FeatureFlagTests;
 public class TheIsFeatureFlagEnabledAsyncMethod
 {
     [Theory] // Ported from PostHog/posthog-python test_feature_enabled_simple
-             // and test_feature_enabled_simple_is_false
-             // and test_feature_enabled_simple_is_true_when_rollout_is_undefined
+    // and test_feature_enabled_simple_is_false
+    // and test_feature_enabled_simple_is_true_when_rollout_is_undefined
     [InlineData(true, "100", true)]
     [InlineData(true, "null", true)]
     [InlineData(false, "100", false)]
@@ -133,69 +133,169 @@ public class TheIsFeatureFlagEnabledAsyncMethod
             } 
             """
         );
-        Assert.False(await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id")); // Not a cache-hit, new response
+        Assert.False(
+            await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id")); // Not a cache-hit, new response
 
         await client.FlushAsync();
         var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
         Assert.Equal(
             $$"""
-            {
-              "api_key": "fake-project-api-key",
-              "historical_migrations": false,
-              "batch": [
-                {
-                  "event": "$feature_flag_called",
-                  "properties": {
-                    "$feature_flag": "flag-key",
-                    "$feature_flag_response": true,
-                    "locally_evaluated": false,
-                    "$feature/flag-key": true,
-                    "distinct_id": "a-distinct-id",
-                    "$lib": "posthog-dotnet",
-                    "$lib_version": "{{client.Version}}",
-                    "$geoip_disable": true,
-                    "$active_feature_flags": [
-                      "flag-key"
-                    ]
+              {
+                "api_key": "fake-project-api-key",
+                "historical_migrations": false,
+                "batch": [
+                  {
+                    "event": "$feature_flag_called",
+                    "properties": {
+                      "$feature_flag": "flag-key",
+                      "$feature_flag_response": true,
+                      "locally_evaluated": false,
+                      "$feature/flag-key": true,
+                      "distinct_id": "a-distinct-id",
+                      "$lib": "posthog-dotnet",
+                      "$lib_version": "{{client.Version}}",
+                      "$geoip_disable": true,
+                      "$active_feature_flags": [
+                        "flag-key"
+                      ]
+                    },
+                    "timestamp": "2024-01-21T19:08:23\u002B00:00"
                   },
-                  "timestamp": "2024-01-21T19:08:23\u002B00:00"
-                },
-                {
-                  "event": "$feature_flag_called",
-                  "properties": {
-                    "$feature_flag": "flag-key",
-                    "$feature_flag_response": true,
-                    "locally_evaluated": false,
-                    "$feature/flag-key": true,
-                    "distinct_id": "another-distinct-id",
-                    "$lib": "posthog-dotnet",
-                    "$lib_version": "{{client.Version}}",
-                    "$geoip_disable": true,
-                    "$active_feature_flags": [
-                      "flag-key"
-                    ]
+                  {
+                    "event": "$feature_flag_called",
+                    "properties": {
+                      "$feature_flag": "flag-key",
+                      "$feature_flag_response": true,
+                      "locally_evaluated": false,
+                      "$feature/flag-key": true,
+                      "distinct_id": "another-distinct-id",
+                      "$lib": "posthog-dotnet",
+                      "$lib_version": "{{client.Version}}",
+                      "$geoip_disable": true,
+                      "$active_feature_flags": [
+                        "flag-key"
+                      ]
+                    },
+                    "timestamp": "2024-01-21T19:08:23\u002B00:00"
                   },
-                  "timestamp": "2024-01-21T19:08:23\u002B00:00"
-                },
+                  {
+                    "event": "$feature_flag_called",
+                    "properties": {
+                      "$feature_flag": "flag-key",
+                      "$feature_flag_response": false,
+                      "locally_evaluated": false,
+                      "$feature/flag-key": false,
+                      "distinct_id": "another-distinct-id",
+                      "$lib": "posthog-dotnet",
+                      "$lib_version": "{{client.Version}}",
+                      "$geoip_disable": true,
+                      "$active_feature_flags": []
+                    },
+                    "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                  }
+                ]
+              }
+              """
+            , received);
+    }
+
+    [Fact]
+    public async Task CapturesFeatureFlagCalledEventOnlyOncePerDistinctIdFlagKeyAndResponseWithDecide()
+    {
+        var container = new TestContainer();
+        var messageHandler = container.FakeHttpMessageHandler;
+        messageHandler.AddRepeatedDecideResponse(4,
+            """
+            {"featureFlags": {"flag-key": true}}
+            """
+        );
+        var captureRequestHandler = messageHandler.AddBatchResponse();
+        var client = container.Activate<PostHogClient>();
+
+        Assert.True(await client.IsFeatureEnabledAsync("flag-key", "a-distinct-id"));
+        await client.IsFeatureEnabledAsync("flag-key", "a-distinct-id"); // Cache hit, not captured.
+        Assert.True(await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id"));
+        await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id"); // Cache hit
+
+        client.ClearLocalFlagsCache();
+        messageHandler.AddDecideResponse(
+            """
+            { 
+              "flags": [
                 {
-                  "event": "$feature_flag_called",
-                  "properties": {
-                    "$feature_flag": "flag-key",
-                    "$feature_flag_response": false,
-                    "locally_evaluated": false,
-                    "$feature/flag-key": false,
-                    "distinct_id": "another-distinct-id",
-                    "$lib": "posthog-dotnet",
-                    "$lib_version": "{{client.Version}}",
-                    "$geoip_disable": true,
-                    "$active_feature_flags": []
-                  },
-                  "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                    "key": "flag-key",
+                    "active": true,
+                    "rollout_percentage": 0,
+                    "filters": {
+                        "groups": [
+                            {
+                                "properties": [],
+                                "rollout_percentage": 0
+                            }
+                        ]
+                    }
                 }
               ]
-            }
+            } 
             """
-        , received);
+        );
+        Assert.False(
+            await client.IsFeatureEnabledAsync("flag-key", "another-distinct-id")); // Not a cache-hit, new response
+
+        await client.FlushAsync();
+        var received = captureRequestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal(
+            $$"""
+              {
+                "api_key": "fake-project-api-key",
+                "historical_migrations": false,
+                "batch": [
+                  {
+                    "event": "$feature_flag_called",
+                    "properties": {
+                      "$feature_flag": "flag-key",
+                      "$feature_flag_response": true,
+                      "locally_evaluated": false,
+                      "$feature/flag-key": true,
+                      "distinct_id": "a-distinct-id",
+                      "$lib": "posthog-dotnet",
+                      "$lib_version": "{{client.Version}}",
+                      "$geoip_disable": true
+                    },
+                    "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                  },
+                  {
+                    "event": "$feature_flag_called",
+                    "properties": {
+                      "$feature_flag": "flag-key",
+                      "$feature_flag_response": true,
+                      "locally_evaluated": false,
+                      "$feature/flag-key": true,
+                      "distinct_id": "another-distinct-id",
+                      "$lib": "posthog-dotnet",
+                      "$lib_version": "{{client.Version}}",
+                      "$geoip_disable": true
+                    },
+                    "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                  },
+                  {
+                    "event": "$feature_flag_called",
+                    "properties": {
+                      "$feature_flag": "flag-key",
+                      "$feature_flag_response": false,
+                      "locally_evaluated": false,
+                      "$feature/flag-key": false,
+                      "distinct_id": "another-distinct-id",
+                      "$lib": "posthog-dotnet",
+                      "$lib_version": "{{client.Version}}",
+                      "$geoip_disable": true
+                    },
+                    "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                  }
+                ]
+              }
+              """
+            , received);
     }
 
     [Fact]
@@ -220,6 +320,165 @@ public class TheIsFeatureFlagEnabledAsyncMethod
 
         await client.FlushAsync();
         Assert.Empty(captureRequestHandler.ReceivedRequests);
+    }
+
+    [Fact]
+    public async Task CapturesFeatureFlagRealExample()
+    {
+        var container = new TestContainer("fake-personal-api-key");
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+                "flags": [
+                    {
+                        "id": 91866,
+                        "team_id": 110510,
+                        "name": "A multivariate feature flag that tells you what character you are",
+                        "key": "hogtied_got_character",
+                        "filters": {
+                            "groups": [
+                                {
+                                    "variant": "cersei",
+                                    "properties": [
+                                        {
+                                            "key": "join_date",
+                                            "type": "person",
+                                            "value": "-14d",
+                                            "operator": "is_date_before"
+                                        },
+                                        {
+                                            "key": "leave_date",
+                                            "type": "person",
+                                            "value": "2025-01-24 14:20:00",
+                                            "operator": "is_date_after"
+                                        }
+                                    ],
+                                    "rollout_percentage": 100
+                                },
+                                {
+                                    "variant": "Cersei",
+                                    "properties": [
+                                        {
+                                            "key": "email",
+                                            "type": "person",
+                                            "value": [
+                                                "haacked@gmail.com"
+                                            ],
+                                            "operator": "exact"
+                                        }
+                                    ],
+                                    "rollout_percentage": 100
+                                }
+                            ],
+                            "payloads": {
+                                "Cersei": "25",
+                                "cersei": "{\"role\": \"burn it all down\"}",
+                                "tyrion": "100",
+                                "danaerys": "{\"role\": \"khaleesi\"}",
+                                "jon-snow": "{\"role\": \"king of the north\"}"
+                            },
+                            "multivariate": {
+                                "variants": [
+                                    {
+                                        "key": "tyrion",
+                                        "name": "The one who talks",
+                                        "rollout_percentage": 25
+                                    },
+                                    {
+                                        "key": "danaerys",
+                                        "name": "The mother of dragons",
+                                        "rollout_percentage": 25
+                                    },
+                                    {
+                                        "key": "jon-snow",
+                                        "name": "Knows nothing",
+                                        "rollout_percentage": 25
+                                    },
+                                    {
+                                        "key": "cersei",
+                                        "name": "Not nice",
+                                        "rollout_percentage": 15
+                                    },
+                                    {
+                                        "key": "Cersei",
+                                        "name": "Capital",
+                                        "rollout_percentage": 10
+                                    }
+                                ]
+                            }
+                        },
+                        "deleted": false,
+                        "active": true,
+                        "ensure_experience_continuity": false
+                    }
+                ],
+                "group_type_mapping": {
+                    "0": "organization",
+                    "1": "project"
+                },
+                "cohorts": {}
+            }
+            """
+        );
+        var requestHandler = container.FakeHttpMessageHandler.AddBatchResponse();
+        var client = container.Activate<PostHogClient>();
+
+        var result = await client.IsFeatureEnabledAsync(
+            "hogtied_got_character",
+            distinctId: "659df793-429a-4517-84ff-747dfc103e6c",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new Dictionary<string, object?>
+                {
+                    ["join_date"] = "2023-02-02",
+                    ["leave_date"] = "2025-02-02"
+                },
+                Groups =
+                [
+                    new Group("organization", "01943db3-83be-0000-e7ea-ecae4d9b5afb"),
+                    new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object?>
+                    {
+                        ["size"] = "large"
+                    })
+                ],
+                OnlyEvaluateLocally = true
+            });
+
+        Assert.True(result);
+
+        await client.FlushAsync();
+        var received = requestHandler.GetReceivedRequestBody(indented: true);
+        // NOTE: $active_feature_flags is empty because the person properties is not passed
+        // through to the capture call when evaluating a feature flag. Should we pass it through?
+        // TODO: I need to confer with the authors of the other libraries.
+        Assert.Equal(
+            """
+              {
+                "api_key": "fake-project-api-key",
+                "historical_migrations": false,
+                "batch": [
+                  {
+                    "event": "$feature_flag_called",
+                    "properties": {
+                      "$feature_flag": "hogtied_got_character",
+                      "$feature_flag_response": "cersei",
+                      "locally_evaluated": false,
+                      "$feature/hogtied_got_character": "cersei",
+                      "distinct_id": "659df793-429a-4517-84ff-747dfc103e6c",
+                      "$lib": "posthog-dotnet",
+                      "$lib_version": "1.0.0-alpha.2",
+                      "$geoip_disable": true,
+                      "$groups": {
+                        "organization": "01943db3-83be-0000-e7ea-ecae4d9b5afb",
+                        "project": "aaaa-bbbb-cccc"
+                      },
+                      "$active_feature_flags": []
+                    },
+                    "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                  }
+                ]
+              }
+              """, received);
     }
 }
 
@@ -896,8 +1155,10 @@ public class TheGetFeatureFlagAsyncMethod
     public async Task ReturnsNullWhenDecideThrowsException()
     {
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
-        var firstRequestHandler = container.FakeHttpMessageHandler.AddDecideResponseException(new HttpRequestException());
-        var secondRequestHandler = container.FakeHttpMessageHandler.AddDecideResponseException(new HttpRequestException());
+        var firstRequestHandler =
+            container.FakeHttpMessageHandler.AddDecideResponseException(new HttpRequestException());
+        var secondRequestHandler =
+            container.FakeHttpMessageHandler.AddDecideResponseException(new HttpRequestException());
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse("""{"flags":[]}""");
         var client = container.Activate<PostHogClient>();
 
@@ -1114,13 +1375,13 @@ public class TheGetFeatureFlagAsyncMethod
         var client = container.Activate<PostHogClient>();
 
         Assert.False(await client.GetFeatureFlagAsync(
-        featureKey: "beta-feature",
-        distinctId: "some-distinct-id",
-        options: new FeatureFlagOptions
-        {
-            PersonProperties = new() { ["region"] = "UK" }
-        })
-    );
+            featureKey: "beta-feature",
+            distinctId: "some-distinct-id",
+            options: new FeatureFlagOptions
+            {
+                PersonProperties = new() { ["region"] = "UK" }
+            })
+        );
         // even though 'other' property is not present, the cohort should still match since it's an OR condition
         Assert.True(await client.GetFeatureFlagAsync(
             featureKey: "beta-feature",
@@ -1968,7 +2229,8 @@ public class TheGetFeatureFlagAsyncMethod
         timeProvider.Advance(TimeSpan.FromSeconds(1));
         await client.GetFeatureFlagAsync("flag-key", "another-distinct-id"); // Captured
         timeProvider.Advance(TimeSpan.FromSeconds(1));
-        await client.GetFeatureFlagAsync("another-flag-key", "another-distinct-id"); // Captured, cache compaction will occur after this.
+        await client.GetFeatureFlagAsync("another-flag-key",
+            "another-distinct-id"); // Captured, cache compaction will occur after this.
         timeProvider.Advance(TimeSpan.FromSeconds(1));
         await client.GetFeatureFlagAsync("another-flag-key", "another-distinct-id"); // Cache hit, not captured.
         timeProvider.Advance(TimeSpan.FromSeconds(1));
@@ -2177,73 +2439,73 @@ public class TheGetAllFeatureFlagsAsyncMethod
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
         container.FakeHttpMessageHandler.AddDecideResponse(
             """
-            {
-               "featureFlags":{
-                  "beta-feature":"variant-1",
-                  "beta-feature2":"variant-2",
-                  "disabled-feature":false
-               }
-            }
-            """
+                {
+                   "featureFlags":{
+                      "beta-feature":"variant-1",
+                      "beta-feature2":"variant-2",
+                      "disabled-feature":false
+                   }
+                }
+                """
         );
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {
-              "flags":[
-                 {
-                    "id":1,
-                    "name":"Beta Feature",
-                    "key":"beta-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "rollout_percentage":100,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":100
-                          }
-                       ]
-                    }
-                 },
-                 {
-                    "id":2,
-                    "name":"Beta Feature",
-                    "key":"disabled-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":0
-                          }
-                       ]
-                    }
-                 },
-                 {
-                    "id":3,
-                    "name":"Beta Feature",
-                    "key":"beta-feature2",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[
-                                {
-                                   "key":"country",
-                                   "value":"US"
-                                }
-                             ],
-                             "rollout_percentage":0
-                          }
-                       ]
-                    }
-                 }
-              ]
-            }
-            """
+                {
+                  "flags":[
+                     {
+                        "id":1,
+                        "name":"Beta Feature",
+                        "key":"beta-feature",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "rollout_percentage":100,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[],
+                                 "rollout_percentage":100
+                              }
+                           ]
+                        }
+                     },
+                     {
+                        "id":2,
+                        "name":"Beta Feature",
+                        "key":"disabled-feature",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[],
+                                 "rollout_percentage":0
+                              }
+                           ]
+                        }
+                     },
+                     {
+                        "id":3,
+                        "name":"Beta Feature",
+                        "key":"beta-feature2",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[
+                                    {
+                                       "key":"country",
+                                       "value":"US"
+                                    }
+                                 ],
+                                 "rollout_percentage":0
+                              }
+                           ]
+                        }
+                     }
+                  ]
+                }
+                """
         );
         var client = container.Activate<PostHogClient>();
 
@@ -2266,87 +2528,87 @@ public class TheGetAllFeatureFlagsAsyncMethod
         var captureRequestHandler = container.FakeHttpMessageHandler.AddBatchResponse();
         var decideRequestHandler = container.FakeHttpMessageHandler.AddDecideResponse(
             """
-            {
-               "featureFlags":{
-                  "beta-feature":"variant-1",
-                  "beta-feature2":"variant-2",
-                  "disabled-feature":false
-               },
-               "featureFlagPayloads": {"beta-feature": "100", "beta-feature2": "300"}
-            }
-            """
+                {
+                   "featureFlags":{
+                      "beta-feature":"variant-1",
+                      "beta-feature2":"variant-2",
+                      "disabled-feature":false
+                   },
+                   "featureFlagPayloads": {"beta-feature": "100", "beta-feature2": "300"}
+                }
+                """
         );
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {
-               "flags":[
-                  {
-                     "id":1,
-                     "name":"Beta Feature",
-                     "key":"beta-feature",
-                     "is_simple_flag":false,
-                     "active":true,
-                     "rollout_percentage":100,
-                     "filters":{
-                        "groups":[
-                           {
-                              "properties":[
-                                 
-                              ],
-                              "rollout_percentage":100
-                           }
-                        ],
-                        "payloads":{
-                           "true":"some-payload"
-                        }
-                     }
-                  },
-                  {
-                     "id":2,
-                     "name":"Beta Feature",
-                     "key":"disabled-feature",
-                     "is_simple_flag":false,
-                     "active":true,
-                     "filters":{
-                        "groups":[
-                           {
-                              "properties":[
-                                 
-                              ],
-                              "rollout_percentage":0
-                           }
-                        ],
-                        "payloads":{
-                           "true":"another-payload"
-                        }
-                     }
-                  },
-                  {
-                     "id":3,
-                     "name":"Beta Feature",
-                     "key":"beta-feature2",
-                     "is_simple_flag":false,
-                     "active":true,
-                     "filters":{
-                        "groups":[
-                           {
-                              "properties":[
-                                 {
-                                    "key":"country",
-                                    "value":"US"
-                                 }
-                              ],
-                              "rollout_percentage":0
-                           }
-                        ],
-                        "payloads":{
-                           "true":"payload-3"
-                        }
-                     }
-                  }
-               ]
-            }
-            """
+                {
+                   "flags":[
+                      {
+                         "id":1,
+                         "name":"Beta Feature",
+                         "key":"beta-feature",
+                         "is_simple_flag":false,
+                         "active":true,
+                         "rollout_percentage":100,
+                         "filters":{
+                            "groups":[
+                               {
+                                  "properties":[
+                                     
+                                  ],
+                                  "rollout_percentage":100
+                               }
+                            ],
+                            "payloads":{
+                               "true":"some-payload"
+                            }
+                         }
+                      },
+                      {
+                         "id":2,
+                         "name":"Beta Feature",
+                         "key":"disabled-feature",
+                         "is_simple_flag":false,
+                         "active":true,
+                         "filters":{
+                            "groups":[
+                               {
+                                  "properties":[
+                                     
+                                  ],
+                                  "rollout_percentage":0
+                               }
+                            ],
+                            "payloads":{
+                               "true":"another-payload"
+                            }
+                         }
+                      },
+                      {
+                         "id":3,
+                         "name":"Beta Feature",
+                         "key":"beta-feature2",
+                         "is_simple_flag":false,
+                         "active":true,
+                         "filters":{
+                            "groups":[
+                               {
+                                  "properties":[
+                                     {
+                                        "key":"country",
+                                        "value":"US"
+                                     }
+                                  ],
+                                  "rollout_percentage":0
+                               }
+                            ],
+                            "payloads":{
+                               "true":"payload-3"
+                            }
+                         }
+                      }
+                   ]
+                }
+                """
         );
         var client = container.Activate<PostHogClient>();
 
@@ -2370,13 +2632,13 @@ public class TheGetAllFeatureFlagsAsyncMethod
         var container = new TestContainer(personalApiKey: "fake-person");
         container.FakeHttpMessageHandler.AddDecideResponse(
             """
-            {"featureFlags": {"beta-feature": "variant-1", "beta-feature2": "variant-2"}}
-            """
+                {"featureFlags": {"beta-feature": "variant-1", "beta-feature2": "variant-2"}}
+                """
         );
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {"flags": []}
-            """
+                {"flags": []}
+                """
         );
         var client = container.Activate<PostHogClient>();
 
@@ -2396,16 +2658,16 @@ public class TheGetAllFeatureFlagsAsyncMethod
         var container = new TestContainer(personalApiKey: "fake-person");
         container.FakeHttpMessageHandler.AddDecideResponse(
             """
-            {
-                "featureFlags": {"beta-feature": "variant-1", "beta-feature2": "variant-2"},
-                "featureFlagPayloads": {"beta-feature": "100", "beta-feature2": "300"}
-            }
-            """
+                {
+                    "featureFlags": {"beta-feature": "variant-1", "beta-feature2": "variant-2"},
+                    "featureFlagPayloads": {"beta-feature": "100", "beta-feature2": "300"}
+                }
+                """
         );
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {"flags": []}
-            """
+                {"flags": []}
+                """
         );
         var client = container.Activate<PostHogClient>();
 
@@ -2425,42 +2687,42 @@ public class TheGetAllFeatureFlagsAsyncMethod
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {
-              "flags":[
-                 {
-                    "id":1,
-                    "name":"Beta Feature",
-                    "key":"beta-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "rollout_percentage":100,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":100
-                          }
-                       ]
-                    }
-                 },
-                 {
-                    "id":2,
-                    "name":"Beta Feature",
-                    "key":"disabled-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":0
-                          }
-                       ]
-                    }
-                 }
-              ]
-            }
-            """
+                {
+                  "flags":[
+                     {
+                        "id":1,
+                        "name":"Beta Feature",
+                        "key":"beta-feature",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "rollout_percentage":100,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[],
+                                 "rollout_percentage":100
+                              }
+                           ]
+                        }
+                     },
+                     {
+                        "id":2,
+                        "name":"Beta Feature",
+                        "key":"disabled-feature",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[],
+                                 "rollout_percentage":0
+                              }
+                           ]
+                        }
+                     }
+                  ]
+                }
+                """
         );
         var client = container.Activate<PostHogClient>();
 
@@ -2479,52 +2741,52 @@ public class TheGetAllFeatureFlagsAsyncMethod
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {
-               "flags":[
-                  {
-                     "id":1,
-                     "name":"Beta Feature",
-                     "key":"beta-feature",
-                     "is_simple_flag":false,
-                     "active":true,
-                     "rollout_percentage":100,
-                     "filters":{
-                        "groups":[
-                           {
-                              "properties":[
-                                 
-                              ],
-                              "rollout_percentage":100
-                           }
-                        ],
-                        "payloads":{
-                           "true":"new"
-                        }
-                     }
-                  },
-                  {
-                     "id":2,
-                     "name":"Beta Feature",
-                     "key":"disabled-feature",
-                     "is_simple_flag":false,
-                     "active":true,
-                     "filters":{
-                        "groups":[
-                           {
-                              "properties":[
-                                 
-                              ],
-                              "rollout_percentage":0
-                           }
-                        ],
-                        "payloads":{
-                           "true":"some-payload"
-                        }
-                     }
-                  }
-               ]
-            }
-            """
+                {
+                   "flags":[
+                      {
+                         "id":1,
+                         "name":"Beta Feature",
+                         "key":"beta-feature",
+                         "is_simple_flag":false,
+                         "active":true,
+                         "rollout_percentage":100,
+                         "filters":{
+                            "groups":[
+                               {
+                                  "properties":[
+                                     
+                                  ],
+                                  "rollout_percentage":100
+                               }
+                            ],
+                            "payloads":{
+                               "true":"new"
+                            }
+                         }
+                      },
+                      {
+                         "id":2,
+                         "name":"Beta Feature",
+                         "key":"disabled-feature",
+                         "is_simple_flag":false,
+                         "active":true,
+                         "filters":{
+                            "groups":[
+                               {
+                                  "properties":[
+                                     
+                                  ],
+                                  "rollout_percentage":0
+                               }
+                            ],
+                            "payloads":{
+                               "true":"some-payload"
+                            }
+                         }
+                      }
+                   ]
+                }
+                """
         );
         var client = container.Activate<PostHogClient>();
 
@@ -2543,72 +2805,72 @@ public class TheGetAllFeatureFlagsAsyncMethod
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
         var decideHandler = container.FakeHttpMessageHandler.AddDecideResponse(
             """
-            {
-               "featureFlags":{
-                  "beta-feature":"variant-1",
-                  "beta-feature2":"variant-2"
-               }
-            }
-            """
+                {
+                   "featureFlags":{
+                      "beta-feature":"variant-1",
+                      "beta-feature2":"variant-2"
+                   }
+                }
+                """
         );
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {
-              "flags":[
-                 {
-                    "id":1,
-                    "name":"Beta Feature",
-                    "key":"beta-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "rollout_percentage":100,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":100
-                          }
-                       ]
-                    }
-                 },
-                 {
-                    "id":2,
-                    "name":"Beta Feature",
-                    "key":"disabled-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":0
-                          }
-                       ]
-                    }
-                 },
-                 {
-                    "id":3,
-                    "name":"Beta Feature",
-                    "key":"beta-feature2",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[
-                                {
-                                   "key":"country",
-                                   "value":"US"
-                                }
-                             ],
-                             "rollout_percentage":0
-                          }
-                       ]
-                    }
-                 }
-              ]
-            }
-            """
+                {
+                  "flags":[
+                     {
+                        "id":1,
+                        "name":"Beta Feature",
+                        "key":"beta-feature",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "rollout_percentage":100,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[],
+                                 "rollout_percentage":100
+                              }
+                           ]
+                        }
+                     },
+                     {
+                        "id":2,
+                        "name":"Beta Feature",
+                        "key":"disabled-feature",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[],
+                                 "rollout_percentage":0
+                              }
+                           ]
+                        }
+                     },
+                     {
+                        "id":3,
+                        "name":"Beta Feature",
+                        "key":"beta-feature2",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[
+                                    {
+                                       "key":"country",
+                                       "value":"US"
+                                    }
+                                 ],
+                                 "rollout_percentage":0
+                              }
+                           ]
+                        }
+                     }
+                  ]
+                }
+                """
         );
         var client = container.Activate<PostHogClient>();
 
@@ -2632,79 +2894,79 @@ public class TheGetAllFeatureFlagsAsyncMethod
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
         var decideHandler = container.FakeHttpMessageHandler.AddDecideResponse(
             """
-            {
-                "featureFlags": {"beta-feature": "variant-1", "beta-feature2": "variant-2"},
-                "featureFlagPayloads": {"beta-feature": "100", "beta-feature2": "300"}
-            }
-            """
+                {
+                    "featureFlags": {"beta-feature": "variant-1", "beta-feature2": "variant-2"},
+                    "featureFlagPayloads": {"beta-feature": "100", "beta-feature2": "300"}
+                }
+                """
         );
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {
-              "flags":[
-                 {
-                    "id":1,
-                    "name":"Beta Feature",
-                    "key":"beta-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "rollout_percentage":100,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":100
-                          }
-                       ],
-                       "payloads": {
-                            "true": "some-payload"
-                       }
-                    }
-                 },
-                 {
-                    "id":2,
-                    "name":"Beta Feature",
-                    "key":"disabled-feature",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[],
-                             "rollout_percentage":0
-                          }
-                       ],
-                       "payloads": {
-                            "true": "another-payload"
-                       }
-                    }
-                 },
-                 {
-                    "id":3,
-                    "name":"Beta Feature",
-                    "key":"beta-feature2",
-                    "is_simple_flag":false,
-                    "active":true,
-                    "filters":{
-                       "groups":[
-                          {
-                             "properties":[
-                                {
-                                   "key":"country",
-                                   "value":"US"
-                                }
-                             ],
-                             "rollout_percentage":0
-                          }
-                       ],
-                       "payloads": {
-                            "true": "payload-3"
-                       }
-                    }
-                 }
-              ]
-            }
-            """
+                {
+                  "flags":[
+                     {
+                        "id":1,
+                        "name":"Beta Feature",
+                        "key":"beta-feature",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "rollout_percentage":100,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[],
+                                 "rollout_percentage":100
+                              }
+                           ],
+                           "payloads": {
+                                "true": "some-payload"
+                           }
+                        }
+                     },
+                     {
+                        "id":2,
+                        "name":"Beta Feature",
+                        "key":"disabled-feature",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[],
+                                 "rollout_percentage":0
+                              }
+                           ],
+                           "payloads": {
+                                "true": "another-payload"
+                           }
+                        }
+                     },
+                     {
+                        "id":3,
+                        "name":"Beta Feature",
+                        "key":"beta-feature2",
+                        "is_simple_flag":false,
+                        "active":true,
+                        "filters":{
+                           "groups":[
+                              {
+                                 "properties":[
+                                    {
+                                       "key":"country",
+                                       "value":"US"
+                                    }
+                                 ],
+                                 "rollout_percentage":0
+                              }
+                           ],
+                           "payloads": {
+                                "true": "payload-3"
+                           }
+                        }
+                     }
+                  ]
+                }
+                """
         );
         var client = container.Activate<PostHogClient>();
 
@@ -2728,46 +2990,46 @@ public class TheGetAllFeatureFlagsAsyncMethod
         var container = new TestContainer(personalApiKey: "fake-personal-api-key");
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {
-               "flags":[
-                  {
-                     "id":1,
-                     "name":"Beta Feature",
-                     "key":"beta-feature",
-                     "is_simple_flag":false,
-                     "active":true,
-                     "rollout_percentage":100,
-                     "filters":{
-                        "groups":[
-                           {
-                              "properties":[
-                                 
-                              ],
-                              "rollout_percentage":100
-                           }
-                        ]
-                     }
-                  },
-                  {
-                     "id":2,
-                     "name":"Beta Feature",
-                     "key":"disabled-feature",
-                     "is_simple_flag":false,
-                     "active":true,
-                     "filters":{
-                        "groups":[
-                           {
-                              "properties":[
-                                 
-                              ],
-                              "rollout_percentage":0
-                           }
-                        ]
-                     }
-                  }
-               ]
-            }
-            """
+                {
+                   "flags":[
+                      {
+                         "id":1,
+                         "name":"Beta Feature",
+                         "key":"beta-feature",
+                         "is_simple_flag":false,
+                         "active":true,
+                         "rollout_percentage":100,
+                         "filters":{
+                            "groups":[
+                               {
+                                  "properties":[
+                                     
+                                  ],
+                                  "rollout_percentage":100
+                               }
+                            ]
+                         }
+                      },
+                      {
+                         "id":2,
+                         "name":"Beta Feature",
+                         "key":"disabled-feature",
+                         "is_simple_flag":false,
+                         "active":true,
+                         "filters":{
+                            "groups":[
+                               {
+                                  "properties":[
+                                     
+                                  ],
+                                  "rollout_percentage":0
+                               }
+                            ]
+                         }
+                      }
+                   ]
+                }
+                """
         );
         var client = container.Activate<PostHogClient>();
 
@@ -2780,46 +3042,46 @@ public class TheGetAllFeatureFlagsAsyncMethod
         // Now, after a poll interval, flag 1 is inactive, and flag 2 rollout is set to 100%.
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             """
-            {
-               "flags":[
-                  {
-                     "id":1,
-                     "name":"Beta Feature",
-                     "key":"beta-feature",
-                     "is_simple_flag":false,
-                     "active":false,
-                     "rollout_percentage":100,
-                     "filters":{
-                        "groups":[
-                           {
-                              "properties":[
-                                 
-                              ],
-                              "rollout_percentage":100
-                           }
-                        ]
-                     }
-                  },
-                  {
-                     "id":2,
-                     "name":"Beta Feature",
-                     "key":"disabled-feature",
-                     "is_simple_flag":false,
-                     "active":true,
-                     "filters":{
-                        "groups":[
-                           {
-                              "properties":[
-                                 
-                              ],
-                              "rollout_percentage":100
-                           }
-                        ]
-                     }
-                  }
-               ]
-            }
-            """
+                {
+                   "flags":[
+                      {
+                         "id":1,
+                         "name":"Beta Feature",
+                         "key":"beta-feature",
+                         "is_simple_flag":false,
+                         "active":false,
+                         "rollout_percentage":100,
+                         "filters":{
+                            "groups":[
+                               {
+                                  "properties":[
+                                     
+                                  ],
+                                  "rollout_percentage":100
+                               }
+                            ]
+                         }
+                      },
+                      {
+                         "id":2,
+                         "name":"Beta Feature",
+                         "key":"disabled-feature",
+                         "is_simple_flag":false,
+                         "active":true,
+                         "filters":{
+                            "groups":[
+                               {
+                                  "properties":[
+                                     
+                                  ],
+                                  "rollout_percentage":100
+                               }
+                            ]
+                         }
+                      }
+                   ]
+                }
+                """
         );
         container.FakeTimeProvider.Advance(TimeSpan.FromMinutes(1));
         await Task.Delay(1); // Cede execution to thread that's loading the new flags.
@@ -2877,13 +3139,14 @@ public class TheGetAllFeatureFlagsAsyncMethod
         });
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             responseBody: new LocalEvaluationApiResult(
-                Flags: [
+                Flags:
+                [
                     new LocalFeatureFlag(
-                        Id: 123,
-                        TeamId: 456,
-                        Name: "Flag Name",
-                        Key: "flag-key",
-                        Filters: null)
+                            Id: 123,
+                            TeamId: 456,
+                            Name: "Flag Name",
+                            Key: "flag-key",
+                            Filters: null)
                 ],
                 GroupTypeMapping: new Dictionary<string, string>()));
         var client = container.Activate<PostHogClient>();
@@ -2896,13 +3159,14 @@ public class TheGetAllFeatureFlagsAsyncMethod
 
         container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
             responseBody: new LocalEvaluationApiResult(
-                Flags: [
+                Flags:
+                [
                     new LocalFeatureFlag(
-                        Id: 123,
-                        TeamId: 456,
-                        Name: "Flag Name",
-                        Key: "flag-key-2",
-                        Filters: null)
+                            Id: 123,
+                            TeamId: 456,
+                            Name: "Flag Name",
+                            Key: "flag-key-2",
+                            Filters: null)
                 ],
                 GroupTypeMapping: new Dictionary<string, string>()));
         container.FakeTimeProvider.Advance(TimeSpan.FromSeconds(31));

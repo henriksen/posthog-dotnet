@@ -201,9 +201,11 @@ public sealed class PostHogClient : IPostHogClient
         FeatureFlagOptions? options,
         CancellationToken cancellationToken)
     {
-        var result = await GetFeatureFlagAsync(featureKey,
+        var result = await GetFeatureFlagAsync(
+            featureKey,
             distinctId,
-            options, cancellationToken);
+            options,
+            cancellationToken);
 
         return result?.IsEnabled;
     }

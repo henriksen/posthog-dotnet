@@ -210,7 +210,7 @@ internal sealed class LocalEvaluator
     StringOrValue<bool> MatchFeatureFlagProperties(
         LocalFeatureFlag flag,
         string distinctId,
-        Dictionary<string, object?>? properties)
+        Dictionary<string, object?>? properties /* person or group properties */)
     {
         var filters = flag.Filters;
         var flagConditions = filters?.Groups ?? [];
