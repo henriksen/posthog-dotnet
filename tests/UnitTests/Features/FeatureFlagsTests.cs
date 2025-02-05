@@ -8,6 +8,7 @@ using PostHog.Cache;
 using PostHog.Config;
 using PostHog.Features;
 using PostHog.Json;
+using PostHog.Versioning;
 using UnitTests.Fakes;
 
 namespace FeatureFlagTests;
@@ -452,7 +453,7 @@ public class TheIsFeatureFlagEnabledAsyncMethod
         // through to the capture call when evaluating a feature flag. Should we pass it through?
         // TODO: I need to confer with the authors of the other libraries.
         Assert.Equal(
-            """
+            $$"""
               {
                 "api_key": "fake-project-api-key",
                 "historical_migrations": false,
@@ -466,7 +467,7 @@ public class TheIsFeatureFlagEnabledAsyncMethod
                       "$feature/hogtied_got_character": "cersei",
                       "distinct_id": "659df793-429a-4517-84ff-747dfc103e6c",
                       "$lib": "posthog-dotnet",
-                      "$lib_version": "1.0.0-alpha.2",
+                      "$lib_version": "{{VersionConstants.Version}}",
                       "$geoip_disable": true,
                       "$groups": {
                         "organization": "01943db3-83be-0000-e7ea-ecae4d9b5afb",
