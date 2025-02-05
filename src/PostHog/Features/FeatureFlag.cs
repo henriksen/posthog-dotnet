@@ -81,7 +81,8 @@ public record FeatureFlag(
 #pragma warning restore CA2225
 
     /// <summary>
-    /// Implicit cast to string. This returns the variant key.
+    /// Implicit cast to string. This returns the variant key if there is one, otherwise "true" or "false" depending
+    /// on the result of the flag evaluation.
     /// </summary>
     /// <param name="flag">The <see cref="FeatureFlag"/>.</param>
     /// <returns>The variant key, if this flag is enabled and has a variant key, otherwise the IsEnabled value as a string.</returns>

@@ -74,24 +74,33 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                     HttpContext.RequestAborted);
             }
 
+            var flagOptions = new FeatureFlagOptions
+            {
+                PersonProperties = new Dictionary<string, object?>
+                {
+                    ["join_date"] = "2023-02-02",
+                    ["leave_date"] = "2025-02-02",
+                    ["site"] = "sample website",
+                    ["rate"] = 2.99
+                },
+                Groups =
+                [
+                    new Group("organization", "01943db3-83be-0000-e7ea-ecae4d9b5afb"),
+                    new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object?>
+                    {
+                        ["size"] = ProjectSize ?? "large"
+                    })
+                ]
+            };
+
             var flags = await postHogClient.GetAllFeatureFlagsAsync(
                 UserId,
-                options: new AllFeatureFlagsOptions
-                {
-                    GroupProperties =
-                    [
-                        new Group("organization","01943db3-83be-0000-e7ea-ecae4d9b5afb"),
-                        new Group("project", "aaaa-bbbb-cccc", new Dictionary<string, object?>
-                        {
-                            ["size"] = ProjectSize ?? "large"
-                        })
-                    ]
-                },
+                options: flagOptions,
                 cancellationToken: HttpContext.RequestAborted);
 
             foreach (var (key, flag) in flags)
             {
-                FeatureFlags[key] = (flag, await postHogClient.IsFeatureEnabledAsync(key, UserId));
+                FeatureFlags[key] = (flag, await postHogClient.IsFeatureEnabledAsync(key, UserId, flagOptions));
             }
 
             NonExistentFlag = await postHogClient.IsFeatureEnabledAsync("non-existent-flag", UserId);

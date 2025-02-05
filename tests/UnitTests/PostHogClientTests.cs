@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using PostHog;
 using PostHog.Config;
+using PostHog.Features;
 using PostHog.Versioning;
 using UnitTests.Fakes;
 
@@ -126,6 +127,188 @@ public class TheCaptureEventMethod
                          ]
                        }
                        """, received);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_basic_capture_with_feature_flags
+    public async Task SendsFeatureFlags()
+    {
+        var container = new TestContainer();
+        container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        var requestHandler = container.FakeHttpMessageHandler.AddBatchResponse();
+        container.FakeHttpMessageHandler.AddDecideResponse(
+            """
+          {"featureFlags": {"beta-feature": "random-variant", "another-feature": "another-variant", "false-flag": false}}
+          """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        var result = client.CaptureEvent("some-distinct-id", "dotnet test event", sendFeatureFlags: true);
+
+        Assert.True(result);
+        await client.FlushAsync();
+        var received = requestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal($$"""
+                     {
+                       "api_key": "fake-project-api-key",
+                       "historical_migrations": false,
+                       "batch": [
+                         {
+                           "event": "dotnet test event",
+                           "properties": {
+                             "distinct_id": "some-distinct-id",
+                             "$lib": "posthog-dotnet",
+                             "$lib_version": "{{VersionConstants.Version}}",
+                             "$geoip_disable": true,
+                             "$feature/beta-feature": "random-variant",
+                             "$feature/another-feature": "another-variant",
+                             "$feature/false-flag": false,
+                             "$active_feature_flags": [
+                               "beta-feature",
+                               "another-feature"
+                             ]
+                           },
+                           "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                         }
+                       ]
+                     }
+                     """, received);
+    }
+
+    [Fact] // Ported from PostHog/posthog-python test_basic_capture_with_locally_evaluated_feature_flags
+    public async Task SendsLocallyEvaluatedFeatureFlags()
+    {
+        var container = new TestContainer("fake-personal-api-key");
+        container.FakeTimeProvider.SetUtcNow(new DateTimeOffset(2024, 1, 21, 19, 08, 23, TimeSpan.Zero));
+        var firstRequestHandler = container.FakeHttpMessageHandler.AddBatchResponse();
+        var secondRequestHandler = container.FakeHttpMessageHandler.AddBatchResponse();
+        container.FakeHttpMessageHandler.AddLocalEvaluationResponse(
+            """
+            {
+                "flags": [{
+                    "id": 1,
+                    "name": "Beta Feature",
+                    "key": "beta-feature-local",
+                    "active": true,
+                    "rollout_percentage": 100,
+                    "filters": {
+                        "groups": [
+                            {
+                                "properties": [
+                                    {"key": "email", "type": "person", "value": "test@posthog.com", "operator": "exact"}
+                                ],
+                                "rollout_percentage": 100
+                            },
+                            {
+                                "rollout_percentage": 50
+                            }
+                        ],
+                        "multivariate": {
+                            "variants": [
+                                {"key": "first-variant", "name": "First Variant", "rollout_percentage": 50},
+                                {"key": "second-variant", "name": "Second Variant", "rollout_percentage": 25},
+                                {"key": "third-variant", "name": "Third Variant", "rollout_percentage": 25}
+                            ]
+                        },
+                        "payloads": {"first-variant": "some-payload", "third-variant": "{\"a\": \"json\"}"}
+                    }
+                },
+                {
+                    "id": 2,
+                    "name": "Beta Feature",
+                    "key": "person-flag",
+                    "active": true,
+                    "filters": {
+                        "groups": [
+                            {
+                                "properties": [
+                                    {
+                                        "key": "region",
+                                        "operator": "exact",
+                                        "value": ["USA"],
+                                        "type": "person"
+                                    }
+                                ],
+                                "rollout_percentage": 100
+                            }
+                        ],
+                        "payloads": {"true": "300"}
+                    }
+                },
+                {
+                    "id": 3,
+                    "name": "Beta Feature",
+                    "key": "false-flag",
+                    "active": true,
+                    "filters": {
+                        "groups": [
+                            {
+                                "properties": [],
+                                "rollout_percentage": 0
+                            }
+                        ],
+                        "payloads": {"true": "300"}
+                    }
+                }]
+            }
+            """
+        );
+        var client = container.Activate<PostHogClient>();
+
+        // Call it without pre-loading flags.
+        var firstCaptureResult = client.CaptureEvent("distinct_id", "dotnet test event");
+
+        Assert.True(firstCaptureResult);
+        await client.FlushAsync();
+        var firstRequestBody = firstRequestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal($$"""
+                     {
+                       "api_key": "fake-project-api-key",
+                       "historical_migrations": false,
+                       "batch": [
+                         {
+                           "event": "dotnet test event",
+                           "properties": {
+                             "distinct_id": "distinct_id",
+                             "$lib": "posthog-dotnet",
+                             "$lib_version": "{{VersionConstants.Version}}",
+                             "$geoip_disable": true
+                           },
+                           "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                         }
+                       ]
+                     }
+                     """, firstRequestBody);
+
+        // Load the feature flags
+        await client.GetAllFeatureFlagsAsync("distinct_id", options: new AllFeatureFlagsOptions { OnlyEvaluateLocally = true });
+        var secondCaptureResult = client.CaptureEvent("distinct_id", "dotnet test event");
+
+        await client.FlushAsync();
+        var secondRequestBody = secondRequestHandler.GetReceivedRequestBody(indented: true);
+        Assert.Equal($$"""
+                       {
+                         "api_key": "fake-project-api-key",
+                         "historical_migrations": false,
+                         "batch": [
+                           {
+                             "event": "dotnet test event",
+                             "properties": {
+                               "distinct_id": "distinct_id",
+                               "$lib": "posthog-dotnet",
+                               "$lib_version": "{{VersionConstants.Version}}",
+                               "$geoip_disable": true,
+                               "$feature/beta-feature-local": "third-variant",
+                               "$feature/false-flag": false,
+                               "$active_feature_flags": [
+                                 "beta-feature-local"
+                               ]
+                             },
+                             "timestamp": "2024-01-21T19:08:23\u002B00:00"
+                           }
+                         ]
+                       }
+                       """, secondRequestBody);
+        Assert.True(secondCaptureResult);
     }
 
     [Fact]

@@ -9,5 +9,5 @@ public static class Any
 
     public static Dictionary<string, object> Properties => Arg.Any<Dictionary<string, object>>();
 
-    public static GroupCollection GroupProperties => Arg.Any<GroupCollection>();
+    public static GroupCollection Groups => Arg.Any<GroupCollection>();
 }
