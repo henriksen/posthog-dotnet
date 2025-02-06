@@ -9,7 +9,7 @@ using PostHog.Features;
 
 namespace HogTied.Web.Pages;
 
-public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHogClient) : PageModel
+public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient posthog) : PageModel
 {
     [TempData]
     public string? StatusMessage { get; set; }
@@ -58,7 +58,7 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
             // Identify the current user if they're authenticated.
             if (User.Identity?.IsAuthenticated == true)
             {
-                await postHogClient.IdentifyPersonAsync(
+                await posthog.IdentifyPersonAsync(
                     UserId,
                     email: User.FindFirst(ClaimTypes.Email)?.Value,
                     name: User.FindFirst(ClaimTypes.Name)?.Value,
@@ -93,17 +93,17 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
                 ]
             };
 
-            var flags = await postHogClient.GetAllFeatureFlagsAsync(
+            var flags = await posthog.GetAllFeatureFlagsAsync(
                 UserId,
                 options: flagOptions,
                 cancellationToken: HttpContext.RequestAborted);
 
             foreach (var (key, flag) in flags)
             {
-                FeatureFlags[key] = (flag, await postHogClient.IsFeatureEnabledAsync(key, UserId, flagOptions));
+                FeatureFlags[key] = (flag, await posthog.IsFeatureEnabledAsync(key, UserId, flagOptions));
             }
 
-            NonExistentFlag = await postHogClient.IsFeatureEnabledAsync("non-existent-flag", UserId);
+            NonExistentFlag = await posthog.IsFeatureEnabledAsync("non-existent-flag", UserId);
         }
     }
 
@@ -116,7 +116,7 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
         }
 
         // Send a custom event
-        postHogClient.CaptureEvent(
+        posthog.CaptureEvent(
             UserId,
             eventName: EventName ?? "plan_purchased",
             properties: new()
@@ -139,7 +139,7 @@ public class IndexModel(IOptions<PostHogOptions> options, IPostHogClient postHog
         }
 
         // Identify a group
-        var result = await postHogClient.IdentifyGroupAsync(
+        var result = await posthog.IdentifyGroupAsync(
             Group.Type,
             Group.Key,
             Group.Name,

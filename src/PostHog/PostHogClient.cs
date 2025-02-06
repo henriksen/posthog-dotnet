@@ -91,6 +91,25 @@ public sealed class PostHogClient : IPostHogClient
         _logger.LogInfoClientCreated(options.Value.MaxBatchSize, options.Value.FlushInterval, options.Value.FlushAt);
     }
 
+    /// <summary>
+    /// To marry up whatever a user does before they sign up or log in with what they do after you need to make an
+    /// alias call. This will allow you to answer questions like "Which marketing channels leads to users churning
+    /// after a month? or "What do users do on our website before signing up? In a purely back-end implementation, this
+    /// means whenever an anonymous user does something, you'll want to send a session ID with the capture call.
+    /// Then, when that users signs up, you want to do an alias call with the session ID and the newly created user ID.
+    /// The same concept applies for when a user logs in. If you're using PostHog in the front-end and back-end,
+    ///  doing the identify call in the frontend will be enough.
+    /// </summary>
+    /// <param name="previousId">The anonymous or temporary identifier you were using for the user.</param>
+    /// <param name="newId">The identifier for the known user. Typically a user id in your database.</param>
+    /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
+    /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
+    public async Task<ApiResult> AliasAsync(
+        string previousId,
+        string newId,
+        CancellationToken cancellationToken)
+        => await _apiClient.AliasAsync(previousId, newId, cancellationToken);
+
     /// <inheritdoc/>
     public async Task<ApiResult> IdentifyPersonAsync(
         string distinctId,
