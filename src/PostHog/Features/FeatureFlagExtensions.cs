@@ -89,12 +89,15 @@ public static class FeatureFlagExtensions
     /// <param name="featureKey">The name of the feature flag.</param>
     /// <param name="distinctId">The identifier you use for the user.</param>
     /// <returns>The feature flag or null if it does not exist or is not enabled.</returns>
-    public static async Task<FeatureFlag?> GetFeatureFlagAsync(this IPostHogClient client,
+    public static async Task<FeatureFlag?> GetFeatureFlagAsync(
+        this IPostHogClient client,
         string featureKey,
         string distinctId)
-        => await NotNull(client).GetFeatureFlagAsync(featureKey,
+        => await NotNull(client).GetFeatureFlagAsync(
+            featureKey,
             distinctId,
-            options: null, cancellationToken: CancellationToken.None);
+            options: null,
+            cancellationToken: CancellationToken.None);
 
     /// <summary>
     /// Retrieves a feature flag.

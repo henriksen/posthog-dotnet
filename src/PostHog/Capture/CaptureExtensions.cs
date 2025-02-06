@@ -67,6 +67,63 @@ public static class CaptureExtensions
             sendFeatureFlags: false);
 
     /// <summary>
+    /// Captures an event with properties to set on the user.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="eventName">Human friendly name of the event. Recommended format [object] [verb] such as "Project created" or "User signed up".</param>
+    /// <param name="personPropertiesToSet">
+    /// Key value pairs to store as a property of the user. Any key value pairs in this dictionary that match
+    /// existing property keys will overwrite those properties.
+    /// </param>
+    /// <param name="personPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
+    /// value in this dictionary is ignored.
+    /// </param>
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureEvent(
+        this IPostHogClient client,
+        string distinctId,
+        string eventName,
+        Dictionary<string, object> personPropertiesToSet,
+        Dictionary<string, object> personPropertiesToSetOnce)
+        => client.CaptureEvent(distinctId, eventName, properties: null, personPropertiesToSet, personPropertiesToSetOnce);
+
+    /// <summary>
+    /// Captures an event with properties to set on the user.
+    /// </summary>
+    /// <param name="client">The <see cref="IPostHogClient"/>.</param>
+    /// <param name="distinctId">The identifier you use for the user.</param>
+    /// <param name="eventName">Human friendly name of the event. Recommended format [object] [verb] such as "Project created" or "User signed up".</param>
+    /// <param name="properties">Optional: The properties to send along with the event.</param>
+    /// <param name="personPropertiesToSet">
+    /// Key value pairs to store as a property of the user. Any key value pairs in this dictionary that match
+    /// existing property keys will overwrite those properties.
+    /// </param>
+    /// <param name="personPropertiesToSetOnce">User properties to set only once (ex: Sign up date). If a property already exists, then the
+    /// value in this dictionary is ignored.
+    /// </param>
+    /// <returns><c>true</c> if the event was successfully enqueued. Otherwise <c>false</c>.</returns>
+    public static bool CaptureEvent(
+        this IPostHogClient client,
+        string distinctId,
+        string eventName,
+        Dictionary<string, object>? properties,
+        Dictionary<string, object> personPropertiesToSet,
+        Dictionary<string, object> personPropertiesToSetOnce)
+    {
+        properties ??= new Dictionary<string, object>();
+        properties["$set"] = personPropertiesToSet;
+        properties["$set_once"] = personPropertiesToSetOnce;
+
+        return NotNull(client).CaptureEvent(
+            distinctId,
+            eventName,
+            properties,
+            groups: null,
+            sendFeatureFlags: false);
+    }
+
+    /// <summary>
     /// Captures an event.
     /// </summary>
     /// <param name="client">The <see cref="IPostHogClient"/>.</param>

@@ -76,21 +76,21 @@ internal static class PostHogApiClientExtensions
     ///  doing the identify call in the frontend will be enough.
     /// </summary>
     /// <param name="client">The <see cref="PostHogApiClient"/>.</param>
-    /// <param name="distinctId">The anonymous or temporary identifier you were using for the user.</param>
-    /// <param name="alias">The identifier for the known user. Typically a user id in your database.</param>
+    /// <param name="previousId">The anonymous or temporary identifier you were using for the user.</param>
+    /// <param name="newId">The identifier for the known user. Typically a user id in your database.</param>
     /// <param name="cancellationToken">The cancellation token that can be used to cancel the operation.</param>
     /// <returns>An <see cref="ApiResult"/> with the result of the operation.</returns>
     public static async Task<ApiResult> AliasAsync(
         this PostHogApiClient client,
-        string distinctId,
-        string alias,
+        string previousId,
+        string newId,
         CancellationToken cancellationToken)
-        => await client.SendEventAsync(distinctId,
+        => await client.SendEventAsync(previousId,
             "$create_alias",
             properties: new Dictionary<string, object>
             {
-                ["distinct_id"] = distinctId,
-                ["alias"] = alias
+                ["distinct_id"] = previousId,
+                ["alias"] = newId
             }, cancellationToken: cancellationToken);
 
     /// <summary>
